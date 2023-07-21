@@ -7,6 +7,8 @@ from PIL import Image
 import nibabel as nib
 import numpy as np
 
+from typing import List
+
 import torch
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
@@ -66,7 +68,7 @@ class MRIDatasetNumpySlices(Dataset):
     MAX_SLICE_INDEX = -1
     SLICES_FILE_FORMAT = ".npy"
 
-    def __init__(self, data_dir: str, t1_to_t2=True, validation_split=0.1, normalize=True):
+    def __init__(self, data_dirs: List[str], t1_to_t2=True, validation_split=0.1, normalize=True):
         if t1_to_t2:
             image_type = "t1"
             target_type = "t2"
@@ -75,12 +77,14 @@ class MRIDatasetNumpySlices(Dataset):
             target_type = "t1"
 
         self.normalize = normalize
+        self.images = []
+        self.targets = []
+        for data_directory in data_dirs:
+            self.images.extend(glob(f"{data_directory}/{image_type}/*{self.SLICES_FILE_FORMAT}"))
+            self.targets.extend(glob(f"{data_directory}/{target_type}/*{self.SLICES_FILE_FORMAT}"))
 
-        self.images = glob(f"{data_dir}/{image_type}/*{self.SLICES_FILE_FORMAT}")
-        self.targets = glob(f"{data_dir}/{target_type}/*{self.SLICES_FILE_FORMAT}")
-
-        if len(self.images) == 0:
-            raise FileNotFoundError(f"In directory {data_dir} no 't1' and 't2' directories found.")
+            if len(self.images) == 0:
+                raise FileNotFoundError(f"In directory {data_directory} no 't1' and 't2' directories found.")
 
     def __len__(self):
         return len(self.images)
