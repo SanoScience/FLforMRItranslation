@@ -43,11 +43,13 @@ class UNet(nn.Module):
             raise TypeError(f"Given directory name {dir_name} has wrong type: {type(dir_name)}.")
         try_create_dir(dir_name)
 
-        filepath = f"{dir_name}/{filename}.pth"
+        if not filename.endswith(".pth"):
+            filename += ".pth"
+
+        filepath = f"{dir_name}/{filename}"
         torch.save(self.state_dict(), filepath)
 
         print("Model saved to: ", filepath)
-
 
 
 class DoubleConv(nn.Module):
