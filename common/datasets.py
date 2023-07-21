@@ -160,7 +160,7 @@ def get_nii_filepaths(data_dir, n_patients=-1):
 
 
 def create_empty_dirs(root_dir: str):
-    # TODO: deal with already created directories, to prevent overwriting, IDEA- patient_index + n_files
+    # TODO: deal with already created directories, to prevent overwriting, IDEA- patient_index + n_files or maybe not needed
     # creating utilized directories
     train_dir = os.path.join(root_dir, "train")
     test_dir = os.path.join(root_dir, "test")

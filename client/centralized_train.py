@@ -12,20 +12,33 @@ from common import datasets, models, config_train, utils
 
 from client.utils import train
 
-ROOT_DIR_TRAIN = os.path.join(os.path.expanduser("~"), "data/smart_slice_selection_MRI/sample")
-train_dataset = datasets.MRIDatasetNumpySlices(ROOT_DIR_TRAIN)
-# ROOT_DIR_TRAIN = os.path.join(os.path.expanduser("~"), "data/HGG")
-# train_dataset = datasets.MRIDatasetNII(ROOT_DIR_TRAIN, transform=None)
-trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
 
-unet = models.UNet().to(config_train.DEVICE)
+train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/train"]
+validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/validation"]
 
-optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
 
-ssim = StructuralSimilarityIndexMeasure(data_range=(0.0, 1.0))
+if __name__ == '__main__':
+    ROOT_DIR_TRAIN = os.path.join(os.path.expanduser("~"), "data/raw_MRI/sample")
+    ROOT_DIR_VAL = os.path.join(os.path.expanduser("~"), "data/raw_MRI/sample")
+    # ROOT_DIR_TRAIN = os.path.join(os.path.expanduser("~"), "data/HGG")
 
-train(unet,
-      trainloader,
-      optimizer,
-      epochs=config_train.N_EPOCHS_CLIENT,
-      filename="model.pth")
+    train_dataset = datasets.MRIDatasetNumpySlices(train_directories)
+    validation_dataset = datasets.MRIDatasetNumpySlices(validation_directories)
+    # train_dataset = datasets.MRIDatasetNII(ROOT_DIR_TRAIN, transform=None)
+    trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True, num_workers=config_train.NUM_WORKERS)
+    # trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
+    valloader = DataLoader(validation_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True, num_workers=config_train.NUM_WORKERS)
+    # valloader = DataLoader(validation_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
+
+    unet = models.UNet().to(config_train.DEVICE)
+    optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
+
+    ssim = StructuralSimilarityIndexMeasure(data_range=(0.0, 1.0))
+
+    train(unet,
+          trainloader,
+          valloader,
+          optimizer,
+          epochs=config_train.N_EPOCHS_CLIENT,
+          filename="model.pth",
+          plots_dir="predictions")

@@ -16,7 +16,7 @@ class MinMaxScalar(object):
         max_value = torch.max(tensor).data
         min_value = torch.min(tensor)
 
-        # converting to float to be able to perform tensor mutliplication
+        # converting to float to be able to perform tensor multiplication
         # otherwise an error
         return (tensor / max_value).float()
 
@@ -33,7 +33,7 @@ def plot_hist(tensor: Tensor, bins=240, title=None):
 
 def plot_predicted_batch(images, target, predictions, show=True, filepath=None, title=""):
     batch_size = len(images)
-    fig, axs = plt.subplots(3, batch_size, figsize=(15, 3 * batch_size))
+    fig, axs = plt.subplots(3, batch_size, figsize=(3 * batch_size, 20))
 
     plt.title(title)
 
@@ -60,4 +60,4 @@ def try_create_dir(dir_name):
     try:
         os.mkdir(dir_name)
     except FileExistsError:
-        logging.warning(f"Directory {dir_name} already exists. You may overwrite your files")
+        logging.warning(f"Directory {dir_name} already exists. You may overwrite your files or create some collisions!")
