@@ -1,18 +1,15 @@
 import os
+import sys
 
 from common.datasets import create_train_test_sets
 from os import path
 
 
-def main():
-    current_data_dir = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/BraTS/HGG"
-    target_root_dir = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/data"
+if __name__ == '__main__':
+    target_root_dir = sys.argv[1]
+    current_data_dir = sys.argv[2]
+    # current_data_dir = "C:\\Users\\JanFiszer\\data\\HGG\\"
+    # target_root_dir = "C:\\Users\\JanFiszer\\data\\testttt\\"
 
     create_train_test_sets(target_root_dir, current_data_dir)
 
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    main()
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
