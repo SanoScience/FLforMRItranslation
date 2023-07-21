@@ -10,7 +10,9 @@ import torch
 from common import datasets, models, config_train, utils
 
 from client.utils import train
+import sys
 
+sys.path.append("repos/FLforMRItranslation")
 
 train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/train"]
 validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/validation"]
