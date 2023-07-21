@@ -16,11 +16,13 @@ from torchvision.transforms import Compose, ToTensor, Resize, Normalize
 from torch.utils.data import DataLoader
 
 
-ROOT_DIR = path.join(path.expanduser("~"), "data\\raw_MRI\\train")
+ROOT_TRAIN_DIR = path.join(path.expanduser("~"), "data/raw_MRI/train")
+ROOT_TEST_DIR = path.join(path.expanduser("~"), "data/raw_MRI/test")
+
 # transform = Compose([ToTensor(), MinMaxScalar()])
 
-dataset = MRIDatasetNumpySlices(ROOT_DIR)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=4)
+dataset = MRIDatasetNumpySlices([ROOT_TRAIN_DIR, ROOT_TEST_DIR])
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=4, shuffle=True)
 
 l = len(dataloader)
 ll = len(dataloader.dataset)
