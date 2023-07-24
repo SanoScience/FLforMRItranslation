@@ -8,7 +8,7 @@ from common import datasets, config_train, utils
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 
 # TODO: metrics as a train parameter instead of this
-ssim = StructuralSimilarityIndexMeasure(data_range=(0.0, 1.0))
+ssim = StructuralSimilarityIndexMeasure(data_range=1)
 
 
 def load_data(data_dir):
