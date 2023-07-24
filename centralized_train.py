@@ -18,7 +18,7 @@ validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL
 
 
 if __name__ == '__main__':
-    # num_workers = int(sys.argv[1])
+    num_workers = int(sys.argv[1])
 
     # ROOT_DIR_TRAIN = os.path.join(os.path.expanduser("~"), "data/raw_MRI/sample")
     # ROOT_DIR_VAL = os.path.join(os.path.expanduser("~"), "data/raw_MRI/sample")
@@ -31,12 +31,12 @@ if __name__ == '__main__':
     train_dataset = MRIDatasetNumpySlices(train_directories)
     validation_dataset = MRIDatasetNumpySlices(validation_directories)
     trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True,
-                             # num_workers=config_train.NUM_WORKERS,
-                             # pin_memory=True
+                             num_workers=config_train.NUM_WORKERS,
+                             pin_memory=True
                              )
     valloader = DataLoader(validation_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True,
-                           # num_workers=config_train.NUM_WORKERS,
-                           # pin_memory=True
+                           num_workers=config_train.NUM_WORKERS,
+                           pin_memory=True
                            )
 
     unet = UNet().to(config_train.DEVICE)
