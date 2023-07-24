@@ -38,7 +38,6 @@ if __name__ == '__main__':
     unet = UNet().to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
 
-    ssim = StructuralSimilarityIndexMeasure(data_range=(0.0, 1.0)).to(config_train.DEVICE)
 
     train(unet,
           trainloader,
