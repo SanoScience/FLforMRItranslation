@@ -12,8 +12,8 @@ now = datetime.datetime.now()
 print(now.date(), now.hour, now.minute)
 # TODO: divide
 
-N_EPOCHS_CLIENT = 1
-BATCH_SIZE = 4
+N_EPOCHS_CLIENT = 32
+BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)
 LEARNING_RATE = 0.001
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
