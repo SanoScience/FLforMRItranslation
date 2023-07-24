@@ -1,3 +1,4 @@
+import os
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchmetrics.image import StructuralSimilarityIndexMeasure
@@ -7,8 +8,9 @@ from common.models import *
 from common.config_train import *
 
 from client.utils import train
-# import sys
-# sys.path.append("repos/FLforMRItranslation")
+
+
+os.chdir("repos/FLforMRItranslation")
 
 train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/train"]
 validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/validation"]
