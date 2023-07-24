@@ -41,6 +41,7 @@ class UNet(nn.Module):
 
         if not isinstance(dir_name, str):
             raise TypeError(f"Given directory name {dir_name} has wrong type: {type(dir_name)}.")
+
         try_create_dir(dir_name)
 
         if not filename.endswith(".pth"):

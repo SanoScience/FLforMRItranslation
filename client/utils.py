@@ -15,8 +15,8 @@ def load_data(data_dir):
     train_dir = os.path.join(data_dir, "train")
     test_dir = os.path.join(data_dir, "test")
 
-    trainset = datasets.MRIDatasetNumpySlices(train_dir)
-    testset = datasets.MRIDatasetNumpySlices(test_dir)
+    trainset = datasets.MRIDatasetNumpySlices([train_dir])
+    testset = datasets.MRIDatasetNumpySlices([test_dir])
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=config_train.BATCH_SIZE, shuffle=True)
     test_loader = torch.utils.data.DataLoader(testset, batch_size=config_train.BATCH_SIZE, shuffle=True)
@@ -35,6 +35,11 @@ def train(model,
     # TODO: transform from config to local vars
 
     print(f"Training (on device: {config_train.DEVICE})...\n")
+
+    model_dir = config_train.TRAINED_MODEL_CLIENT_DIR
+    utils.try_create_dir(model_dir)
+    print(f"Created directory {model_dir}")
+
     n_batches = len(trainloader)
 
     if n_batches < config_train.LOSS_PRINT_FREQ:
@@ -48,7 +53,7 @@ def train(model,
     val_ssims = []
 
     if plots_dir is not None:
-        plots_path = os.path.join(config_train.TRAINED_MODEL_CLIENT_DIR, plots_dir)
+        plots_path = os.path.join(model_dir, plots_dir)
         utils.try_create_dir(plots_path)
 
     for epoch in range(epochs):
@@ -93,7 +98,7 @@ def train(model,
         print()
 
         if plots_dir is not None:
-            filepath = os.path.join(config_train.TRAINED_MODEL_CLIENT_DIR, plots_dir, f"ep{epoch}.jpg")
+            filepath = os.path.join(model_dir, plots_dir, f"ep{epoch}.jpg")
             utils.plot_predicted_batch(images, targets, predictions, filepath=filepath)
 
         train_ssims.append(epoch_ssim)
@@ -124,11 +129,11 @@ def train(model,
 
     # saving
     if history_filename is not None:
-        with open(os.path.join(config_train.TRAINED_MODEL_CLIENT_DIR, history_filename), 'wb') as file:
+        with open(os.path.join(model_dir, history_filename), 'wb') as file:
             pickle.dump(history, file)
 
     if filename is not None:
-        model.save(config_train.TRAINED_MODEL_CLIENT_DIR, filename)
+        model.save(model_dir, filename)
 
     return history
 

@@ -61,3 +61,6 @@ def try_create_dir(dir_name):
         os.mkdir(dir_name)
     except FileExistsError:
         logging.warning(f"Directory {dir_name} already exists. You may overwrite your files or create some collisions!")
+
+    except FileNotFoundError:
+        logging.error(f"To path to directory willing to be created doesn't exist. You are in {os.getcwd()}.")
