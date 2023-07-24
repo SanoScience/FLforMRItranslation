@@ -267,7 +267,7 @@ def create_train_val_test_sets(target_root_dir: str,
     create_set(t1_val_paths, t2_val_paths, t1_val_dir, t2_val_dir)
 
     print(f"\nSUCCESS\nCreated train and test directories in {target_root_dir} "
-          f"from {n_train_samples} train, {n_val_samples} and {n_samples - n_train_samples - n_val_samples} "
+          f"from {n_train_samples} train, {n_val_samples} validation and {n_samples - n_train_samples - n_val_samples} "
           f"test 3D MRI images")
 
 
@@ -288,7 +288,7 @@ def create_set(t1_paths, t2_paths, t1_dir, t2_dir):
             t2_slice_path = os.path.join(t2_dir, filename)
             np.save(t2_slice_path, t2_slice)
 
-            print("Created pair of t1 and t2 slices: ", t2_slice_path, t1_slice_path)
+            print("Created pair of t1 and t2 slices: ", t1_slice_path, t2_slice_path)
 
 # used when file format is jpeg
 def save_as_img(array, path):

@@ -32,5 +32,5 @@ MIN_AVAILABLE_CLIENTS = 2
 
 # directories
 DATA_DIR = os.path.join(os.path.expanduser("~"), "data\\raw_MRI")
-TRAINED_MODEL_CLIENT_DIR = f"../trained_models/client/model-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}:{now.minute}"
-TRAINED_MODEL_SERVER_DIR = f"../trained_models/server/model-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}:{now.minute}"
+TRAINED_MODEL_CLIENT_DIR = f"./trained_models/client/model-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}:{now.minute}"
+TRAINED_MODEL_SERVER_DIR = f"./trained_models/server/model-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}:{now.minute}"
