@@ -23,7 +23,7 @@ class MRIDatasetNII(Dataset):
     MAX_SLICE_INDEX = 125
     STEP = 1
 
-    def __init__(self, data_dir: str, transform: Compose, validation_split=0.1, n_patients=1, t1_to_t2=True):
+    def __init__(self, data_dir: str, transform: Compose, n_patients=1, t1_to_t2=True):
         self.data_dir = data_dir
         self.transform = transform
 
