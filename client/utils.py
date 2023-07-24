@@ -99,6 +99,7 @@ def train(model,
 
         if plots_dir is not None:
             filepath = os.path.join(model_dir, plots_dir, f"ep{epoch}.jpg")
+            # maybe cast to cpu ??
             utils.plot_predicted_batch(images, targets, predictions, filepath=filepath)
 
         train_ssims.append(epoch_ssim)
