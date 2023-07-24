@@ -122,7 +122,8 @@ class MRIDatasetNumpySlices(Dataset):
 
         # converting to float to be able to perform tensor multiplication
         # otherwise an error
-        return tensor_image.float(), tensor_target.float()
+        # .float() deleted # TODO: revert if errors
+        return tensor_image, tensor_target
 
 
 def load_nii_slices(filepath: str, min_slice_index=-1, max_slices_index=-1, index_step=1):
