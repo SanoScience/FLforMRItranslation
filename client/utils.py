@@ -52,6 +52,9 @@ def train(model,
     val_losses = []
     val_ssims = []
 
+    n_train_steps = len(trainloader.dataset) // config_train.BATCH_SIZE
+    n_val_steps = len(validationloader.dataset) // config_train.BATCH_SIZE
+
     if plots_dir is not None:
         plots_path = os.path.join(model_dir, plots_dir)
         utils.try_create_dir(plots_path)
@@ -100,7 +103,8 @@ def train(model,
                 running_loss = 0.0
                 total_ssim = 0.0
 
-        print(f"\nTime exceeded: {time.time() - start:.1f} epoch loss: {epoch_loss:.3f} ssim: {epoch_ssim:.3f}")
+        print(f"\nTime exceeded: {time.time() - start:.1f} "
+              f"epoch loss: {epoch_loss/n_train_steps:.3f} ssim: {epoch_ssim/n_train_steps:.3f}")
         print()
 
         if plots_dir is not None:
@@ -125,7 +129,8 @@ def train(model,
                 val_loss += loss.item()
                 val_ssim += ssim(predictions.double(), targets.double()).item()
 
-        print(f"For validation set: val_loss: {val_loss:.3f} val_ssim: {val_ssim:.3f}")
+        print(f"For validation set: val_loss: {val_loss/n_val_steps:.3f} "
+              f"val_ssim: {val_ssim/n_val_steps:.3f}")
 
         val_ssims.append(val_ssim)
         val_losses.append(val_loss)
