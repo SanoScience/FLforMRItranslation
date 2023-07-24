@@ -14,14 +14,17 @@ ssim = StructuralSimilarityIndexMeasure(data_range=1).to(config_train.DEVICE)
 def load_data(data_dir):
     train_dir = os.path.join(data_dir, "train")
     test_dir = os.path.join(data_dir, "test")
+    val_dir = os.path.join(data_dir, "validation")
 
     trainset = datasets.MRIDatasetNumpySlices([train_dir])
     testset = datasets.MRIDatasetNumpySlices([test_dir])
+    validationset = datasets.MRIDatasetNumpySlices([val_dir])
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=config_train.BATCH_SIZE, shuffle=True)
     test_loader = torch.utils.data.DataLoader(testset, batch_size=config_train.BATCH_SIZE, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(validationset, batch_size=config_train.BATCH_SIZE, shuffle=True)
 
-    return train_loader, test_loader
+    return train_loader, test_loader, val_loader
 
 
 def train(model,

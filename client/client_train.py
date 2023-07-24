@@ -9,7 +9,7 @@ from client.utils import train, test, load_data
 
 # Loading data
 data_dir = config_train.DATA_DIR
-train_loader, test_loader = load_data(data_dir)
+train_loader, test_loader, val_loader = load_data(data_dir)
 
 # Model
 unet = models.UNet()
@@ -27,7 +27,7 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
-        train(unet, train_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
+        train(unet, train_loader, val_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
         return self.get_parameters(config={}), len(train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
