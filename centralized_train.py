@@ -1,7 +1,7 @@
 import os
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torchmetrics.image import StructuralSimilarityIndexMeasure
+from torchmetrics import StructuralSimilarityIndexMeasure
 
 from common.datasets import *
 from common.models import *
