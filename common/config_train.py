@@ -19,7 +19,7 @@ LEARNING_RATE = 0.001
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 NUM_WORKERS = 32
 
-LOSS_PRINT_FREQ = 10
+LOSS_PRINT_FREQ = 2
 
 TRANSFORMS = torchvision.transforms.Compose([torchvision.transforms.ToTensor(), MinMaxScalar()])
 CRITERION = torch.nn.MSELoss()

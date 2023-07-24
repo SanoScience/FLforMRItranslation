@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 
 import matplotlib.pyplot as plt
 import torch
@@ -60,8 +61,10 @@ def try_create_dir(dir_name):
     try:
         os.mkdir(dir_name)
     except FileExistsError:
-        logging.warning(f"Directory {dir_name} already exists. You may overwrite your files or create some collisions!")
+        ex = FileExistsError(f"Directory {dir_name} already exists. You may overwrite your files or create some collisions!")
+        traceback.print_exception(FileExistsError, ex, ex.__traceback__)
 
-    # TODO: print just the path to the dir that doesn't exists
     except FileNotFoundError:
-        logging.error(f"The path {dir_name} to directory willing to be created doesn't exist. You are in {os.getcwd()}.")
+        ex = FileNotFoundError(f"The path {dir_name} to directory willing to be created doesn't exist. You are in {os.getcwd()}.")
+
+        traceback.print_exception(FileNotFoundError, ex, ex.__traceback__)
