@@ -1,7 +1,6 @@
 import os
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torchmetrics import StructuralSimilarityIndexMeasure
 
 from common.datasets import *
 from common.models import *
@@ -37,7 +36,6 @@ if __name__ == '__main__':
 
     unet = UNet().to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
-
 
     train(unet,
           trainloader,
