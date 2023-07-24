@@ -8,7 +8,7 @@ from os import path
 if __name__ == '__main__':
     target_root_dir = sys.argv[1]
     current_data_dir = sys.argv[2]
-    n_patients = sys.argv[3]
+    n_patients = int(sys.argv[3])
     # current_data_dir = "C:\\Users\\JanFiszer\\data\\HGG\\"
     # target_root_dir = "C:\\Users\\JanFiszer\\data\\testttt\\"
 
