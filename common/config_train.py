@@ -8,12 +8,12 @@ from client import loss_functions
 
 # TODO: divide
 
-N_EPOCHS_CLIENT = 12
+N_EPOCHS_CLIENT = 64
 BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)
 LEARNING_RATE = 0.001
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-NUM_WORKERS = 32
+NUM_WORKERS = 16
 
 LOSS_PRINT_FREQ = 10
 

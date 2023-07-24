@@ -13,8 +13,8 @@ from client.utils import train
 # for ares when in the home directory
 os.chdir("repos/FLforMRItranslation")
 
-train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg_small/train"]
-validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg_small/validation"]
+train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/train"]
+validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/validation"]
 
 
 if __name__ == '__main__':
@@ -45,8 +45,6 @@ if __name__ == '__main__':
     # validation_dataset = MRIDatasetNumpySlices([ROOT_DIR_VAL])
     # trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
     # valloader = DataLoader(validation_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
-
-
 
     unet = UNet().to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
