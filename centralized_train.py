@@ -24,9 +24,15 @@ if __name__ == '__main__':
     train_dataset = MRIDatasetNumpySlices(train_directories)
     validation_dataset = MRIDatasetNumpySlices(validation_directories)
     # train_dataset = datasets.MRIDatasetNII(ROOT_DIR_TRAIN, transform=None)
-    trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True, num_workers=config_train.NUM_WORKERS, pin_memory=True)
+    trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True,
+                             # num_workers=config_train.NUM_WORKERS,
+                             # pin_memory=True
+                             )
     # trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
-    valloader = DataLoader(validation_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True, num_workers=config_train.NUM_WORKERS, pin_memory=True)
+    valloader = DataLoader(validation_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True,
+                           # num_workers=config_train.NUM_WORKERS,
+                           # pin_memory=True
+                           )
     # valloader = DataLoader(validation_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
 
     unet = UNet().to(config_train.DEVICE)
