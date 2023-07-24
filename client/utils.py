@@ -80,7 +80,7 @@ def train(model,
             print(f"Predictions shape: {predictions.shape} type: {predictions.type()}")
             print(f"Targets shape: {targets.shape} type: {targets.type()}")
 
-            ssim_value = ssim(predictions, targets)
+            ssim_value = ssim(predictions.double(), targets.double())
 
             running_loss += loss.item()
             total_ssim += ssim_value.item()
@@ -120,7 +120,7 @@ def train(model,
                 loss = config_train.CRITERION(predictions, targets)
 
                 val_loss += loss.item()
-                val_ssim += ssim(predictions, targets).item()
+                val_ssim += ssim(predictions.double(), targets.double()).item()
 
         print(f"For validation set: val_loss: {val_loss:.3f} val_ssim: {val_ssim:.3f}")
 
@@ -153,6 +153,6 @@ def test(model, testloader):
             predicted = model(images)
 
             loss += config_train.CRITERION(predicted, targets).item()
-            total_ssim += ssim(predicted, targets)
+            total_ssim += ssim(predicted.double(), targets.double())
 
     return loss, total_ssim / len(testloader.dataset)
