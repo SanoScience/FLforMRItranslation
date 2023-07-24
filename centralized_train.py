@@ -9,8 +9,8 @@ from common.config_train import *
 
 from client.utils import train
 
-
-os.chdir("repos/FLforMRItranslation")
+# for ares when in the home directory
+# os.chdir("repos/FLforMRItranslation")
 
 train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/train"]
 validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/validation"]
@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     train_dataset = MRIDatasetNumpySlices(train_directories)
     validation_dataset = MRIDatasetNumpySlices(validation_directories)
-    # train_dataset = datasets.MRIDatasetNII(ROOT_DIR_TRAIN, transform=None)
+    # train_dataset = MRIDatasetNII(ROOT_DIR_TRAIN, transform=None)
     trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True,
                              # num_workers=config_train.NUM_WORKERS,
                              # pin_memory=True
