@@ -77,11 +77,11 @@ def train(model,
 
             optimizer.step()
 
-            print(f"Predictions shape: {predictions.shape} type: {type(predictions)}")
-            print(f"Targets shape: {targets.shape} type: {type(targets)}")
+            print(f"Predictions shape: {predictions.shape} type: {predictions.type()}")
+            print(f"Targets shape: {targets.shape} type: {targets.type()}")
 
             ssim_value = ssim(predictions, targets)
-            
+
             running_loss += loss.item()
             total_ssim += ssim_value.item()
 
