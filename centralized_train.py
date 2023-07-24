@@ -38,4 +38,4 @@ if __name__ == '__main__':
           optimizer,
           epochs=config_train.N_EPOCHS_CLIENT,
           filename="model.pth",
-          plots_dir="client/predictions")
+          plots_dir="predictions")
