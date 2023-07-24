@@ -194,7 +194,9 @@ def create_train_val_test_sets(target_root_dir: str,
     utils.try_create_dir(target_root_dir)
     # creating inner directories
     t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir = create_empty_dirs(target_root_dir)
-    print("Created directories: ", t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, "\n", sep='\n')
+    print("Created directories: ",
+          t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir,
+          "\n", sep='\n')
 
     # loading the data
     t1_filepaths, t2_filepaths = get_nii_filepaths(origin_data_dir, n_patients)
