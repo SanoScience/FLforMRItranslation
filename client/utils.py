@@ -78,15 +78,15 @@ def train(model,
             optimizer.step()
 
             print(f"Predictions shape: {predictions.shape} type: {type(predictions)}")
-            print(f"Predictions shape: {targets.shape} type: {type(targets)}")
+            print(f"Targets shape: {targets.shape} type: {type(targets)}")
 
-            ssim_value = ssim(predictions, targets).item()
-
+            ssim_value = ssim(predictions, targets)
+            
             running_loss += loss.item()
-            total_ssim += ssim_value
+            total_ssim += ssim_value.item()
 
             epoch_loss += loss.item()
-            epoch_ssim += ssim_value
+            epoch_ssim += ssim_value.item()
 
             if index % loss_print_freq == loss_print_freq - 1:
 

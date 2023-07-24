@@ -68,7 +68,7 @@ class MRIDatasetNumpySlices(Dataset):
     MAX_SLICE_INDEX = -1
     SLICES_FILE_FORMAT = ".npy"
 
-    def __init__(self, data_dirs: List[str], t1_to_t2=True, validation_split=0.1, normalize=True):
+    def __init__(self, data_dirs: List[str], t1_to_t2=True, normalize=True):
         if t1_to_t2:
             image_type = "t1"
             target_type = "t2"
