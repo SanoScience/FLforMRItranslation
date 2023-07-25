@@ -110,10 +110,6 @@ def train(model,
               f"epoch loss: {epoch_loss/n_train_steps:.3f} ssim: {epoch_ssim/n_train_steps:.3f}")
         print()
 
-        if plots_dir is not None:
-            filepath = os.path.join(model_dir, plots_dir, f"ep{epoch}.jpg")
-            # maybe cast to cpu ??
-            utils.plot_predicted_batch(images.to('cpu'), targets.to('cpu'), predictions.to('cpu'), filepath=filepath)
 
         train_ssims.append(epoch_ssim)
         train_losses.append(epoch_loss)
@@ -122,9 +118,9 @@ def train(model,
         val_loss = 0.0
         val_ssim = 0.0
         with torch.no_grad():
-            for images, targets in validationloader:
-                images = images.to(config_train.DEVICE)
-                targets = targets.to(config_train.DEVICE)
+            for images_cpu, targets_cpu in validationloader:
+                images = images_cpu.to(config_train.DEVICE)
+                targets = targets_cpu.to(config_train.DEVICE)
 
                 predictions = model(images)
                 loss = config_train.CRITERION(predictions, targets)
@@ -137,6 +133,11 @@ def train(model,
 
         val_ssims.append(val_ssim)
         val_losses.append(val_loss)
+
+        if plots_dir is not None:
+            filepath = os.path.join(model_dir, plots_dir, f"ep{epoch}.jpg")
+            # maybe cast to cpu ?? still dunno if needed
+            utils.plot_predicted_batch(images_cpu, targets_cpu, predictions.to('cpu'), filepath=filepath)
 
     print("\nEnd of this round.")
 
