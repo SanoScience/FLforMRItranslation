@@ -13,13 +13,17 @@ from client.utils import train
 # for ares when in the home directory
 os.chdir("repos/FLforMRItranslation")
 
-train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/train"]
-validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/validation"]
+train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/train"]
+validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/validation"]
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 0:
-        num_workers = int(sys.argv[1])
+    if len(sys.argv) > 1:
+        train_directories = sys.argv[1]
+        validation_directories = sys.argv[2]
+
+    if len(sys.argv) > 3:
+        num_workers = int(sys.argv[3])
         train_dataset = MRIDatasetNumpySlices(train_directories)
         validation_dataset = MRIDatasetNumpySlices(validation_directories)
         trainloader = DataLoader(train_dataset,
