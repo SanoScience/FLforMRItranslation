@@ -24,4 +24,4 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True)
 
 images, targets = next(iter(dataloader))
 
-plot_batch(images, targets)
+plot_batch(images, targets, filepath="plot_maybe_bad.jpg", show=False)
