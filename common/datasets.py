@@ -82,8 +82,8 @@ class MRIDatasetNumpySlices(Dataset):
         self.images = []
         self.targets = []
         for data_directory in data_dirs:
-            self.images.extend(glob(f"{data_directory}/{image_type}/*{self.SLICES_FILE_FORMAT}"))
-            self.targets.extend(glob(f"{data_directory}/{target_type}/*{self.SLICES_FILE_FORMAT}"))
+            self.images.extend(sorted(glob(f"{data_directory}/{image_type}/*{self.SLICES_FILE_FORMAT}")))
+            self.targets.extend(sorted(glob(f"{data_directory}/{target_type}/*{self.SLICES_FILE_FORMAT}")))
 
             if len(self.images) == 0:
                 raise FileNotFoundError(f"In directory {data_directory} no 't1' and 't2' directories found.")
