@@ -106,10 +106,11 @@ def train(model,
                 running_loss = 0.0
                 total_ssim = 0.0
 
+        epoch_loss /= n_train_steps
+        epoch_ssim /= n_train_steps
         print(f"\nTime exceeded: {time.time() - start:.1f} "
-              f"epoch loss: {epoch_loss/n_train_steps:.3f} ssim: {epoch_ssim/n_train_steps:.3f}")
+              f"epoch loss: {epoch_loss:.3f} ssim: {epoch_ssim:.3f}")
         print()
-
 
         train_ssims.append(epoch_ssim)
         train_losses.append(epoch_loss)
@@ -128,8 +129,10 @@ def train(model,
                 val_loss += loss.item()
                 val_ssim += ssim(predictions.double(), targets.double()).item()
 
-        print(f"For validation set: val_loss: {val_loss/n_val_steps:.3f} "
-              f"val_ssim: {val_ssim/n_val_steps:.3f}")
+        val_loss /= n_val_steps
+        val_ssim /= n_val_steps
+        print(f"For validation set: val_loss: {val_loss:.3f} "
+              f"val_ssim: {val_ssim:.3f}")
 
         val_ssims.append(val_ssim)
         val_losses.append(val_loss)
