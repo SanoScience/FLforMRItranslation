@@ -219,7 +219,7 @@ def create_train_val_test_sets(target_root_dir: str,
 
     t2_train_paths = t2_filepaths[:n_train_samples]
     t2_val_paths = t2_filepaths[n_train_samples:n_val_samples + n_train_samples]
-    t2_test_paths = t2_filepaths[n_train_samples:]
+    t2_test_paths = t2_filepaths[n_val_samples + n_train_samples:]
 
     # creating train set
     print("Creating train set...")

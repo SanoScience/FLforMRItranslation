@@ -32,16 +32,16 @@ def plot_hist(tensor: Tensor, bins=240, title=None):
     plt.show()
 
 
-def plot_predicted_batch(images, target, predictions, show=True, filepath=None, title=""):
+def plot_predicted_batch(images, target, predictions, show=True, filepath=None, title="", cmap="gray"):
     batch_size = len(images)
     fig, axs = plt.subplots(3, batch_size, figsize=(3 * batch_size, 20))
 
     plt.title(title)
 
     for i in range(batch_size):
-        axs[0, i].imshow(images[i].numpy()[0])
-        axs[1, i].imshow(target[i].numpy()[0])
-        axs[2, i].imshow(predictions[i].detach().numpy()[0])
+        axs[0, i].imshow(images[i].numpy()[0], cmap=cmap)
+        axs[1, i].imshow(target[i].numpy()[0], cmap=cmap)
+        axs[2, i].imshow(predictions[i].detach().numpy()[0], cmap=cmap)
 
         axs[0, i].set_title('input')
         axs[1, i].set_title('target')
