@@ -207,8 +207,9 @@ def create_train_val_test_sets(target_root_dir: str,
     n_val_samples = int(validation_size * n_samples)
 
     if shuffle:
-        random.shuffle(t1_filepaths)
-        random.shuffle(t2_filepaths)
+        filepaths = list(zip(t1_filepaths, t2_filepaths))
+        random.shuffle(filepaths)
+        t1_filepaths, t2_filepaths = zip(*filepaths)
 
     t1_train_paths = t1_filepaths[:n_train_samples]
     t1_val_paths = t1_filepaths[n_train_samples:n_val_samples + n_train_samples]
