@@ -103,10 +103,6 @@ class MRIDatasetNumpySlices(Dataset):
         image_path = self.images[index]
         target_path = self.targets[index]
 
-        print("Image path: ", image_path)
-        print("Target path: ", target_path)
-        print()
-
         np_image = np.load(image_path)
         np_target = np.load(target_path)
 
