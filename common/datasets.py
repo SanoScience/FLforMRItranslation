@@ -69,6 +69,8 @@ class MRIDatasetNumpySlices(Dataset):
     SLICES_FILE_FORMAT = ".npy"
 
     def __init__(self, data_dirs: List[str], t1_to_t2=True, normalize=True):
+        if not isinstance(data_dirs, List):
+            raise TypeError(f"Give parameter data_dirs: {data_dirs} is type: {type(data_dirs)} and should be list of string.")
         if t1_to_t2:
             image_type = "t1"
             target_type = "t2"

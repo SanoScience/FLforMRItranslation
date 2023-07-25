@@ -8,6 +8,8 @@ from client import loss_functions
 
 # TODO: divide
 
+LOCAL = False
+
 N_EPOCHS_CLIENT = 64
 BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)

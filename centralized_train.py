@@ -11,10 +11,15 @@ from common.config_train import *
 from client.utils import train
 
 # for ares when in the home directory
-os.chdir("repos/FLforMRItranslation")
+if not config_train.LOCAL:
+    os.chdir("repos/FLforMRItranslation")
 
-train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/train"]
-validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/validation"]
+    train_directories = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/train"
+    validation_directories = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/validation"
+else:
+    train_directories = "C:\\Users\\JanFiszer\\data\\with_val\\test"
+    validation_directories = "C:\\Users\\JanFiszer\\data\\with_val\\validation"
+    # ROOT_DIR_TRAIN = os.path.join(os.path.expanduser("~"), "data/HGG")
 
 
 if __name__ == '__main__':
@@ -22,10 +27,13 @@ if __name__ == '__main__':
         train_directories = sys.argv[1]
         validation_directories = sys.argv[2]
 
-    if len(sys.argv) > 3:
+    train_dataset = MRIDatasetNumpySlices([train_directories])
+    validation_dataset = MRIDatasetNumpySlices([validation_directories])
+
+    if len(sys.argv) > 2:
         num_workers = int(sys.argv[3])
-        train_dataset = MRIDatasetNumpySlices(train_directories)
-        validation_dataset = MRIDatasetNumpySlices(validation_directories)
+        print(f"num_workers: {num_workers}")
+
         trainloader = DataLoader(train_dataset,
                                  batch_size=config_train.BATCH_SIZE,
                                  shuffle=True,
@@ -38,13 +46,9 @@ if __name__ == '__main__':
                                pin_memory=True
                                )
     else:
-        train_dataset = MRIDatasetNumpySlices(train_directories)
-        validation_dataset = MRIDatasetNumpySlices(validation_directories)
         trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
         valloader = DataLoader(validation_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
-    # ROOT_DIR_TRAIN = os.path.join(os.path.expanduser("~"), "data/raw_MRI/sample")
-    # ROOT_DIR_VAL = os.path.join(os.path.expanduser("~"), "data/raw_MRI/sample")
-    # ROOT_DIR_TRAIN = os.path.join(os.path.expanduser("~"), "data/HGG")
+
     # train_dataset = MRIDatasetNumpySlices([ROOT_DIR_TRAIN])
     # validation_dataset = MRIDatasetNumpySlices([ROOT_DIR_VAL])
     # trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
