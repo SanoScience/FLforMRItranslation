@@ -190,12 +190,12 @@ class TransformDataset:
         test_dir = os.path.join(self.target_root_dir, "test")
         val_dir = os.path.join(self.target_root_dir, "validation")
 
-        t1_train_dir = os.path.join(self.target_root_dir, "t1")
-        t2_train_dir = os.path.join(self.target_root_dir, "t2")
-        t1_test_dir = os.path.join(self.target_root_dir, "t1")
-        t2_test_dir = os.path.join(self.target_root_dir, "t2")
-        t1_val_dir = os.path.join(self.target_root_dir, "t1")
-        t2_val_dir = os.path.join(self.target_root_dir, "t2")
+        t1_train_dir = os.path.join(train_dir, "t1")
+        t2_train_dir = os.path.join(train_dir, "t2")
+        t1_test_dir = os.path.join(test_dir, "t1")
+        t2_test_dir = os.path.join(test_dir, "t2")
+        t1_val_dir = os.path.join(val_dir, "t1")
+        t2_val_dir = os.path.join(val_dir, "t2")
 
         for directory in [train_dir, test_dir, val_dir,
                           t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir]:
