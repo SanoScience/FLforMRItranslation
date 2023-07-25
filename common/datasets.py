@@ -127,6 +127,23 @@ class MRIDatasetNumpySlices(Dataset):
         return tensor_image.float(), tensor_target.float()
 
 
+def get_optimal_slice_range(brain_slices, eps=1e-4, target_zero_ratio=0.9):
+    # in case of brain image being in wrong shape
+    # we want (n_slice, img_H, img_W)
+    # it changes from (img_H, img_W, n_slices) to desired length
+    if brain_slices.shape[0] == config_train.IMAGE_SIZE[0]:
+        brain_slices = np.transpose(brain_slices, (2, 0, 1))
+
+    zero_ratios = np.array([np.sum(brain_slice < eps) / (brain_slice.shape[0] * brain_slice.shape[0])
+                            for brain_slice in brain_slices])
+    satisfying_given_ratio = np.where(zero_ratios < target_zero_ratio)[0]
+
+    upper_bound = satisfying_given_ratio[0]
+    lower_bound = satisfying_given_ratio[-1]
+
+    return upper_bound, lower_bound
+
+
 def load_nii_slices(filepath: str, min_slice_index=-1, max_slices_index=-1, index_step=1):
     img = nib.load(filepath).get_fdata()
 
@@ -161,137 +178,140 @@ def get_nii_filepaths(data_dir, n_patients=-1):
     return t1_filepaths, t2_filepaths
 
 
-def create_empty_dirs(root_dir: str):
-    # TODO: deal with already created directories, to prevent overwriting, IDEA- patient_index + n_files or maybe not needed
-    # creating utilized directories
-    train_dir = os.path.join(root_dir, "train")
-    test_dir = os.path.join(root_dir, "test")
-    val_dir = os.path.join(root_dir, "validation")
+class TransformDataset:
+    def __init__(self, target_root_dir: str, origin_data_dir: str,):
+        self.target_root_dir = target_root_dir
+        self.origin_data_dir = origin_data_dir
 
-    t1_train_dir = os.path.join(train_dir, "t1")
-    t2_train_dir = os.path.join(train_dir, "t2")
-    t1_test_dir = os.path.join(test_dir, "t1")
-    t2_test_dir = os.path.join(test_dir, "t2")
-    t1_val_dir = os.path.join(val_dir, "t1")
-    t2_val_dir = os.path.join(val_dir, "t2")
+    def create_empty_dirs(self):
+        # TODO: deal with already created directories, to prevent overwriting, IDEA- patient_index + n_files or maybe not needed
+        # creating utilized directories
+        train_dir = os.path.join(self.target_root_dir, "train")
+        test_dir = os.path.join(self.target_root_dir, "test")
+        val_dir = os.path.join(self.target_root_dir, "validation")
 
-    for directory in [train_dir, test_dir, val_dir,
-                      t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir]:
-        utils.try_create_dir(directory)
+        t1_train_dir = os.path.join(self.target_root_dir, "t1")
+        t2_train_dir = os.path.join(self.target_root_dir, "t2")
+        t1_test_dir = os.path.join(self.target_root_dir, "t1")
+        t2_test_dir = os.path.join(self.target_root_dir, "t2")
+        t1_val_dir = os.path.join(self.target_root_dir, "t1")
+        t2_val_dir = os.path.join(self.target_root_dir, "t2")
 
-    return t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir
+        for directory in [train_dir, test_dir, val_dir,
+                          t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir]:
+            utils.try_create_dir(directory)
 
+        return t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir
 
-def create_train_val_test_sets(target_root_dir: str,
-                               origin_data_dir: str,
-                               train_size=0.75,
-                               n_patients=-1,
-                               validation_size=0.1,
-                               seed=-1,
-                               shuffle=True):
-    # TODO: let to add other dataset, but maybe not so important for FL
-    if seed != -1:
-        random.seed(seed)
-    # creating target directory if already exists.
-    utils.try_create_dir(target_root_dir)
-    # creating inner directories
-    t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir = create_empty_dirs(target_root_dir)
-    print("Created directories: ",
-          t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir,
-          "\n", sep='\n')
+    def create_train_val_test_sets(self,
+                                   train_size=0.75,
+                                   n_patients=-1,
+                                   validation_size=0.1,
+                                   seed=-1,
+                                   shuffle=True):
+        if seed != -1:
+            random.seed(seed)
+        # creating target directory if already exists.
+        utils.try_create_dir(self.target_root_dir)
+        # creating inner directories
+        t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir = self.create_empty_dirs()
+        print("Created directories: ",
+              t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir,
+              "\n", sep='\n')
 
-    # loading the data
-    t1_filepaths, t2_filepaths = get_nii_filepaths(origin_data_dir, n_patients)
+        # loading the data
+        t1_filepaths, t2_filepaths = get_nii_filepaths(self.origin_data_dir, n_patients)
 
-    # splitting filenames into train and test sets
-    n_samples = len(t1_filepaths)
-    n_train_samples = int(train_size * n_samples)
-    n_val_samples = int(validation_size * n_samples)
+        # splitting filenames into train and test sets
+        n_samples = len(t1_filepaths)
+        n_train_samples = int(train_size * n_samples)
+        n_val_samples = int(validation_size * n_samples)
 
-    if shuffle:
-        filepaths = list(zip(t1_filepaths, t2_filepaths))
-        random.shuffle(filepaths)
-        t1_filepaths, t2_filepaths = zip(*filepaths)
+        if shuffle:
+            filepaths = list(zip(t1_filepaths, t2_filepaths))
+            random.shuffle(filepaths)
+            t1_filepaths, t2_filepaths = zip(*filepaths)
 
-    t1_train_paths = t1_filepaths[:n_train_samples]
-    t1_val_paths = t1_filepaths[n_train_samples:n_val_samples + n_train_samples]
-    t1_test_paths = t1_filepaths[n_val_samples + n_train_samples:]
+        t1_train_paths = t1_filepaths[:n_train_samples]
+        t1_val_paths = t1_filepaths[n_train_samples:n_val_samples + n_train_samples]
+        t1_test_paths = t1_filepaths[n_val_samples + n_train_samples:]
 
-    t2_train_paths = t2_filepaths[:n_train_samples]
-    t2_val_paths = t2_filepaths[n_train_samples:n_val_samples + n_train_samples]
-    t2_test_paths = t2_filepaths[n_val_samples + n_train_samples:]
+        t2_train_paths = t2_filepaths[:n_train_samples]
+        t2_val_paths = t2_filepaths[n_train_samples:n_val_samples + n_train_samples]
+        t2_test_paths = t2_filepaths[n_val_samples + n_train_samples:]
 
-    # creating train set
-    print("Creating train set...")
-    create_set(t1_train_paths, t2_train_paths, t1_train_dir, t2_train_dir)
-    # for patient_id, (t1_path, t2_path) in enumerate(zip(t1_train_paths, t2_train_paths)):
-    #     print("Patient number ", patient_id, " in process...\n")
-    #
-    #     t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_path, MRIDatasetNumpySlices.MIN_SLICE_INDEX, MRIDatasetNumpySlices.MAX_SLICE_INDEX)
-    #     t2_slices, _, _ = load_nii_slices(t2_path, min_slice_index, max_slice_index)
-    #
-    #     for index, (t1_slice, t2_slice) in enumerate(zip(t1_slices, t2_slices)):
-    #         # getting the origin directory e.g. Brats18_2013_2_1
-    #         origin_dir = t1_path.split('/')[-2]
-    #         filename = f"{origin_dir}-patient{patient_id}-slice{index}{MRIDatasetNumpySlices.SLICES_FILE_FORMAT}"
-    #
-    #         # saving a t1 slice
-    #         t1_slice_path = os.path.join(t1_train_dir, filename)
-    #         np.save(t1_slice_path, t1_slice)
-    #
-    #         # saving a t2 slice
-    #         t2_slice_path = os.path.join(t2_train_dir, filename)
-    #         np.save(t2_slice_path, t2_slice)
-    #
-    #         print("Created pair of t1 and t2 slices: ", t1_slice_path, t2_slice_path)
+        # creating train set
+        print("Creating train set...")
+        self.create_set(t1_train_paths, t2_train_paths, t1_train_dir, t2_train_dir)
+        # for patient_id, (t1_path, t2_path) in enumerate(zip(t1_train_paths, t2_train_paths)):
+        #     print("Patient number ", patient_id, " in process...\n")
+        #
+        #     t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_path, MRIDatasetNumpySlices.MIN_SLICE_INDEX, MRIDatasetNumpySlices.MAX_SLICE_INDEX)
+        #     t2_slices, _, _ = load_nii_slices(t2_path, min_slice_index, max_slice_index)
+        #
+        #     for index, (t1_slice, t2_slice) in enumerate(zip(t1_slices, t2_slices)):
+        #         # getting the origin directory e.g. Brats18_2013_2_1
+        #         origin_dir = t1_path.split('/')[-2]
+        #         filename = f"{origin_dir}-patient{patient_id}-slice{index}{MRIDatasetNumpySlices.SLICES_FILE_FORMAT}"
+        #
+        #         # saving a t1 slice
+        #         t1_slice_path = os.path.join(t1_train_dir, filename)
+        #         np.save(t1_slice_path, t1_slice)
+        #
+        #         # saving a t2 slice
+        #         t2_slice_path = os.path.join(t2_train_dir, filename)
+        #         np.save(t2_slice_path, t2_slice)
+        #
+        #         print("Created pair of t1 and t2 slices: ", t1_slice_path, t2_slice_path)
 
-    # creating test set
-    print("Creating test set...")
-    create_set(t1_test_paths, t2_test_paths, t1_test_dir, t2_test_dir)
-    # for patient_id, (t1_path, t2_path) in enumerate(zip(t1_test_paths, t2_test_paths)):
-    #     print("Patient number ", patient_id, " in process...\n")
-    #     t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_path, MRIDatasetNumpySlices.MIN_SLICE_INDEX, MRIDatasetNumpySlices.MAX_SLICE_INDEX)
-    #     t2_slices, _, _ = load_nii_slices(t2_path, min_slice_index, max_slice_index)
-    #
-    #     for index, (t1_slice, t2_slice) in enumerate(zip(t1_slices, t2_slices)):
-    #         filename = f"patient{patient_id}-slice{index}{MRIDatasetNumpySlices.SLICES_FILE_FORMAT}"
-    #         # saving a t1 slice
-    #         t1_slice_path = os.path.join(t1_test_dir, filename)
-    #         np.save(t1_slice_path, t1_slice)
-    #
-    #         # saving a t2 slice
-    #         t2_slice_path = os.path.join(t2_test_dir, filename)
-    #         np.save(t2_slice_path, t2_slice)
-    #
-    #         print("Created a pair of t1 and t2 slices: ", t2_slice_path, t1_slice_path)
+        # creating test set
+        print("Creating test set...")
+        self.create_set(t1_test_paths, t2_test_paths, t1_test_dir, t2_test_dir)
+        # for patient_id, (t1_path, t2_path) in enumerate(zip(t1_test_paths, t2_test_paths)):
+        #     print("Patient number ", patient_id, " in process...\n")
+        #     t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_path, MRIDatasetNumpySlices.MIN_SLICE_INDEX, MRIDatasetNumpySlices.MAX_SLICE_INDEX)
+        #     t2_slices, _, _ = load_nii_slices(t2_path, min_slice_index, max_slice_index)
+        #
+        #     for index, (t1_slice, t2_slice) in enumerate(zip(t1_slices, t2_slices)):
+        #         filename = f"patient{patient_id}-slice{index}{MRIDatasetNumpySlices.SLICES_FILE_FORMAT}"
+        #         # saving a t1 slice
+        #         t1_slice_path = os.path.join(t1_test_dir, filename)
+        #         np.save(t1_slice_path, t1_slice)
+        #
+        #         # saving a t2 slice
+        #         t2_slice_path = os.path.join(t2_test_dir, filename)
+        #         np.save(t2_slice_path, t2_slice)
+        #
+        #         print("Created a pair of t1 and t2 slices: ", t2_slice_path, t1_slice_path)
 
-    # creating validation set
-    print("Creating validation set...")
-    create_set(t1_val_paths, t2_val_paths, t1_val_dir, t2_val_dir)
+        # creating validation set
+        print("Creating validation set...")
+        self.create_set(t1_val_paths, t2_val_paths, t1_val_dir, t2_val_dir)
 
-    print(f"\nSUCCESS\nCreated train and test directories in {target_root_dir} "
-          f"from {n_train_samples} train, {n_val_samples} validation and {n_samples - n_train_samples - n_val_samples} "
-          f"test 3D MRI images")
+        print(f"\nSUCCESS\nCreated train and test directories in {self.target_root_dir} "
+              f"from {n_train_samples} train, {n_val_samples} validation and {n_samples - n_train_samples - n_val_samples} "
+              f"test 3D MRI images")
 
+    @staticmethod
+    def create_set(t1_paths, t2_paths, t1_dir, t2_dir):
+        for patient_id, (t1_path, t2_path) in enumerate(zip(t1_paths, t2_paths)):
+            print("Patient number ", patient_id, " in process...\n")
+            t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_path, MRIDatasetNumpySlices.MIN_SLICE_INDEX,
+                                                                          MRIDatasetNumpySlices.MAX_SLICE_INDEX)
+            t2_slices, _, _ = load_nii_slices(t2_path, min_slice_index, max_slice_index)
 
-def create_set(t1_paths, t2_paths, t1_dir, t2_dir):
-    for patient_id, (t1_path, t2_path) in enumerate(zip(t1_paths, t2_paths)):
-        print("Patient number ", patient_id, " in process...\n")
-        t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_path, MRIDatasetNumpySlices.MIN_SLICE_INDEX,
-                                                                      MRIDatasetNumpySlices.MAX_SLICE_INDEX)
-        t2_slices, _, _ = load_nii_slices(t2_path, min_slice_index, max_slice_index)
+            for index, (t1_slice, t2_slice) in enumerate(zip(t1_slices, t2_slices)):
+                filename = f"patient{patient_id}-slice{index}{MRIDatasetNumpySlices.SLICES_FILE_FORMAT}"
+                # saving a t1 slice
+                t1_slice_path = os.path.join(t1_dir, filename)
+                np.save(t1_slice_path, t1_slice)
 
-        for index, (t1_slice, t2_slice) in enumerate(zip(t1_slices, t2_slices)):
-            filename = f"patient{patient_id}-slice{index}{MRIDatasetNumpySlices.SLICES_FILE_FORMAT}"
-            # saving a t1 slice
-            t1_slice_path = os.path.join(t1_dir, filename)
-            np.save(t1_slice_path, t1_slice)
+                # saving a t2 slice
+                t2_slice_path = os.path.join(t2_dir, filename)
+                np.save(t2_slice_path, t2_slice)
 
-            # saving a t2 slice
-            t2_slice_path = os.path.join(t2_dir, filename)
-            np.save(t2_slice_path, t2_slice)
+                print("Created pair of t1 and t2 slices: ", t1_slice_path, t2_slice_path)
 
-            print("Created pair of t1 and t2 slices: ", t1_slice_path, t2_slice_path)
 
 # used when file format is jpeg
 def save_as_img(array, path):
@@ -300,21 +320,7 @@ def save_as_img(array, path):
     img.save(path)
 
 
-def get_optimal_slice_range(brain_slices, eps=1e-4, target_zero_ratio=0.9):
-    # in case of brain image being in wrong shape
-    # we want (n_slice, img_H, img_W)
-    # it changes from (img_H, img_W, n_slices) to desired length
-    if brain_slices.shape[0] == config_train.IMAGE_SIZE[0]:
-        brain_slices = np.transpose(brain_slices, (2, 0, 1))
 
-    zero_ratios = np.array([np.sum(brain_slice < eps) / (brain_slice.shape[0] * brain_slice.shape[0])
-                            for brain_slice in brain_slices])
-    satisfying_given_ratio = np.where(zero_ratios < target_zero_ratio)[0]
-
-    upper_bound = satisfying_given_ratio[0]
-    lower_bound = satisfying_given_ratio[-1]
-
-    return upper_bound, lower_bound
 
 
 
