@@ -53,6 +53,8 @@ def plot_predicted_batch(images, target, predictions, show=True, filepath=None, 
 
     if filepath is not None:
         plt.savefig(filepath)
+        fig.clf()
+        plt.close()
     if show:
         plt.show()
 
