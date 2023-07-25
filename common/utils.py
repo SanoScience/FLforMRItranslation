@@ -59,6 +59,30 @@ def plot_predicted_batch(images, target, predictions, show=True, filepath=None, 
         plt.show()
 
 
+def plot_batch(images, target, show=True, filepath=None, title="", cmap="gray"):
+    batch_size = len(images)
+    fig, axs = plt.subplots(2, batch_size, figsize=(3 * batch_size, 8))
+
+    plt.title(title)
+
+    for i in range(batch_size):
+        axs[0, i].imshow(images[i].numpy()[0], cmap=cmap)
+        axs[1, i].imshow(target[i].numpy()[0], cmap=cmap)
+
+        axs[0, i].set_title('input')
+        axs[1, i].set_title('target')
+
+        axs[0, i].axis('off')
+        axs[1, i].axis('off')
+
+    if filepath is not None:
+        plt.savefig(filepath)
+        fig.clf()
+        plt.close()
+    if show:
+        plt.show()
+
+
 def try_create_dir(dir_name):
     try:
         os.mkdir(dir_name)

@@ -17,9 +17,9 @@ from torch.utils.data import DataLoader
 
 
 ROOT_TRAIN_DIR = path.join(path.expanduser("~"), "data/hgg_transformed/train")
-data_dir_ares = 
+data_dir_ares = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/validation"
 
-dataset = MRIDatasetNumpySlices([ROOT_TRAIN_DIR])
+dataset = MRIDatasetNumpySlices([data_dir_ares])
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True)
 
 images, targets = next(iter(dataloader))

@@ -1,7 +1,7 @@
 import os
 import sys
 
-from common.datasets import create_train_val_test_sets
+from common.datasets import TransformDataset
 from os import path
 
 
@@ -13,7 +13,8 @@ if __name__ == '__main__':
     else:
         n_patients = -1
     # current_data_dir = "C:\\Users\\JanFiszer\\data\\HGG\\"
-    # target_root_dir = "C:\\Users\\JanFiszer\\data\\testttt\\"
+    # target_root_dir = "C:\\Users\\JanFiszer\\data\\hgg_transformed\\"
 
-    create_train_val_test_sets(target_root_dir, current_data_dir, n_patients=n_patients, seed=42)
+    transformer = TransformDataset(target_root_dir, current_data_dir)
+    transformer.create_train_val_test_sets(n_patients=n_patients, seed=42)
 
