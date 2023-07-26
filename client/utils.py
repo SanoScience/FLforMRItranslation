@@ -127,7 +127,7 @@ def train(model,
                 loss = config_train.CRITERION(predictions, targets)
 
                 val_loss += loss.item()
-                val_ssim += ssim(predictions.double(), targets.double()).item()
+                val_ssim += ssim(predictions, targets).item()
 
         val_loss /= n_val_steps
         val_ssim /= n_val_steps
@@ -159,15 +159,19 @@ def train(model,
 
 def test(model, testloader):
     print("Testing...\n")
+    n_steps = len(testloader.dataset) // config_train.BATCH_SIZE
 
+    total_loss = 0.0
     total_ssim = 0.0
-    loss = 0.0
-
     with torch.no_grad():
-        for images, targets in testloader:
-            predicted = model(images)
+        for images_cpu, targets_cpu in testloader:
+            images = images_cpu.to(config_train.DEVICE)
+            targets = targets_cpu.to(config_train.DEVICE)
 
-            loss += config_train.CRITERION(predicted, targets).item()
-            total_ssim += ssim(predicted.double(), targets.double())
+            predictions = model(images)
+            loss = config_train.CRITERION(predictions, targets)
 
-    return loss, total_ssim / len(testloader.dataset)
+            total_loss += loss.item()
+            total_ssim += ssim(predictions, targets).item()
+
+    return total_loss / n_steps, total_ssim / n_steps
