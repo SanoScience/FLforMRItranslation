@@ -228,7 +228,7 @@ class TransformDataset:
         # loading the data
         t1_filepaths, t2_filepaths = get_nii_filepaths(self.origin_data_dir,
                                                        t1_filepath_from_data_dir,
-                                                       t1_filepath_from_data_dir,
+                                                       t2_filepath_from_data_dir,
                                                        n_patients)
 
         # splitting filenames into train and test sets
