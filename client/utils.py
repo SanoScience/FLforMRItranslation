@@ -144,7 +144,7 @@ def train(model,
 
     print("\nEnd of this round.")
 
-    history = {"loss": train_ssims, "ssim": train_ssims, "val_loss": val_losses, "val_ssim": val_ssims}
+    history = {"loss": train_losses, "ssim": train_ssims, "val_loss": val_losses, "val_ssim": val_ssims}
 
     # saving
     if history_filename is not None:
