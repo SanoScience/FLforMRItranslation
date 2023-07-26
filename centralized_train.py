@@ -17,8 +17,8 @@ if not config_train.LOCAL:
     train_directories = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/train"
     validation_directories = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/validation"
 else:
-    train_directories = "C:\\Users\\JanFiszer\\data\\with_val\\test"
-    validation_directories = "C:\\Users\\JanFiszer\\data\\with_val\\validation"
+    train_directories = "C:\\Users\\JanFiszer\\data\\hgg_transformed\\validation"
+    validation_directories = "C:\\Users\\JanFiszer\\data\\hgg_transformed\\validation"
     # ROOT_DIR_TRAIN = os.path.join(os.path.expanduser("~"), "data/HGG")
 
 
