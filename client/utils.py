@@ -158,7 +158,7 @@ def train(model,
 
 
 def test(model, testloader):
-    print("Testing...\n")
+    print(f"Testing \non device: {config_train.DEVICE} \nwith loss: {config_train.CRITERION})...\n")
     n_steps = 0
 
     total_loss = 0.0
