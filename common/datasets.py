@@ -155,7 +155,7 @@ def load_nii_slices(filepath: str, transpose_order, min_slice_index=-1, max_slic
 
     print(f"Slice range used for file {filepath}: <{min_slice_index}, {max_slices_index}>")
 
-    return [img[:, :, slice_index] for slice_index in range(min_slice_index, max_slices_index + 1, index_step)], min_slice_index, max_slices_index
+    return [img[slice_index] for slice_index in range(min_slice_index, max_slices_index + 1, index_step)], min_slice_index, max_slices_index
 
 
 def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data_dir, n_patients=-1):
@@ -170,8 +170,11 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
         n_patients = len(local_dirs)
 
     for i in range(n_patients):
-        t1_like_path = os.path.join(data_dir, local_dirs[i], t1_filepath_from_data_dir)
-        t2_like_path = os.path.join(data_dir, local_dirs[i], t2_filepath_from_data_dir)
+        # just for one dataset purpuses
+        inside_dir = local_dirs[i].split('_')[0]
+
+        t1_like_path = os.path.join(data_dir, local_dirs[i], inside_dir, t1_filepath_from_data_dir)
+        t2_like_path = os.path.join(data_dir, local_dirs[i], inside_dir, t2_filepath_from_data_dir)
 
         t1_filepaths.extend(sorted(glob(t1_like_path)))
         t2_filepaths.extend(sorted(glob(t2_like_path)))

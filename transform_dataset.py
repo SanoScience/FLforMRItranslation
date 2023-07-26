@@ -6,8 +6,8 @@ from os import path
 
 
 if __name__ == '__main__':
-    target_root_dir = sys.argv[1]
-    current_data_dir = sys.argv[2]
+    target_root_dir = "C:\\Users\\JanFiszer\\data\\hcp_wu_minn"
+    current_data_dir = "C:\\Users\\JanFiszer\\data\\HCP_Wu-Minn"
     if len(sys.argv) > 3:
         n_patients = int(sys.argv[3])
     else:
@@ -15,7 +15,8 @@ if __name__ == '__main__':
     # current_data_dir = "C:\\Users\\JanFiszer\\data\\HCP_MGH"
     # target_root_dir = "C:\\Users\\JanFiszer\\data\\hcp_mgh_first_test\\"
 
-    transpose_order = (2, 1, 0)
+    # C:\Users\JanFiszer\data\HCP_Wu-Minn\114318_3T_Structural_preproc\114318\T1w
+    transpose_order = (2, 0, 1)
     transformer = TransformDataset(target_root_dir, current_data_dir, transpose_order)
-    transformer.create_train_val_test_sets("anat/T1/T1_bet.nii.gz", "anat/T2/T2_bet_reg.nii.gz", n_patients=n_patients, seed=42)
+    transformer.create_train_val_test_sets("T1w/T1*restore_brain.nii.gz", "T1w/T2*restore_brain.nii.gz", n_patients=n_patients, seed=42)
 

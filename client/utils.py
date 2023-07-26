@@ -159,7 +159,7 @@ def train(model,
 
 def test(model, testloader):
     print("Testing...\n")
-    n_steps = len(testloader.dataset) // config_train.BATCH_SIZE
+    n_steps = 0
 
     total_loss = 0.0
     total_ssim = 0.0
@@ -173,5 +173,7 @@ def test(model, testloader):
 
             total_loss += loss.item()
             total_ssim += ssim(predictions, targets).item()
+
+            n_steps += 1
 
     return total_loss / n_steps, total_ssim / n_steps
