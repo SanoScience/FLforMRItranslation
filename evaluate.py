@@ -15,7 +15,7 @@ if __name__ == '__main__':
     testset = datasets.MRIDatasetNumpySlices([test_dir])
     testloader = torch.utils.data.DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)
 
-    unet = models.UNet()
+    unet = models.UNet().to(config_train.DEVICE)
     if config_train.LOCAL:
         unet.load_state_dict(torch.load(os.path.join(model_dir, "model.pth"),  map_location=torch.device('cpu')))
     else:
@@ -25,7 +25,7 @@ if __name__ == '__main__':
             FileNotFoundError(f"You are in {os.getcwd()} and there is no give path")
 
     images, targets = next(iter(testloader))
-    predictions = unet(images).to(config_train.DEVICE)
+    predictions = unet(images)
 
     loss, ssim = test(unet, testloader)
 
