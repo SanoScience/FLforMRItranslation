@@ -6,8 +6,8 @@ from os import path
 
 
 if __name__ == '__main__':
-    target_root_dir = "C:\\Users\\JanFiszer\\data\\hcp_wu_minn"
-    current_data_dir = "C:\\Users\\JanFiszer\\data\\HCP_Wu-Minn"
+    target_root_dir = sys.argv[1]
+    current_data_dir = sys.argv[2]
     if len(sys.argv) > 3:
         n_patients = int(sys.argv[3])
     else:
