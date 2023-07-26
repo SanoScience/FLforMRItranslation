@@ -17,5 +17,5 @@ if __name__ == '__main__':
 
     transpose_order = (2, 1, 0)
     transformer = TransformDataset(target_root_dir, current_data_dir, transpose_order)
-    transformer.create_train_val_test_sets("anat\\T1\\T1_bet.nii.gz", "anat\\t2\\T2_bet_reg.nii.gz", seed=42)
+    transformer.create_train_val_test_sets("anat\\T1\\T1_bet.nii.gz", "anat\\T2\\T2_bet_reg.nii.gz", seed=42)
 

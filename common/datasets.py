@@ -170,8 +170,13 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
         n_patients = len(local_dirs)
 
     for i in range(n_patients):
-        t1_filepaths.extend(sorted(glob(os.path.join(data_dir, local_dirs[i], t1_filepath_from_data_dir))))
-        t2_filepaths.extend(sorted(glob(os.path.join(data_dir, local_dirs[i], t2_filepath_from_data_dir))))
+        t1_like_path = os.path.join(data_dir, local_dirs[i], t1_filepath_from_data_dir)
+        t2_like_path = os.path.join(data_dir, local_dirs[i], t2_filepath_from_data_dir)
+
+        print(t1_like_path, t2_like_path)
+
+        t1_filepaths.extend(sorted(glob(t1_like_path)))
+        t2_filepaths.extend(sorted(glob(t2_like_path)))
 
     print(f"Found {len(t1_filepaths)} t1 files and {len(t2_filepaths)} t2 files")
 
