@@ -7,7 +7,7 @@ from PIL import Image
 import nibabel as nib
 import numpy as np
 
-from typing import List
+from typing import List, Tuple
 
 import torch
 from matplotlib import pyplot as plt
@@ -138,7 +138,7 @@ def get_optimal_slice_range(brain_slices, eps=1e-4, target_zero_ratio=0.9):
     return upper_bound, lower_bound
 
 
-def load_nii_slices(filepath: str, transpose_order, min_slice_index=-1, max_slices_index=-1, index_step=1):
+def load_nii_slices(filepath: str, transpose_order, min_slice_index=-1, max_slices_index=-1, index_step=1, target_zero_ratio=0.9):
     img = nib.load(filepath).get_fdata()
 
     if max_slices_index > img.shape[-1]:  # img.shape[-1] == total number of slices
@@ -151,7 +151,7 @@ def load_nii_slices(filepath: str, transpose_order, min_slice_index=-1, max_slic
         img = np.transpose(img, transpose_order)
 
     if min_slice_index == -1 or max_slices_index == -1:
-        min_slice_index, max_slices_index = get_optimal_slice_range(img)
+        min_slice_index, max_slices_index = get_optimal_slice_range(img, target_zero_ratio=target_zero_ratio)
 
     print(f"Slice range used for file {filepath}: <{min_slice_index}, {max_slices_index}>")
 
@@ -185,10 +185,11 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
 
 
 class TransformDataset:
-    def __init__(self, target_root_dir: str, origin_data_dir: str,transpose_order):
+    def __init__(self, target_root_dir: str, origin_data_dir: str, transpose_order: Tuple, target_zero_ratio=0.9):
         self.target_root_dir = target_root_dir
         self.origin_data_dir = origin_data_dir
         self.transpose_order = transpose_order
+        self.target_zero_ratio = target_zero_ratio
 
     def create_empty_dirs(self):
         # TODO: deal with already created directories, to prevent overwriting, IDEA- patient_index + n_files or maybe not needed
@@ -268,9 +269,11 @@ class TransformDataset:
     def create_set(self, t1_paths, t2_paths, t1_dir, t2_dir):
         for patient_id, (t1_path, t2_path) in enumerate(zip(t1_paths, t2_paths)):
             print("Patient number ", patient_id, " in process...\n")
-            t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_path, self.transpose_order,
+            t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_path,
+                                                                          self.transpose_order,
                                                                           MRIDatasetNumpySlices.MIN_SLICE_INDEX,
-                                                                          MRIDatasetNumpySlices.MAX_SLICE_INDEX)
+                                                                          MRIDatasetNumpySlices.MAX_SLICE_INDEX,
+                                                                          target_zero_ratio=self.target_zero_ratio)
             t2_slices, _, _ = load_nii_slices(t2_path, self.transpose_order, min_slice_index, max_slice_index)
 
             for index, (t1_slice, t2_slice) in enumerate(zip(t1_slices, t2_slices)):
