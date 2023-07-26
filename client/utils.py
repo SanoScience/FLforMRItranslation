@@ -37,7 +37,7 @@ def train(model,
           plots_dir=None):
     # TODO: transform from config to local vars
 
-    print(f"Training (on device: {config_train.DEVICE})...\n")
+    print(f"Training \non device: {config_train.DEVICE} \nwith loss: {config_train.CRITERION})...\n")
 
     model_dir = config_train.TRAINED_MODEL_CLIENT_DIR
     utils.try_create_dir(model_dir)

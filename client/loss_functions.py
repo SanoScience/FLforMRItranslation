@@ -1,11 +1,12 @@
+import torch
+from common import config_train
 from torch.nn import MSELoss
 from torchmetrics.image import StructuralSimilarityIndexMeasure
-from math import sqrt
 
 
 def dssim_mse(predicted, targets):
     mse = MSELoss()
-    ssim = StructuralSimilarityIndexMeasure()
+    ssim = StructuralSimilarityIndexMeasure().to(config_train.DEVICE)
 
     dssim = (1 - ssim(predicted, targets)) / 2
 
