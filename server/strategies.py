@@ -12,7 +12,6 @@ from typing import List, Tuple, Dict, Union, Optional
 from collections import OrderedDict
 
 
-
 class SaveModelStrategy(fl.server.strategy.FedAvg):
     # TODO: make constructor which takes a model as an input
     # NOW VERIFY IF IT WORKS

@@ -17,7 +17,7 @@ if __name__ == "__main__":
     data_dir = sys.argv[1]
     client_id = sys.argv[2]
     # data_dir = os.path.join(config_train.DATA_ROOT_DIR, "small_hgg")
-    train_loader, test_loader, val_loader = load_data(data_dir)
+    train_loader, test_loader, val_loader = load_data(data_dir, with_num_workers=True)
 
     # Model
     unet = models.UNet().to(config_train.DEVICE)

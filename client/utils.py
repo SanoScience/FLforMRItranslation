@@ -3,6 +3,7 @@ import pickle
 import time
 
 import torch
+from torch.utils.data import DataLoader
 
 from common import datasets, config_train, utils
 from torchmetrics.image import StructuralSimilarityIndexMeasure
@@ -17,7 +18,7 @@ criterion = config_train.CRITERION
 ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
 
 
-def load_data(data_dir):
+def load_data(data_dir, with_num_workers=True):
     train_dir = os.path.join(data_dir, "train")
     test_dir = os.path.join(data_dir, "test")
     val_dir = os.path.join(data_dir, "validation")
@@ -26,9 +27,17 @@ def load_data(data_dir):
     testset = datasets.MRIDatasetNumpySlices([test_dir])
     validationset = datasets.MRIDatasetNumpySlices([val_dir])
 
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(validationset, batch_size=batch_size, shuffle=True)
+    if with_num_workers:
+        train_loader = DataLoader(trainset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
+                                  pin_memory=True, shuffle=True)
+        test_loader = DataLoader(testset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
+                                 pin_memory=True, shuffle=True)
+        val_loader = DataLoader(validationset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
+                                pin_memory=True, shuffle=True)
+    else:
+        train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(validationset, batch_size=batch_size,  shuffle=True)
 
     return train_loader, test_loader, val_loader
 
