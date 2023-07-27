@@ -2,7 +2,7 @@ import os
 import torch
 import logging
 
-from common import config_train
+from common import config_train, utils
 
 import flwr as fl
 from flwr.server.criterion import ClientProxy
@@ -36,8 +36,7 @@ class SaveModelStrategy(fl.server.strategy.FedAvg):
             self.model.load_state_dict(state_dict)
 
             directory = config_train.TRAINED_MODEL_SERVER_DIR
-            if not os.path.isdir(directory):
-                os.mkdir(directory)
+            utils.try_create_dir(directory)
 
             torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
             logging.info(f"Saved round {server_round} aggregated parameters to {directory}")
