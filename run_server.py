@@ -1,4 +1,4 @@
-from common import config_train
+from common import config_train, models
 from server.strategies import SaveModelStrategy
 
 from typing import List, Tuple, Dict, Optional
@@ -17,7 +17,10 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
 
 
 if __name__ == "__main__":
-    strategy = SaveModelStrategy(evaluate_metrics_aggregation_fn=weighted_average,
+    unet = models.UNet()
+
+    strategy = SaveModelStrategy(unet,
+                                 evaluate_metrics_aggregation_fn=weighted_average,
                                  min_fit_clients=config_train.MIN_FIT_CLIENTS,
                                  min_available_clients=config_train.MIN_AVAILABLE_CLIENTS,
                                  fraction_fit=config_train.FRACTION_FIT)

@@ -35,16 +35,16 @@ def load_data(data_dir):
 
 def train(model,
           trainloader,
-          validationloader,
           optimizer,
           epochs,
+          validationloader=None,
           filename=None,
           history_filename="history.pkl",
           plots_dir=None):
     print(f"Training \non device: {device} \nwith loss: {criterion})...\n")
 
     utils.try_create_dir(model_dir)
-    print(f"Created directory {model_dir}")
+    print(f"Model, history and plots will be save to {model_dir}")
 
     n_batches = len(trainloader)
 
@@ -59,14 +59,13 @@ def train(model,
     val_ssims = []
 
     n_train_steps = len(trainloader.dataset) // batch_size
-    n_val_steps = len(validationloader.dataset) // batch_size
 
     if plots_dir is not None:
         plots_path = os.path.join(model_dir, plots_dir)
         utils.try_create_dir(plots_path)
 
     for epoch in range(epochs):
-        print("EPOCH: ", epoch + 1)
+        print(f"EPOCH: {epoch + 1}/{epochs}")
 
         running_loss, total_ssim = 0.0, 0.0
         epoch_loss, epoch_ssim = 0.0, 0.0
@@ -118,32 +117,35 @@ def train(model,
         train_ssims.append(epoch_ssim)
         train_losses.append(epoch_loss)
 
-        print("Validation set in progress...")
-        val_loss = 0.0
-        val_ssim = 0.0
-        with torch.no_grad():
-            for images_cpu, targets_cpu in validationloader:
-                images = images_cpu.to(device)
-                targets = targets_cpu.to(device)
+        if validationloader is not None:
+            n_val_steps = len(validationloader.dataset) // batch_size
 
-                predictions = model(images)
-                loss = criterion(predictions, targets)
+            print("Validation set in progress...")
+            val_loss = 0.0
+            val_ssim = 0.0
+            with torch.no_grad():
+                for images_cpu, targets_cpu in validationloader:
+                    images = images_cpu.to(device)
+                    targets = targets_cpu.to(device)
 
-                val_loss += loss.item()
-                val_ssim += ssim(predictions, targets).item()
+                    predictions = model(images)
+                    loss = criterion(predictions, targets)
 
-        val_loss /= n_val_steps
-        val_ssim /= n_val_steps
-        print(f"For validation set: val_loss: {val_loss:.3f} "
-              f"val_ssim: {val_ssim:.3f}")
+                    val_loss += loss.item()
+                    val_ssim += ssim(predictions, targets).item()
 
-        val_ssims.append(val_ssim)
-        val_losses.append(val_loss)
+            val_loss /= n_val_steps
+            val_ssim /= n_val_steps
+            print(f"For validation set: val_loss: {val_loss:.3f} "
+                  f"val_ssim: {val_ssim:.3f}")
 
-        if plots_dir is not None:
-            filepath = os.path.join(model_dir, plots_dir, f"ep{epoch}.jpg")
-            # maybe cast to cpu ?? still dunno if needed
-            utils.plot_predicted_batch(images_cpu, targets_cpu, predictions.to('cpu'), filepath=filepath)
+            val_ssims.append(val_ssim)
+            val_losses.append(val_loss)
+
+            if plots_dir is not None:
+                filepath = os.path.join(model_dir, plots_dir, f"ep{epoch}.jpg")
+                # maybe cast to cpu ?? still dunno if needed
+                utils.plot_predicted_batch(images_cpu, targets_cpu, predictions.to('cpu'), filepath=filepath)
 
     print("\nEnd of this round.")
 

@@ -14,9 +14,9 @@ if not config_train.LOCAL:
 
 if __name__ == "__main__":
     # Loading data
-    # data_dir = sys.argv[1]
-    # client_id = sys.argv[2]
-    data_dir = os.path.join(config_train.DATA_DIR, "small_hgg")
+    data_dir = sys.argv[1]
+    client_id = sys.argv[2]
+    # data_dir = os.path.join(config_train.DATA_ROOT_DIR, "small_hgg")
     train_loader, test_loader, val_loader = load_data(data_dir)
 
     # Model
@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
 
     class TranslationClient(fl.client.NumPyClient):
-        def __init__(self, client_id):
+        def __init__(self, client_id, evaluate=True):
             self.client_id = client_id
         def get_parameters(self, config):
             return [val.cpu().numpy() for val in unet.state_dict().values()]
@@ -37,17 +37,25 @@ if __name__ == "__main__":
 
         def fit(self, parameters, config):
             self.set_parameters(parameters)
-            train(unet, train_loader, val_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
+            if config_train.LOCAL:
+                # to optimize
+                train(unet, val_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
+            else:
+                train(unet, train_loader, optimizer, validationloader=val_loader, epochs=config_train.N_EPOCHS_CLIENT)
+
             return self.get_parameters(config={}), len(train_loader.dataset), {}
 
         def evaluate(self, parameters, config):
             # TODO: maybe input the test_dir instead of loader
-            self.set_parameters(parameters)
-            loss, ssim = test(unet, test_loader)
-            return loss, len(test_loader.dataset), {"ssim": ssim}
+            if self.evaluate:
+                self.set_parameters(parameters)
+                loss, ssim = test(unet, test_loader)
+                return loss, len(test_loader.dataset), {"ssim": ssim}
+            else:
+                pass
 
 
     fl.client.start_numpy_client(
         server_address=config_train.CLIENT_IP_ADDRESS,
-        client=TranslationClient(client_id=1)
+        client=TranslationClient(client_id=client_id, evaluate=False)
     )
