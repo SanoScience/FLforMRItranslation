@@ -25,8 +25,8 @@ if __name__ == '__main__':
             FileNotFoundError(f"You are in {os.getcwd()} and there is no give path")
 
     images, targets = next(iter(testloader))
-    
-    images.to(config_train.DEVICE)
+
+    images = images.to(config_train.DEVICE)
     predictions = unet(images)
 
     loss, ssim = test(unet, testloader)
