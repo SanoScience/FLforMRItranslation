@@ -1,3 +1,5 @@
+import socket
+
 from common import config_train, models
 from server.strategies import SaveModelStrategy
 
@@ -26,7 +28,7 @@ if __name__ == "__main__":
                                  fraction_fit=config_train.FRACTION_FIT)
 
     fl.server.start_server(
-        server_address=config_train.SERVER_IP_ADDRESS,
+        server_address=socket.gethostname(),
         config=fl.server.ServerConfig(num_rounds=config_train.N_ROUNDS),
         strategy=strategy
     )

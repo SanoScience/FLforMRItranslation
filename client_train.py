@@ -16,6 +16,7 @@ if __name__ == "__main__":
     # Loading data
     data_dir = sys.argv[1]
     client_id = sys.argv[2]
+    server_node = sys.argv[3]
     # data_dir = os.path.join(config_train.DATA_ROOT_DIR, "small_hgg")
     train_loader, test_loader, val_loader = load_data(data_dir, with_num_workers=True)
 
@@ -54,8 +55,9 @@ if __name__ == "__main__":
             else:
                 pass
 
+    server_address = f"{server_node}:{config_train.PORT}"
 
     fl.client.start_numpy_client(
-        server_address=config_train.CLIENT_IP_ADDRESS,
+        server_address=server_address,
         client=TranslationClient(client_id=client_id, evaluate=False)
     )
