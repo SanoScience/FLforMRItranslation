@@ -32,7 +32,7 @@ if __name__ == '__main__':
     loss, ssim = test(unet, testloader)
 
     filepath = os.path.join(model_dir, f"test_loss-{loss:.4f}_ssim-{ssim:.4f}.jpg")
-    utils.plot_predicted_batch(images, targets, predictions,
+    utils.plot_predicted_batch(images.cpu(), targets.cpu(), predictions.cpu(),
                                title=f"loss: {loss} ssim: {ssim}",
                                show=False,
                                filepath=filepath)

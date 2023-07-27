@@ -8,7 +8,13 @@ from common import datasets, config_train, utils
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 
 # TODO: metrics as a train parameter instead of this
-ssim = StructuralSimilarityIndexMeasure(data_range=1).to(config_train.DEVICE)
+model_dir = config_train.TRAINED_MODEL_CLIENT_DIR
+device = config_train.DEVICE
+batch_print_freq = config_train.BATCH_PRINT_FREQ
+batch_size = config_train.BATCH_SIZE
+criterion = config_train.CRITERION
+
+ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
 
 
 def load_data(data_dir):
@@ -20,9 +26,9 @@ def load_data(data_dir):
     testset = datasets.MRIDatasetNumpySlices([test_dir])
     validationset = datasets.MRIDatasetNumpySlices([val_dir])
 
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=config_train.BATCH_SIZE, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=config_train.BATCH_SIZE, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(validationset, batch_size=config_train.BATCH_SIZE, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(validationset, batch_size=batch_size, shuffle=True)
 
     return train_loader, test_loader, val_loader
 
@@ -37,26 +43,25 @@ def train(model,
           plots_dir=None):
     # TODO: transform from config to local vars
 
-    print(f"Training \non device: {config_train.DEVICE} \nwith loss: {config_train.CRITERION})...\n")
+    print(f"Training \non device: {device} \nwith loss: {criterion})...\n")
 
-    model_dir = config_train.TRAINED_MODEL_CLIENT_DIR
     utils.try_create_dir(model_dir)
     print(f"Created directory {model_dir}")
 
     n_batches = len(trainloader)
 
-    if n_batches < config_train.LOSS_PRINT_FREQ:
-        loss_print_freq = n_batches - 2  # tbh not sure if this -2 is needed
+    if batch_print_freq > n_batches:
+        batch_print_frequency = n_batches - 2  # tbh not sure if this -2 is needed
     else:
-        loss_print_freq = config_train.LOSS_PRINT_FREQ
+        batch_print_frequency = batch_print_freq
 
     train_losses = []
     train_ssims = []
     val_losses = []
     val_ssims = []
 
-    n_train_steps = len(trainloader.dataset) // config_train.BATCH_SIZE
-    n_val_steps = len(validationloader.dataset) // config_train.BATCH_SIZE
+    n_train_steps = len(trainloader.dataset) // batch_size
+    n_val_steps = len(validationloader.dataset) // batch_size
 
     if plots_dir is not None:
         plots_path = os.path.join(model_dir, plots_dir)
@@ -72,13 +77,13 @@ def train(model,
 
         for index, data in enumerate(trainloader):
             images, targets = data
-            images = images.to(config_train.DEVICE)
-            targets = targets.to(config_train.DEVICE)
+            images = images.to(device)
+            targets = targets.to(device)
 
             optimizer.zero_grad()
 
             predictions = model(images)
-            loss = config_train.CRITERION(predictions, targets)
+            loss = criterion(predictions, targets)
             loss.backward()
 
             optimizer.step()
@@ -97,11 +102,11 @@ def train(model,
             epoch_loss += loss.item()
             epoch_ssim += ssim_value.item()
 
-            if index % loss_print_freq == loss_print_freq - 1:
+            if index % batch_print_frequency == batch_print_frequency - 1:
 
                 print(f'batch {(index + 1)} out of {n_batches}\t'
-                      f'loss: {running_loss / loss_print_freq:.3f} '
-                      f'ssim {total_ssim / loss_print_freq:.3f}')
+                      f'loss: {running_loss / batch_print_frequency:.3f} '
+                      f'ssim {total_ssim / batch_print_frequency:.3f}')
 
                 running_loss = 0.0
                 total_ssim = 0.0
@@ -120,11 +125,11 @@ def train(model,
         val_ssim = 0.0
         with torch.no_grad():
             for images_cpu, targets_cpu in validationloader:
-                images = images_cpu.to(config_train.DEVICE)
-                targets = targets_cpu.to(config_train.DEVICE)
+                images = images_cpu.to(device)
+                targets = targets_cpu.to(device)
 
                 predictions = model(images)
-                loss = config_train.CRITERION(predictions, targets)
+                loss = criterion(predictions, targets)
 
                 val_loss += loss.item()
                 val_ssim += ssim(predictions, targets).item()
@@ -158,18 +163,18 @@ def train(model,
 
 
 def test(model, testloader):
-    print(f"Testing \non device: {config_train.DEVICE} \nwith loss: {config_train.CRITERION})...\n")
+    print(f"Testing \non device: {device} \nwith loss: {criterion})...\n")
     n_steps = 0
 
     total_loss = 0.0
     total_ssim = 0.0
     with torch.no_grad():
         for images_cpu, targets_cpu in testloader:
-            images = images_cpu.to(config_train.DEVICE)
-            targets = targets_cpu.to(config_train.DEVICE)
+            images = images_cpu.to(device)
+            targets = targets_cpu.to(device)
 
             predictions = model(images)
-            loss = config_train.CRITERION(predictions, targets)
+            loss = criterion(predictions, targets)
 
             total_loss += loss.item()
             total_ssim += ssim(predictions, targets).item()
