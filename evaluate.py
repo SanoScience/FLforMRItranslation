@@ -6,6 +6,9 @@ import torch
 from common import models, datasets, utils, config_train
 from client.utils import test
 
+if not config_train.LOCAL:
+    os.chdir("repos/FLforMRItranslation")
+
 if __name__ == '__main__':
     # test_dir = os.path.join(os.path.expanduser("~"), "data/hgg_transformed/validation")
     test_dir = sys.argv[1]
