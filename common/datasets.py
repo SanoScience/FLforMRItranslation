@@ -234,6 +234,7 @@ class TransformDataset:
                                                        n_patients)
 
         # splitting filenames into train and test sets
+        # TODO: when patients < 10
         n_samples = len(t1_filepaths)
         n_train_samples = int(train_size * n_samples)
         n_val_samples = int(validation_size * n_samples)
