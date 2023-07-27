@@ -19,6 +19,7 @@ ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
 
 
 def load_data(data_dir, with_num_workers=True):
+    # TODO: maybe input the test_dir instead of loader
     train_dir = os.path.join(data_dir, "train")
     test_dir = os.path.join(data_dir, "test")
     val_dir = os.path.join(data_dir, "validation")

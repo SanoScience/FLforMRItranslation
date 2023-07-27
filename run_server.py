@@ -27,8 +27,10 @@ if __name__ == "__main__":
                                  min_available_clients=config_train.MIN_AVAILABLE_CLIENTS,
                                  fraction_fit=config_train.FRACTION_FIT)
 
+    server_address = f"{socket.gethostname()}:{config_train.PORT}"
+
     fl.server.start_server(
-        server_address=socket.gethostname(),
+        server_address=,
         config=fl.server.ServerConfig(num_rounds=config_train.N_ROUNDS),
         strategy=strategy
     )
