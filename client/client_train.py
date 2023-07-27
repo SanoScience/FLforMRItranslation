@@ -31,6 +31,7 @@ class FlowerClient(fl.client.NumPyClient):
         return self.get_parameters(config={}), len(train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
+        # TODO: maybe input the test_dir instead of loader
         self.set_parameters(parameters)
         loss, ssim = test(unet, test_loader)
         return loss, len(test_loader.dataset), {"ssim": ssim}

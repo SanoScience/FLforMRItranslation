@@ -39,3 +39,6 @@ if __name__ == '__main__':
                                title=f"loss: {loss} ssim: {ssim}",
                                show=False,
                                filepath=filepath)
+
+    print("Plot saved to :", filepath)
+    print("\nEvaluation ended.\n")

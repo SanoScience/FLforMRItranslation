@@ -41,8 +41,6 @@ def train(model,
           filename=None,
           history_filename="history.pkl",
           plots_dir=None):
-    # TODO: transform from config to local vars
-
     print(f"Training \non device: {device} \nwith loss: {criterion})...\n")
 
     utils.try_create_dir(model_dir)
@@ -181,4 +179,8 @@ def test(model, testloader):
 
             n_steps += 1
 
-    return total_loss / n_steps, total_ssim / n_steps
+    loss_value, ssim_value = total_loss / n_steps, total_ssim / n_steps
+
+    print(f"Test loss: {loss_value:.4f} ssim: {ssim_value:.4f}")
+
+    return loss_value, ssim_value
