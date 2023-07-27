@@ -63,6 +63,6 @@ if __name__ == '__main__':
           trainloader,
           optimizer,
           validationloader=valloader,
-          epochs=config_train.N_EPOCHS_CLIENT,
+          epochs=config_train.N_EPOCHS_CENTRALIZED,
           filename=model_filename,
           plots_dir="predictions")
