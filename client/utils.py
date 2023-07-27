@@ -29,6 +29,7 @@ def load_data(data_dir, with_num_workers=True):
     validationset = datasets.MRIDatasetNumpySlices([val_dir])
 
     if with_num_workers:
+        # TODO: consider persistent_workers=True
         train_loader = DataLoader(trainset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
                                   pin_memory=True, shuffle=True)
         test_loader = DataLoader(testset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,

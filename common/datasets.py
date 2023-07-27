@@ -239,6 +239,11 @@ class TransformDataset:
         n_train_samples = int(train_size * n_samples)
         n_val_samples = int(validation_size * n_samples)
 
+        if n_val_samples <= 0:
+            logging.warning(f"Validation set would be empty so the train set gonna be reduced.\nInput train_size: {train_size} validation_size: {validation_size}")
+            n_val_samples = 1
+            n_train_samples -= 1
+
         if shuffle:
             filepaths = list(zip(t1_filepaths, t2_filepaths))
             random.shuffle(filepaths)
