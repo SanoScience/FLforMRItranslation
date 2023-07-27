@@ -1,4 +1,5 @@
 import socket
+import os
 
 from common import config_train, models
 from server.strategies import SaveModelStrategy
@@ -8,6 +9,8 @@ from typing import List, Tuple, Dict, Optional
 import flwr as fl
 from flwr.common import Metrics, NDArray, Scalar
 
+if not config_train.LOCAL:
+    os.chdir("repos/FLforMRItranslation")
 
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     # Multiply accuracy of each client by number of examples used
