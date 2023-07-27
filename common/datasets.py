@@ -15,8 +15,6 @@ from torch.utils.data import Dataset
 from torchvision.transforms import Compose
 from common import config_train, utils
 
-# TODO: split the functions into a class anther file or smth
-
 
 class MRIDatasetNII(Dataset):
     MIN_SLICE_INDEX = 50

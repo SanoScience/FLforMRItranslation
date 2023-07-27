@@ -12,7 +12,7 @@ data_dir = config_train.DATA_DIR
 train_loader, test_loader, val_loader = load_data(data_dir)
 
 # Model
-unet = models.UNet()
+unet = models.UNet().to(config_train.DEVICE)
 optimizer = config_train.OPTIMIZER(unet.parameters(), lr=config_train.LEARNING_RATE)
 
 

@@ -37,8 +37,7 @@ def plot_predicted_batch(images, targets, predictions, show=True, filepath=None,
     batch_size = len(images)
     fig, axs = plt.subplots(3, batch_size, figsize=(3 * batch_size, 15))
 
-    # TODO: make it work
-    plt.title(title)
+    fig.suptitle(title)
 
     for i in range(batch_size):
         images_max = torch.max(images[i])
