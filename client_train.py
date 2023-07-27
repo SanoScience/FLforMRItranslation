@@ -28,6 +28,7 @@ if __name__ == "__main__":
     class TranslationClient(fl.client.NumPyClient):
         def __init__(self, client_id, evaluate=True):
             self.client_id = client_id
+            self.perform_evaluate = evaluate
         def get_parameters(self, config):
             return [val.cpu().numpy() for val in unet.state_dict().values()]
 
@@ -48,7 +49,7 @@ if __name__ == "__main__":
 
         def evaluate(self, parameters, config):
             # TODO: maybe input the test_dir instead of loader
-            if self.evaluate:
+            if self.perform_evaluate:
                 self.set_parameters(parameters)
                 loss, ssim = test(unet, test_loader)
                 return loss, len(test_loader.dataset), {"ssim": ssim}
