@@ -169,10 +169,10 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
 
     for i in range(n_patients):
         # just for one dataset purpuses
-        inside_dir = local_dirs[i].split('_')[0]
+        # inside_dir = local_dirs[i].split('_')[0]
 
-        t1_like_path = os.path.join(data_dir, local_dirs[i], inside_dir, t1_filepath_from_data_dir)
-        t2_like_path = os.path.join(data_dir, local_dirs[i], inside_dir, t2_filepath_from_data_dir)
+        t1_like_path = os.path.join(data_dir, local_dirs[i], t1_filepath_from_data_dir)
+        t2_like_path = os.path.join(data_dir, local_dirs[i], t2_filepath_from_data_dir)
 
         t1_filepaths.extend(sorted(glob(t1_like_path)))
         t2_filepaths.extend(sorted(glob(t2_like_path)))
