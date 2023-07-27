@@ -13,9 +13,8 @@ if not config_train.LOCAL:
 
 
 class TranslationClient(fl.client.NumPyClient):
-    def __init__(self, client_id, evaluate=True):
+    def __init__(self, client_id):
         self.client_id = client_id
-        self.perform_evaluate = evaluate
     def get_parameters(self, config):
         return [val.cpu().numpy() for val in unet.state_dict().values()]
 
@@ -30,18 +29,15 @@ class TranslationClient(fl.client.NumPyClient):
             # to optimize
             train(unet, val_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
         else:
-            train(unet, train_loader, optimizer, validationloader=val_loader, epochs=config_train.N_EPOCHS_CLIENT)
+            train(unet, train_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
 
         return self.get_parameters(config={}), len(train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
         # TODO: valset instead of test
-        if self.perform_evaluate:
-            self.set_parameters(parameters)
-            loss, ssim = test(unet, test_loader)
-            return loss, len(test_loader.dataset), {"ssim": ssim}
-        else:
-            pass
+        self.set_parameters(parameters)
+        loss, ssim = test(unet, val_loader)
+        return loss, len(val_loader.dataset), {"ssim": ssim}
 
 
 if __name__ == "__main__":
@@ -60,5 +56,5 @@ if __name__ == "__main__":
 
     fl.client.start_numpy_client(
         server_address=server_address,
-        client=TranslationClient(client_id=client_id, evaluate=False)
+        client=TranslationClient(client_id=client_id)
     )
