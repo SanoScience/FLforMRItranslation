@@ -54,7 +54,7 @@ if __name__ == '__main__':
     unet = UNet().to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
 
-    model_filename = f"model{train_directories.split('/')[-2]}.pth"
+    model_filename = f"model_all_dirs.pth"
 
     train(unet,
           trainloader,
