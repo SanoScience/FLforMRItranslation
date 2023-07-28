@@ -8,9 +8,6 @@ import os
 from common import models, datasets, config_train
 from client.utils import train, test, load_data
 
-if not config_train.LOCAL:
-    os.chdir("repos/FLforMRItranslation")
-
 
 class TranslationClient(fl.client.NumPyClient):
     def __init__(self, client_id):
@@ -36,11 +33,15 @@ class TranslationClient(fl.client.NumPyClient):
     def evaluate(self, parameters, config):
         # TODO: valset instead of test
         self.set_parameters(parameters)
-        loss, ssim = test(unet, val_loader)
-        return loss, len(val_loader.dataset), {"ssim": ssim}
+        loss, ssim = test(unet, test_loader)
+        return loss, len(test_loader.dataset), {"ssim": ssim}
 
 
 if __name__ == "__main__":
+    # moving on ares/athena to the repo directory
+    if not config_train.LOCAL:
+        os.chdir("repos/FLforMRItranslation")
+
     # Loading data
     data_dir = sys.argv[1]
     client_id = sys.argv[2]
