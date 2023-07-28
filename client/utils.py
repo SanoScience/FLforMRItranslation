@@ -69,7 +69,7 @@ def train(model,
     val_losses = []
     val_ssims = []
 
-    n_train_steps = len(trainloader.dataset) // batch_size
+    n_train_steps = 0
 
     if plots_dir is not None:
         plots_path = os.path.join(model_dir, plots_dir)
@@ -110,6 +110,8 @@ def train(model,
             epoch_loss += loss.item()
             epoch_ssim += ssim_value.item()
 
+            n_train_steps += 1
+            
             if index % batch_print_frequency == batch_print_frequency - 1:
 
                 print(f'batch {(index + 1)} out of {n_batches}\t'
@@ -129,7 +131,7 @@ def train(model,
         train_losses.append(epoch_loss)
 
         if validationloader is not None:
-            n_val_steps = len(validationloader.dataset) // batch_size
+            n_val_steps = 0
 
             print("Validation set in progress...")
             val_loss = 0.0
@@ -144,6 +146,8 @@ def train(model,
 
                     val_loss += loss.item()
                     val_ssim += ssim(predictions, targets).item()
+
+                    n_val_steps += 1
 
             val_loss /= n_val_steps
             val_ssim /= n_val_steps
