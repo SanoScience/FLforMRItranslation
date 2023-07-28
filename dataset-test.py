@@ -16,6 +16,10 @@ if __name__ == '__main__':
         data_dir_ares = sys.argv[1]
 
     dataset = MRIDatasetNumpySlices([data_dir_ares])
+
+    print(dataset.images)
+    print(dataset.targets)
+
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True)
 
     images, targets = next(iter(dataloader))
