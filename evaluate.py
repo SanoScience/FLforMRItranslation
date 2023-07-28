@@ -12,7 +12,7 @@ if not config_train.LOCAL:
 if __name__ == '__main__':
     # test_dir = os.path.join(os.path.expanduser("~"), "data/hgg_transformed/validation")
     test_dir = sys.argv[1]
-    model_dir = sys.argv[2]
+    model_path = sys.argv[2]
     BATCH_SIZE = int(sys.argv[3])
 
     testset = datasets.MRIDatasetNumpySlices([test_dir])
@@ -20,10 +20,10 @@ if __name__ == '__main__':
 
     unet = models.UNet().to(config_train.DEVICE)
     if config_train.LOCAL:
-        unet.load_state_dict(torch.load(os.path.join(model_dir, "model.pth"),  map_location=torch.device('cpu')))
+        unet.load_state_dict(torch.load(os.path.join(model_path), map_location=torch.device('cpu')))
     else:
         try:
-            unet.load_state_dict(torch.load(os.path.join(model_dir, "model.pth")))
+            unet.load_state_dict(torch.load(os.path.join(model_path)))
         except FileNotFoundError:
             FileNotFoundError(f"You are in {os.getcwd()} and there is no give path")
 
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     loss, ssim = test(unet, testloader)
 
     representative_test_dir = test_dir.split('/')[-2]
-    filepath = os.path.join(model_dir, f"test_{representative_test_dir}loss_-{loss:.4f}_ssim-{ssim:.4f}.jpg")
+    filepath = os.path.join(model_path, f"test_{representative_test_dir}loss_-{loss:.4f}_ssim-{ssim:.4f}.jpg")
     utils.plot_predicted_batch(images.cpu(), targets.cpu(), predictions.cpu(),
                                title=f"loss: {loss} ssim: {ssim}",
                                show=False,

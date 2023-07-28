@@ -13,7 +13,6 @@ from collections import OrderedDict
 
 
 class SaveModelStrategy(fl.server.strategy.FedAvg):
-    # TODO: make constructor which takes a model as an input
     # NOW VERIFY IF IT WORKS
     def __init__(self, model, *args, **kwargs):
         super().__init__(*args, **kwargs)
