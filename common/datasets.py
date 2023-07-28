@@ -174,10 +174,16 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
         t1_like_path = os.path.join(data_dir, local_dirs[i], t1_filepath_from_data_dir)
         t2_like_path = os.path.join(data_dir, local_dirs[i], t2_filepath_from_data_dir)
 
+        print(t1_like_path)
+        print(t2_like_path)
+
         t1_filepaths.extend(sorted(glob(t1_like_path)))
         t2_filepaths.extend(sorted(glob(t2_like_path)))
 
-    print(f"Found {len(t1_filepaths)} t1 files and {len(t2_filepaths)} t2 files")
+    local_dirs_string = '\n'.join([loc_dir for loc_dir in local_dirs])
+
+    print(f"Found {len(t1_filepaths)} t1 files and {len(t2_filepaths)} t2 files. In files: "
+          f"{local_dirs_string}")
 
     return t1_filepaths, t2_filepaths
 
