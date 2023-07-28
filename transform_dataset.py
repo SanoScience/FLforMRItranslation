@@ -17,6 +17,6 @@ if __name__ == '__main__':
 
     # C:\Users\JanFiszer\data\HCP_Wu-Minn\114318_3T_Structural_preproc\114318\T1w
     transpose_order = (2, 0, 1)
-    transformer = TransformDataset(target_root_dir, current_data_dir, transpose_order, target_zero_ratio=0.7)
-    transformer.create_train_val_test_sets("T1w/T1*restore_brain.nii.gz", "T1w/T2*restore_brain.nii.gz", n_patients=n_patients, seed=42)
+    transformer = TransformDataset(target_root_dir, current_data_dir, transpose_order, target_zero_ratio=0.8)
+    transformer.create_train_val_test_sets("*t1.nii.gz", "*t2.nii.gz", n_patients=n_patients, seed=42)
 
