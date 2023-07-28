@@ -29,7 +29,7 @@ class TranslationClient(fl.client.NumPyClient):
             # to optimize
             train(unet, val_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
         else:
-            train(unet, train_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
+            train(unet, train_loader, optimizer, validationloader=val_loader, epochs=config_train.N_EPOCHS_CLIENT)
 
         return self.get_parameters(config={}), len(train_loader.dataset), {}
 
