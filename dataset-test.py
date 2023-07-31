@@ -3,7 +3,7 @@ import sys
 from os import path
 import torch
 
-from common.utils import plot_batch
+from common.utils import plot_predicted_batch
 from common.datasets import MRIDatasetNumpySlices
 
 from torch.utils.data import DataLoader
@@ -24,4 +24,4 @@ if __name__ == '__main__':
 
     images, targets = next(iter(dataloader))
 
-    plot_batch(images, targets, filepath="plot_maybe_bad.jpg", show=False)
+    plot_predicted_batch([images, targets], filepath="plot_maybe_bad.jpg", show=False)
