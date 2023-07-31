@@ -160,7 +160,7 @@ def train(model,
             if plots_dir is not None:
                 filepath = os.path.join(model_dir, plots_dir, f"ep{epoch}.jpg")
                 # maybe cast to cpu ?? still dunno if needed
-                utils.plot_predicted_batch([images_cpu, targets_cpu, predictions.to('cpu').detach()], filepath=filepath)
+                utils.plot_batch([images_cpu, targets_cpu, predictions.to('cpu').detach()], filepath=filepath)
 
     print("\nEnd of this round.")
 

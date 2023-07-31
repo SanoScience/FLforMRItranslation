@@ -33,7 +33,7 @@ def plot_hist(tensor: Tensor, bins=240, title=None):
     plt.show()
 
 
-def plot_predicted_batch(to_plot, show=True, filepath=None, title="", cmap="gray"):
+def plot_batch(to_plot, show=True, filepath=None, title="", cmap="gray"):
     batch_size = len(to_plot[0])
     fig, axs = plt.subplots(len(to_plot), batch_size, figsize=(3 * batch_size, 15))
 
