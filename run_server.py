@@ -12,6 +12,9 @@ from flwr.common import Metrics, NDArray, Scalar
 if not config_train.LOCAL:
     os.chdir("repos/FLforMRItranslation")
 
+
+# TODO: save metrics_distributed and losses_distributed
+
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     # Multiply accuracy of each client by number of examples used
     accuracies = [num_examples * m["ssim"] for num_examples, m in metrics]
