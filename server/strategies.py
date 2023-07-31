@@ -38,7 +38,7 @@ class SaveModelStrategy(fl.server.strategy.FedAvg):
             utils.try_create_dir(directory)
 
             torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
-            logging.info(f"Saved round {server_round} aggregated parameters to {directory}")
+            print(f"Saved round {server_round} aggregated parameters to {directory}")
 
         return aggregated_parameters, aggregated_metrics
 
