@@ -9,31 +9,34 @@ from common import models, datasets, config_train
 from client.utils import train, test, load_data
 
 
+# TODO: client __init__ containting the model
+
 class TranslationClient(fl.client.NumPyClient):
-    def __init__(self, client_id):
+    def __init__(self, client_id, model: models.UNet):
         self.client_id = client_id
+        self.model = model
     def get_parameters(self, config):
-        return [val.cpu().numpy() for val in unet.state_dict().values()]
+        return [val.cpu().numpy() for val in self.model.state_dict().values()]
 
     def set_parameters(self, parameters):
-        param_dict = zip(unet.state_dict().keys(), parameters)
+        param_dict = zip(self.model.state_dict().keys(), parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
-        unet.load_state_dict(state_dict)
+        self.model.load_state_dict(state_dict)
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
         if config_train.LOCAL:
             # to optimize
-            train(unet, val_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
+            train(self.model, val_loader, optimizer, epochs=config_train.N_EPOCHS_CLIENT)
         else:
-            train(unet, train_loader, optimizer, validationloader=val_loader, epochs=config_train.N_EPOCHS_CLIENT)
+            train(self.model, train_loader, optimizer, validationloader=val_loader, epochs=config_train.N_EPOCHS_CLIENT)
 
         return self.get_parameters(config={}), len(train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
         # TODO: valset instead of test
         self.set_parameters(parameters)
-        loss, ssim = test(unet, test_loader)
+        loss, ssim = test(self.model, test_loader)
         return loss, len(test_loader.dataset), {"ssim": ssim}
 
 
@@ -57,5 +60,5 @@ if __name__ == "__main__":
 
     fl.client.start_numpy_client(
         server_address=server_address,
-        client=TranslationClient(client_id=client_id)
+        client=TranslationClient(client_id=client_id, model=unet)
     )
