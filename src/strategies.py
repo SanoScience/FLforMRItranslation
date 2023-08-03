@@ -11,7 +11,7 @@ from flwr.server.criterion import ClientProxy
 from flwr.common import Scalar, FitRes, Parameters, logger, Metrics, NDArrays
 from flwr.server.strategy import Strategy
 
-from typing import List, Tuple, Dict, Union, Optional
+from typing import List, Tuple, Dict, Union, Optional, Type
 from collections import OrderedDict
 from abc import ABC, abstractmethod, ABCMeta
 
@@ -34,8 +34,8 @@ def get_on_fit_config():
     return fit_config_fn
 
 
-def get_evaluate_fn(model: models.UNet):
-    data_dir = "C:\\Users\\JanFiszer\\data\\26_patients\\validation"
+def get_evaluate_fn(model: models.UNet, history):
+    data_dir = "C:\\Users\\JanFiszer\\data\\mega_small_hgg\\test"
     if data_dir is None:
         raise NotImplementedError
     testset = datasets.MRIDatasetNumpySlices([data_dir])
@@ -50,16 +50,18 @@ def get_evaluate_fn(model: models.UNet):
 
         loss, ssim = models.evaluate(model, testloader, loss_functions.dssim_mse)
 
+        history.append((server_round, (loss, ssim)))
+
         return loss, {"ssim": ssim}
 
     return evaluate
 
 
-class SaveModelStrategy(Strategy):
-    def __init__(self, model, aggregation_class: Strategy, saving_frequency=1):
+class SaveModelStrategy:
+    def __init__(self, model, aggregation_class: Type[Strategy], saving_frequency=1, *args, **kwargs):
         self.model = model
         self.saving_frequency = saving_frequency
-        self.aggregation_class = aggregation_class
+        self.aggregation_class = aggregation_class.__init__(*args, **kwargs)
 
     def aggregate_fit(
         self,
@@ -67,7 +69,7 @@ class SaveModelStrategy(Strategy):
         results: List[Tuple[ClientProxy, FitRes]],
         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-        aggregated_parameters, aggregated_metrics = self.aggregate_fit(server_round, results, failures)
+        aggregated_parameters, aggregated_metrics = self.aggregation_class.aggregate_fit(server_round, results, failures)
 
         if aggregated_parameters is not None:
             if server_round % self.saving_frequency == 0:
@@ -78,183 +80,178 @@ class SaveModelStrategy(Strategy):
                 self.model.load_state_dict(state_dict)
 
                 directory = config_train.TRAINED_MODEL_SERVER_DIR
-                files_operations.try_create_dir(directory)
 
-                torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
+                files_operations.try_create_dir(directory)  # creating directory before to don't get warnings
+                self.model.save(directory, filename=f"round{server_round}.pth", create_dir=False)
+
                 logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
+
+        if aggregated_metrics is not None:
+            print("Aggregated metrics: ", aggregated_metrics)
+            print("Aggregated metrics type: ", type(aggregated_metrics))
 
         return aggregated_parameters, aggregated_metrics
 
     def __getattr__(self, arg):
-        return getattr(self.aggregation_class.__init__, arg)
+        return getattr(self.aggregation_class, arg)
 
 
-class SaveModelFedAvg(fl.server.strategy.FedAvg):
-    def __init__(self, model, saving_frequency=1, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model = model
-        self.saving_frequency = saving_frequency
-
-    def aggregate_fit(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-        aggregated_parameters, aggregated_metrics = general_aggregate_fit(self, server_round, results, failures)
-
-        # aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
-        #
-        # if aggregated_parameters is not None:
-        #     aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
-        #
-        #     params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
-        #     state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        #     self.model.load_state_dict(state_dict)
-        #
-        #     directory = config_train.TRAINED_MODEL_SERVER_DIR
-        #     files_operations.try_create_dir(directory)
-        #
-        #     torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
-        #     logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
-
-        return aggregated_parameters, aggregated_metrics
-
-
-class FedProxWithSave(fl.server.strategy.FedProx):
-    def __init__(self, model, saving_frequency=1, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model = model
-        self.saving_frequency = saving_frequency
-
-    def aggregate_fit(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-        aggregated_parameters, aggregated_metrics = general_aggregate_fit(self, server_round, results, failures)
-
-        # aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
-        #
-        # if aggregated_parameters is not None:
-        #     if server_round % self.saving_frequency == 0:
-        #         aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
-        #
-        #         params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
-        #         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        #         self.model.load_state_dict(state_dict)
-        #
-        #         directory = config_train.TRAINED_MODEL_SERVER_DIR
-        #         files_operations.try_create_dir(directory)
-        #
-        #         torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
-        #         logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
-        #
-        return aggregated_parameters, aggregated_metrics
+# class SaveModelFedAvg(fl.server.strategy.FedAvg):
+#     def __init__(self, model, saving_frequency=1, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.model = model
+#         self.saving_frequency = saving_frequency
+#
+#     def aggregate_fit(
+#         self,
+#         server_round: int,
+#         results: List[Tuple[ClientProxy, FitRes]],
+#         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+#     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+#         # aggregated_parameters, aggregated_metrics = general_aggregate_fit(self, server_round, results, failures)
+#
+#         aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
+#
+#         if aggregated_parameters is not None:
+#             aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
+#
+#             params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
+#             state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+#             self.model.load_state_dict(state_dict)
+#
+#             directory = config_train.TRAINED_MODEL_SERVER_DIR
+#             files_operations.try_create_dir(directory)
+#
+#             torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
+#             logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
+#
+        # if aggregated_metrics is not None:
+        #     print("Aggregated metrics: ", aggregated_metrics)
+        #     print("Aggregated metrics type: ", type(aggregated_metrics))
+#
+#         return aggregated_parameters, aggregated_metrics
 
 
-class FedAdamWithSave(fl.server.strategy.FedAdam):
-    def __init__(self, model, saving_frequency=1, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model = model
-        self.saving_frequency = saving_frequency
+# class FedProxWithSave(fl.server.strategy.FedProx):
+#     def __init__(self, model, saving_frequency=1, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.model = model
+#         self.saving_frequency = saving_frequency
+#
+#     def aggregate_fit(
+#         self,
+#         server_round: int,
+#         results: List[Tuple[ClientProxy, FitRes]],
+#         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+#     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+#         # aggregated_parameters, aggregated_metrics = general_aggregate_fit(self, server_round, results, failures)
+#
+#         aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
+#
+#         if aggregated_parameters is not None:
+#             if server_round % self.saving_frequency == 0:
+#                 aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
+#
+#                 params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
+#                 state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+#                 self.model.load_state_dict(state_dict)
+#
+#                 directory = config_train.TRAINED_MODEL_SERVER_DIR
+#                 files_operations.try_create_dir(directory)
+#
+#                 torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
+#                 logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
+#
+#         return aggregated_parameters, aggregated_metrics
+#
+#
+# class FedAdamWithSave(fl.server.strategy.FedAdam):
+#     def __init__(self, model, saving_frequency=1, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.model = model
+#         self.saving_frequency = saving_frequency
+#
+#     def aggregate_fit(
+#         self,
+#         server_round: int,
+#         results: List[Tuple[ClientProxy, FitRes]],
+#         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+#     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+#
+#         # aggregated_parameters, aggregated_metrics = general_aggregate_fit(self, server_round, results, failures)
+#         aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
+#
+#         if aggregated_parameters is not None:
+#             if server_round % self.saving_frequency == 0:
+#                 aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
+#
+#                 params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
+#                 state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+#                 self.model.load_state_dict(state_dict)
+#
+#                 directory = config_train.TRAINED_MODEL_SERVER_DIR
+#                 files_operations.try_create_dir(directory)
+#
+#                 torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
+#                 logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
+#
+#         return aggregated_parameters, aggregated_metrics
+#
+#
+# class FedAdagradWithSave(fl.server.strategy.FedAdagrad):
+#     def __init__(self, model, saving_frequency=1, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.model = model
+#         self.saving_frequency = saving_frequency
+#
+#     def aggregate_fit(
+#         self,
+#         server_round: int,
+#         results: List[Tuple[ClientProxy, FitRes]],
+#         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+#     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+#
+#         # aggregated_parameters, aggregated_metrics = general_aggregate_fit(self, server_round, results, failures)
+#         aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
+#
+#         if aggregated_parameters is not None:
+#             if server_round % self.saving_frequency == 0:
+#                 aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
+#
+#                 params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
+#                 state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+#                 self.model.load_state_dict(state_dict)
+#
+#                 directory = config_train.TRAINED_MODEL_SERVER_DIR
+#                 files_operations.try_create_dir(directory)
+#
+#                 torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
+#                 logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
+#
+#         return aggregated_parameters, aggregated_metrics
 
-    def aggregate_fit(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-
-        aggregated_parameters, aggregated_metrics = general_aggregate_fit(self, server_round, results, failures)
-        # aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
-        #
-        # if aggregated_parameters is not None:
-        #     if server_round % self.saving_frequency == 0:
-        #         aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
-        #
-        #         params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
-        #         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        #         self.model.load_state_dict(state_dict)
-        #
-        #         directory = config_train.TRAINED_MODEL_SERVER_DIR
-        #         files_operations.try_create_dir(directory)
-        #
-        #         torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
-        #         logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
-        #
-        return aggregated_parameters, aggregated_metrics
-
-
-class FedAdagradWithSave(fl.server.strategy.FedAdagrad):
-    def __init__(self, model, saving_frequency=1, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model = model
-        self.saving_frequency = saving_frequency
-
-    def aggregate_fit(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-
-        aggregated_parameters, aggregated_metrics = general_aggregate_fit(self, server_round, results, failures)
-        # aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
-        #
-        # if aggregated_parameters is not None:
-        #     if server_round % self.saving_frequency == 0:
-        #         aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
-        #
-        #         params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
-        #         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        #         self.model.load_state_dict(state_dict)
-        #
-        #         directory = config_train.TRAINED_MODEL_SERVER_DIR
-        #         files_operations.try_create_dir(directory)
-        #
-        #         torch.save(self.model.state_dict(), f"{directory}/round{server_round}.pth")
-        #         logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
-        #
-        return aggregated_parameters, aggregated_metrics
-
-
-class SavingStrategy(ABC):
-    def __init__(self, model: models.UNet, saving_frequency=1):
-        self.model = model
-        self.saving_frequency = saving_frequency
-
-    @abstractmethod
-    def aggregate_fit(self,
-                      server_round: int,
-                      results: List[Tuple[ClientProxy, FitRes]],
-                      failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]]):
-        pass
-
-
-def general_aggregate_fit(
-    strategy: Strategy,
-    server_round: int,
-    results: List[Tuple[ClientProxy, FitRes]],
-    failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-
-    aggregated_parameters, aggregated_metrics = strategy.aggregate_fit(server_round, results, failures)
-
-    if aggregated_parameters is not None:
-        if server_round % strategy.saving_frequency == 0:
-            aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
-
-            params_dict = zip(strategy.model.state_dict().keys(), aggregated_ndarrays)
-            state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-            strategy.model.load_state_dict(state_dict)
-
-            directory = config_train.TRAINED_MODEL_SERVER_DIR
-            files_operations.try_create_dir(directory)
-
-            torch.save(strategy.model.state_dict(), f"{directory}/round{server_round}.pth")
-            logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
-
-    return aggregated_parameters, aggregated_metrics
+# def general_aggregate_fit(
+#     strategy: Strategy,
+#     server_round: int,
+#     results: List[Tuple[ClientProxy, FitRes]],
+#     failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+# ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+#
+#     aggregated_parameters, aggregated_metrics = strategy.aggregate_fit(server_round, results, failures)
+#
+#     if aggregated_parameters is not None:
+#         if server_round % strategy.saving_frequency == 0:
+#             aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
+#
+#             params_dict = zip(strategy.model.state_dict().keys(), aggregated_ndarrays)
+#             state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+#             strategy.model.load_state_dict(state_dict)
+#
+#             directory = config_train.TRAINED_MODEL_SERVER_DIR
+#             files_operations.try_create_dir(directory)
+#
+#             torch.save(strategy.model.state_dict(), f"{directory}/round{server_round}.pth")
+#             logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
+#
+#     return aggregated_parameters, aggregated_metrics
 
