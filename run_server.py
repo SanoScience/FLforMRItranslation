@@ -1,39 +1,40 @@
 import socket
 import os
 
-from common import config_train, models
-from server.strategies import SaveModelStrategy
-
-from typing import List, Tuple, Dict, Optional
+from src.strategies import *
 
 import flwr as fl
-from flwr.common import Metrics, NDArray, Scalar
 
 if not config_train.LOCAL:
     os.chdir("repos/FLforMRItranslation")
 
-
 # TODO: save metrics_distributed and losses_distributed
-
-def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
-    # Multiply accuracy of each client by number of examples used
-    accuracies = [num_examples * m["ssim"] for num_examples, m in metrics]
-    examples = [num_examples for num_examples, _ in metrics]
-
-    # Aggregate and return custom metric (weighted average)
-    return {"ssim": sum(accuracies) / sum(examples)}
 
 
 if __name__ == "__main__":
     unet = models.UNet()
 
-    strategy = SaveModelStrategy(unet,
-                                 evaluate_metrics_aggregation_fn=weighted_average,
-                                 min_fit_clients=config_train.MIN_FIT_CLIENTS,
-                                 min_available_clients=config_train.MIN_AVAILABLE_CLIENTS,
-                                 fraction_fit=config_train.FRACTION_FIT)
+    strategy = SaveModelFedAvg(unet,
+                               evaluate_metrics_aggregation_fn=weighted_average,
+                               min_fit_clients=config_train.MIN_FIT_CLIENTS,
+                               min_available_clients=config_train.MIN_AVAILABLE_CLIENTS,
+                               fraction_fit=config_train.FRACTION_FIT,
+                               on_fit_config_fn=get_on_fit_config(),
+                               evaluate_fn=get_evaluate_fn(unet))
 
-    server_address = f"{socket.gethostname()}:{config_train.PORT}"
+    fedprox_strategy = FedProxWithSave(unet,
+                                       evaluate_metrics_aggregation_fn=weighted_average,
+                                       min_fit_clients=config_train.MIN_FIT_CLIENTS,
+                                       min_available_clients=config_train.MIN_AVAILABLE_CLIENTS,
+                                       fraction_fit=config_train.FRACTION_FIT,
+                                       on_fit_config_fn=get_on_fit_config(),
+                                       evaluate_fn=get_evaluate_fn(unet),
+                                       proximal_mu=config_train.PROXIMAL_MU)
+
+    if config_train.LOCAL:
+        server_address = f"0.0.0.0:{config_train.PORT}"
+    else:
+        server_address = f"{socket.gethostname()}:{config_train.PORT}"
 
     fl.server.start_server(
         server_address=server_address,

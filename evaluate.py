@@ -3,8 +3,9 @@ import sys
 
 import torch
 
-from common import models, datasets, utils, config_train
-from client.utils import test
+from configs import config_train
+from src import datasets, models, loss_functions, visualization
+from src.models import evaluate
 
 if not config_train.LOCAL:
     os.chdir("repos/FLforMRItranslation")
@@ -31,13 +32,14 @@ if __name__ == '__main__':
 
     images = images.to(config_train.DEVICE)
     predictions = unet(images)
+    criterion = loss_functions.dssim_mse
 
-    loss, ssim = test(unet, testloader)
+    loss, ssim = evaluate(unet, testloader, criterion)
 
     representative_test_dir = test_dir.split('/')[-2]
     model_dir = '/'.join(e for e in model_path.split('/')[:-1])
     filepath = os.path.join(model_dir, f"test_{representative_test_dir}loss_-{loss:.4f}_ssim-{ssim:.4f}.jpg")
-    utils.plot_batch([images.cpu(), targets.cpu(), predictions.cpu().detach()],
+    visualization.plot_batch([images.cpu(), targets.cpu(), predictions.cpu().detach()],
                      title=f"loss: {loss} ssim: {ssim}",
                      show=False,
                      filepath=filepath)

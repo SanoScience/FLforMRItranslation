@@ -3,8 +3,8 @@ import sys
 from os import path
 import torch
 
-from common.utils import plot_batch
-from common.datasets import MRIDatasetNumpySlices
+from src.visualization import plot_batch
+from src.datasets import MRIDatasetNumpySlices
 
 from torch.utils.data import DataLoader
 

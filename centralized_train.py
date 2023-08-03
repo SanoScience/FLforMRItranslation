@@ -1,14 +1,9 @@
-import os
-import sys
-
 import torch.optim as optim
-from torch.utils.data import DataLoader
 
-from common.datasets import *
-from common.models import *
-from common.config_train import *
-
-from client.utils import train
+from src import loss_functions
+from src.datasets import *
+from src.models import *
+from src.models import train
 
 # for ares when in the home directory
 if not config_train.LOCAL:
@@ -53,12 +48,13 @@ if __name__ == '__main__':
 
     unet = UNet().to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
-
+    criterion = loss_functions.dssim_mse
     model_filename = f"model_all_dirs.pth"
 
     train(unet,
           trainloader,
           optimizer,
+          criterion,
           validationloader=valloader,
           epochs=config_train.N_EPOCHS_CENTRALIZED,
           filename=model_filename,
