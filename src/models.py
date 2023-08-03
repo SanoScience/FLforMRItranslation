@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 
-
+import src.loss_functions
 from configs import config_train
 from src import visualization, files_operations as fop
 
@@ -44,14 +44,15 @@ class UNet(nn.Module):
         logits = self.outc(x)
         return logits
 
-    def save(self, dir_name: str, filename=None):
+    def save(self, dir_name: str, filename=None, create_dir=True):
         if filename is None:
             filename = "model"
 
         if not isinstance(dir_name, str):
             raise TypeError(f"Given directory name {dir_name} has wrong type: {type(dir_name)}.")
 
-        fop.try_create_dir(dir_name)
+        if create_dir:
+            fop.try_create_dir(dir_name)
 
         if not filename.endswith(".pth"):
             filename += ".pth"
@@ -160,10 +161,10 @@ def _train_one_epoch(model, trainloader, optimizer,  criterion, batch_print_freq
 
         predictions = model(images)
 
-        if prox_loss is None:
-            loss = criterion(predictions, targets)
-        else:
+        if prox_loss:
             loss = criterion(predictions, targets, model.parameters(), global_params)
+        else:
+            loss = criterion(predictions, targets)
         loss.backward()
 
         optimizer.step()
@@ -211,7 +212,7 @@ def train(model,
           filename=None,
           history_filename="history.pkl",
           plots_dir=None):
-    print(f"Training... \non device: {device} \nwith loss: {criterion})\n")
+    print(f"Training... \non device: {device} \nwith loss: {criterion}\n")
 
     if not isinstance(criterion, Callable):
         raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
@@ -235,6 +236,8 @@ def train(model,
         plots_path = path.join(model_dir, plots_dir)
         fop.try_create_dir(plots_path)
 
+    model.train()
+
     for epoch in range(epochs):
         print(f"EPOCH: {epoch + 1}/{epochs}")
 
@@ -244,7 +247,7 @@ def train(model,
         train_losses.append(epoch_loss)
 
         if validationloader is not None:
-            val_loss, val_ssim = evaluate(model, validationloader, criterion.base_loss_fn, plots_dir, epoch)
+            val_loss, val_ssim = evaluate(model, validationloader, criterion, plots_dir, epoch)
 
             val_ssims.append(val_ssim)
             val_losses.append(val_loss)
@@ -265,7 +268,10 @@ def train(model,
 
 
 def evaluate(model, testloader, criterion, plots_dir=None, epoch=0):
-    print(f"Testing... \nON DEVICE: {device} \nWITH LOSS: {criterion})\n")
+    if isinstance(criterion, src.loss_functions.LossWithProximalTerm):
+        criterion = criterion.base_loss_fn
+
+    print(f"Testing... \nON DEVICE: {device} \nWITH LOSS: {criterion}\n")
 
     if not isinstance(criterion, Callable):
         raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
@@ -274,6 +280,8 @@ def evaluate(model, testloader, criterion, plots_dir=None, epoch=0):
 
     test_loss = 0.0
     test_ssim = 0.0
+
+    model.eval()
     with torch.no_grad():
         for images_cpu, targets_cpu in testloader:
             images = images_cpu.to(device)

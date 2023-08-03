@@ -4,13 +4,35 @@ from torch.nn import MSELoss
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 
 
-def dssim_mse(predicted, targets):
-    mse = MSELoss()
-    ssim = StructuralSimilarityIndexMeasure().to(config_train.DEVICE)
+class DssimMse:
+    def __init__(self, sqrt=False):
+        self.sqrt = sqrt
 
-    dssim = (1 - ssim(predicted, targets)) / 2
+    def __call__(self, predicted, targets):
+        mse = MSELoss()
+        ssim = StructuralSimilarityIndexMeasure().to(config_train.DEVICE)
 
-    return mse(predicted, targets) * dssim
+        dssim = (1 - ssim(predicted, targets)) / 2
+
+        if self.sqrt:
+            result = torch.sqrt_(mse(predicted, targets)) * dssim
+        else:
+            result = mse(predicted, targets) * dssim
+        return result
+
+    def __repr__(self):
+        if self.sqrt:
+            representation = f"DSSIM RootMSE loss function"
+        else:
+            representation = f"DSSIM MSE loss function"
+        return representation
+
+    def __str__(self):
+        if self.sqrt:
+            representation = f"DSSIM RootMSE"
+        else:
+            representation = f"DSSIM MSE"
+        return representation
 
 
 class LossWithProximalTerm:
@@ -18,7 +40,7 @@ class LossWithProximalTerm:
         self.proximal_mu = proximal_mu
         self.base_loss_fn = base_loss_fn
 
-    def __call__(self, predicted, targets, local_params, global_params, *args, **kwargs):
+    def __call__(self, predicted, targets, local_params, global_params):
         proximal_term = 0.0
 
         for local_weights, global_weights in zip(local_params, global_params):
@@ -30,4 +52,16 @@ class LossWithProximalTerm:
     def __repr__(self):
         return f"ProxLoss with mu={self.proximal_mu} base function={self.base_loss_fn}"
 
+    def __str__(self):
+        return f"ProxLoss (mu={self.proximal_mu} base_fn={self.base_loss_fn})"
 
+
+def loss_for_config():
+    if config_train.LOSS_TYPE == config_train.LossFunctions.MSE_DSSIM:
+        return DssimMse()
+    elif config_train.LOSS_TYPE == config_train.LossFunctions.PROX:
+        return LossWithProximalTerm(config_train.PROXIMAL_MU, DssimMse())
+    elif config_train.LOSS_TYPE == config_train.LossFunctions.RMSE_DDSIM:
+        return DssimMse(sqrt=True)
+    else:  # config_train.LOSS_TYPE == config_train.LossFunctions.MSE:
+        return MSELoss()

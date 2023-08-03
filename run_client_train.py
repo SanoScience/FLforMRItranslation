@@ -16,7 +16,7 @@ if __name__ == "__main__":
         server_node = sys.argv[3]
         with_num_workers = True
     else:
-        data_dir = "C:\\Users\\JanFiszer\\data\\small_hgg"
+        data_dir = "C:\\Users\\JanFiszer\\data\\mega_small_hgg"
         client_id = "0"
         server_node = "127.0.0.1"
         with_num_workers = False
@@ -26,13 +26,14 @@ if __name__ == "__main__":
     # Model
     unet = models.UNet().to(config_train.DEVICE)
     optimizer = torch.optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
-    criterion = loss_functions.LossWithProximalTerm(config_train.PROXIMAL_MU, loss_functions.dssim_mse)
+    criterion = loss_functions.loss_for_config()
+
+    client = client_for_config(client_id, unet, optimizer, criterion, trainloader, testloader, valloader)
+
     # Address
     server_address = f"{server_node}:{config_train.PORT}"
-    stragglers_mat = np.transpose(
-        np.random.choice([0, 1], size=config_train.N_ROUNDS, p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
-    )
+
     fl.client.start_numpy_client(
         server_address=server_address,
-        client=FedProxClient(client_id, unet, optimizer, criterion, trainloader, testloader, valloader, stragglers_mat)
+        client=client
     )

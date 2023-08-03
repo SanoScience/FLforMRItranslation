@@ -44,7 +44,7 @@ class ClassicClient(fl.client.NumPyClient):
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
         # TODO: valset instead of test
         self.set_parameters(parameters)
-        loss, ssim = models.evaluate(self.model, self.test_loader, self.criterion.base_loss_fn)
+        loss, ssim = models.evaluate(self.model, self.test_loader, self.criterion)
         return loss, len(self.test_loader.dataset), {"ssim": ssim}
 
 
@@ -52,7 +52,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
     """Standard Flower client for CNN training."""
 
     def __init__(self, client_id, model: models.UNet, optimizer, criterion,
-                 train_loader: DataLoader, test_loader: DataLoader, val_loader: DataLoader, straggler_schedule):  # pylint: disable=too-many-arguments
+                 train_loader: DataLoader, test_loader: DataLoader, val_loader: DataLoader, straggler_schedule=None):  # pylint: disable=too-many-arguments
         super().__init__(client_id, model, optimizer, criterion,
                          train_loader, test_loader, val_loader)
 
@@ -70,21 +70,21 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
         # This method always returns via the metrics (last argument being
         # returned) whether the client is a straggler or not. This info
         # is used by strategies other than FedProx to discard the update.
-        if self.straggler_schedule[int(config["curr_round"]) - 1]:
-            num_epochs = np.random.randint(1, config_train.N_EPOCHS_CLIENT)
+        num_epochs = config_train.N_EPOCHS_CLIENT
 
-            if config["drop_client"]:
-                # return without doing any training.
-                # The flag in the metric will be used to tell the strategy
-                # to discard the model upon aggregation
-                return (
-                    self.get_parameters({}),
-                    len(self.train_loader),
-                    {"is_straggler": True},
-                )
+        if self.straggler_schedule is not None:
+            if self.straggler_schedule[int(config["curr_round"]) - 1]:
+                num_epochs = np.random.randint(1, config_train.N_EPOCHS_CLIENT)
 
-        else:
-            num_epochs = config_train.N_EPOCHS_CLIENT
+                if config["drop_client"]:
+                    # return without doing any training.
+                    # The flag in the metric will be used to tell the strategy
+                    # to discard the model upon aggregation
+                    return (
+                        self.get_parameters({}),
+                        len(self.train_loader),
+                        {"is_straggler": True},
+                    )
 
         models.train(
             self.model,
@@ -107,3 +107,19 @@ class FedBNClient(ClassicClient):
         param_dict = zip(keys, parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
         self.model.load_state_dict(state_dict, strict=False)
+
+
+def client_for_config(client_id, unet, optimizer, criterion, trainloader, testloader, valloader):
+    if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
+        stragglers_mat = np.transpose(
+            np.random.choice([0, 1], size=config_train.N_ROUNDS,
+                             p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
+        )
+
+        return FedProxClient(client_id, unet, optimizer, criterion, trainloader, testloader, valloader, stragglers_mat)
+
+    elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
+        return FedBNClient(client_id, unet, optimizer, criterion, trainloader, testloader, valloader)
+
+    else:  # config_train.CLIENT_TYPE == config_train.ClientTypes.FED_AVG:
+        return ClassicClient(client_id, unet, optimizer, criterion, trainloader, testloader, valloader)
