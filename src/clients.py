@@ -45,7 +45,7 @@ class ClassicClient(fl.client.NumPyClient):
         # TODO: valset instead of test
         self.set_parameters(parameters)
         loss, ssim = models.evaluate(self.model, self.test_loader, self.criterion)
-        return loss, len(self.test_loader.dataset), {"ssim": ssim}
+        return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
 
 
 class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attributes

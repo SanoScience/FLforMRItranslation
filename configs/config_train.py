@@ -14,7 +14,7 @@ N_EPOCHS_CENTRALIZED = 12
 # training parameters
 CLIENT_TYPE = ClientTypes.FED_AVG
 LOSS_TYPE = LossFunctions.MSE_DSSIM
-AGGREGATION_METHOD = AggregationMetithods.FED_ADAM
+AGGREGATION_METHOD = AggregationMethods.FED_ADAM
 
 N_EPOCHS_CLIENT = 1
 BATCH_SIZE = 3

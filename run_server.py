@@ -27,18 +27,15 @@ if __name__ == "__main__":
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
         on_fit_config = get_on_fit_config()
 
-    saving_strategy = create_dynamic_strategy(FedAvg, unet,
-                                              evaluate_metrics_aggregation_fn=weighted_average,
-                                              min_fit_clients=config_train.MIN_FIT_CLIENTS,
-                                              min_available_clients=config_train.MIN_AVAILABLE_CLIENTS,
-                                              fraction_fit=config_train.FRACTION_FIT,
-                                              on_fit_config_fn=get_on_fit_config(),
-                                              evaluate_fn=evaluate_fn)
+    saving_strategy = strategy_from_config(unet, loss_history, ssim_history)
 
     if config_train.LOCAL:
         server_address = f"0.0.0.0:{config_train.PORT}"
     else:
         server_address = f"{socket.gethostname()}:{config_train.PORT}"
+
+    print("SERVER STARTING...")
+    print("Strategy used: {}\n".format(saving_strategy))
 
     fl.server.start_server(
         server_address=server_address,

@@ -252,7 +252,7 @@ def train(model,
             val_ssims.append(val_ssim)
             val_losses.append(val_loss)
 
-    print("\nEnd of this round.")
+    print("\nEnd of this training round.\n\n")
 
     history = {"loss": train_losses, "ssim": train_ssims, "val_loss": val_losses, "val_ssim": val_ssims}
 
@@ -297,7 +297,7 @@ def evaluate(model, testloader, criterion, plots_dir=None, epoch=0):
 
     test_loss /= n_test_steps
     test_ssim /= n_test_steps
-    print(f"For validation set: test_loss: {test_loss:.3f} "
+    print(f"For evaluation set: test_loss: {test_loss:.3f} "
           f"test_ssim: {test_ssim:.3f}")
 
     if plots_dir is not None:
