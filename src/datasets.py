@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import Compose
 
 from configs import config_train
-from src.files_operations import load_nii_slices, get_nii_filepaths, TransformNIIDataToNumpySlices
+from src.files_operations import load_nii_slices, get_nii_filepaths, TransformNIIDataToNumpySlices, trim_image
 
 
 class MRIDatasetNII(Dataset):
@@ -17,7 +17,7 @@ class MRIDatasetNII(Dataset):
     MAX_SLICE_INDEX = 125
     STEP = 1
 
-    def __init__(self, data_dir: str,  t1_filepath_from_data_dir, t2_filepath_from_data_dir, transform: Compose, transform_order=None, n_patients=1, t1_to_t2=True):
+    def __init__(self, data_dir: str,  t1_filepath_from_data_dir, t2_filepath_from_data_dir, transform: Compose, image_size=None, transform_order=None, n_patients=1, t1_to_t2=True):
         self.data_dir = data_dir
         self.transform = transform
 
@@ -29,11 +29,11 @@ class MRIDatasetNII(Dataset):
         self.images, self.targets = [], []
 
         for img_path in images_filepaths:
-            slices, _, _ = load_nii_slices(img_path, transform_order, self.MIN_SLICE_INDEX, self.MAX_SLICE_INDEX)
+            slices, _, _ = load_nii_slices(img_path, transform_order, image_size, self.MIN_SLICE_INDEX, self.MAX_SLICE_INDEX)
             self.images.extend(slices)
 
         for target_path in targets_filepaths:
-            slices, _, _ = load_nii_slices(target_path, transform_order, self.MIN_SLICE_INDEX, self.MAX_SLICE_INDEX)
+            slices, _, _ = load_nii_slices(target_path, transform_order, image_size, self.MIN_SLICE_INDEX, self.MAX_SLICE_INDEX)
             self.targets.extend(slices)
 
     def __len__(self):
@@ -56,7 +56,7 @@ class MRIDatasetNumpySlices(Dataset):
     """
     EPS = 1e-6
 
-    def __init__(self, data_dirs: List[str], t1_to_t2=True, normalize=True):
+    def __init__(self, data_dirs: List[str], image_size=None, t1_to_t2=True, normalize=True):
         if not isinstance(data_dirs, List):
             raise TypeError(f"Give parameter data_dirs: {data_dirs} is type: {type(data_dirs)} and should be list of string.")
         if t1_to_t2:
@@ -67,6 +67,7 @@ class MRIDatasetNumpySlices(Dataset):
             target_type = "t1"
 
         self.normalize = normalize
+        self.image_size = image_size
         self.images = []
         self.targets = []
         for data_directory in data_dirs:
@@ -87,12 +88,19 @@ class MRIDatasetNumpySlices(Dataset):
         else:
             return tensor / max_value
 
+    def _trim_image(self, image):
+        return trim_image(image, self.image_size)
+
     def __getitem__(self, index):
         image_path = self.images[index]
         target_path = self.targets[index]
 
         np_image = np.load(image_path)
         np_target = np.load(target_path)
+
+        if self.image_size is not None:
+            np_image = self._trim_image(np_image)
+            np_target = self._trim_image(np_target)
 
         tensor_image = torch.from_numpy(np.expand_dims(np_image, axis=0))
         tensor_target = torch.from_numpy(np.expand_dims(np_target, axis=0))
@@ -116,7 +124,6 @@ class MRIDatasetNumpySlices(Dataset):
 
 
 def load_data(data_dir, batch_size, with_num_workers=True):
-    # TODO: maybe input the test_dir instead of loader
     train_dir = os.path.join(data_dir, "train")
     test_dir = os.path.join(data_dir, "test")
     val_dir = os.path.join(data_dir, "validation")

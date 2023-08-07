@@ -21,3 +21,4 @@ class AggregationMethods(Enum):
     FED_ADAGRAD = 4
     FED_YOGI = 5
     FED_COSTW = 6
+    FED_PID = 7

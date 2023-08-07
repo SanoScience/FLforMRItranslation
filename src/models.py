@@ -15,20 +15,20 @@ from src import visualization, files_operations as fop
 
 
 class UNet(nn.Module):
-    def __init__(self, bilinear=False):
+    def __init__(self, bilinear=False, batch_normalization=False):
         super(UNet, self).__init__()
         self.bilinear = bilinear
 
-        self.inc = (DoubleConv(1, 64))
-        self.down1 = (Down(64, 128))
-        self.down2 = (Down(128, 256))
-        self.down3 = (Down(256, 512))
+        self.inc = (DoubleConv(1, 64, batch_normalization))
+        self.down1 = (Down(64, 128, batch_normalization))
+        self.down2 = (Down(128, 256, batch_normalization))
+        self.down3 = (Down(256, 512, batch_normalization))
         factor = 2 if bilinear else 1
-        self.down4 = (Down(512, 1024 // factor))
-        self.up1 = (Up(1024, 512 // factor, bilinear))
-        self.up2 = (Up(512, 256 // factor, bilinear))
-        self.up3 = (Up(256, 128 // factor, bilinear))
-        self.up4 = (Up(128, 64, bilinear))
+        self.down4 = (Down(512, 1024 // factor, batch_normalization))
+        self.up1 = (Up(1024, 512 // factor, batch_normalization, bilinear))
+        self.up2 = (Up(512, 256 // factor, batch_normalization, bilinear))
+        self.up3 = (Up(256, 128 // factor, batch_normalization, bilinear))
+        self.up4 = (Up(128, 64, batch_normalization, bilinear))
         self.outc = (OutConv(64, 1))
 
     def forward(self, x):
@@ -65,18 +65,26 @@ class UNet(nn.Module):
 
 class DoubleConv(nn.Module):
 
-    def __init__(self, in_channels, out_channels, mid_channels=None):
+    def __init__(self, in_channels, out_channels, batch_normalization: bool, mid_channels=None):
         super().__init__()
+
         if not mid_channels:
             mid_channels = out_channels
-        self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
-        )
+
+        if batch_normalization:
+            layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
+                      nn.BatchNorm2d(mid_channels),
+                      nn.ReLU(inplace=True),
+                      nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
+                      nn.BatchNorm2d(out_channels),
+                      nn.ReLU(inplace=True)]
+        else:
+            layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
+                      nn.ReLU(inplace=True),
+                      nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
+                      nn.ReLU(inplace=True)]
+
+        self.double_conv = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.double_conv(x)
@@ -85,11 +93,11 @@ class DoubleConv(nn.Module):
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
 
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, batch_normalization):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
             nn.MaxPool2d(2),
-            DoubleConv(in_channels, out_channels)
+            DoubleConv(in_channels, out_channels, batch_normalization)
         )
 
     def forward(self, x):
@@ -99,7 +107,7 @@ class Down(nn.Module):
 class Up(nn.Module):
     """Upscaling then double conv"""
 
-    def __init__(self, in_channels, out_channels, bilinear=True):
+    def __init__(self, in_channels, out_channels, batch_normalization, bilinear=True):
         super().__init__()
 
         # if bilinear, use the normal convolutions to reduce the number of channels
@@ -108,7 +116,7 @@ class Up(nn.Module):
             self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
         else:
             self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-            self.conv = DoubleConv(in_channels, out_channels)
+            self.conv = DoubleConv(in_channels, out_channels, batch_normalization)
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
@@ -140,7 +148,7 @@ batch_print_freq = config_train.BATCH_PRINT_FREQ
 ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
 
 
-def _train_one_epoch(model, trainloader, optimizer,  criterion, batch_print_frequency, prox_loss):
+def _train_one_epoch(model, trainloader, optimizer, criterion, batch_print_frequency, prox_loss):
     running_loss, total_ssim = 0.0, 0.0
     epoch_loss, epoch_ssim = 0.0, 0.0
 
@@ -212,7 +220,7 @@ def train(model,
           filename=None,
           history_filename="history.pkl",
           plots_dir=None):
-    print(f"Training... \non device: {device} \nwith loss: {criterion}\n")
+    print(f"Training... \n\ton device: {device} \n\twith loss: {criterion}\n")
 
     if not isinstance(criterion, Callable):
         raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
@@ -241,7 +249,8 @@ def train(model,
     for epoch in range(epochs):
         print(f"EPOCH: {epoch + 1}/{epochs}")
 
-        epoch_loss, epoch_ssim = _train_one_epoch(model, trainloader, optimizer, criterion, batch_print_frequency, prox_loss)
+        epoch_loss, epoch_ssim = _train_one_epoch(model, trainloader, optimizer, criterion, batch_print_frequency,
+                                                  prox_loss)
 
         train_ssims.append(epoch_ssim)
         train_losses.append(epoch_loss)
@@ -271,7 +280,7 @@ def evaluate(model, testloader, criterion, plots_dir=None, epoch=0):
     if isinstance(criterion, src.loss_functions.LossWithProximalTerm):
         criterion = criterion.base_loss_fn
 
-    print(f"Testing... \nON DEVICE: {device} \nWITH LOSS: {criterion}\n")
+    print(f"Testing... \n\tON DEVICE: {device} \n\tWITH LOSS: {criterion}\n")
 
     if not isinstance(criterion, Callable):
         raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
@@ -306,7 +315,6 @@ def evaluate(model, testloader, criterion, plots_dir=None, epoch=0):
         visualization.plot_batch([images_cpu, targets_cpu, predictions.to('cpu').detach()], filepath=filepath)
 
     return test_loss, test_ssim
-
 
 # def test(model, testloader: DataLoader, criterion, plots_dir=None, epoch=None) -> Tuple[float, float]:
 #     print(f"Testing \non device: {device} \nwith loss: {criterion})...\n")

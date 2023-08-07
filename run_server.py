@@ -13,7 +13,7 @@ if not config_train.LOCAL:
 
 
 if __name__ == "__main__":
-    unet = models.UNet()
+    unet = models.UNet(batch_normalization=config_train.BATCH_NORMALIZATION)
 
     loss_history = []
     ssim_history = []
@@ -45,5 +45,5 @@ if __name__ == "__main__":
 
     history = {"loss": [val for _, val in loss_history], "ssim": [val for _, val in ssim_history]}
 
-    with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/history.pkl", "wb") as file:
+    with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/test_history.pkl", "wb") as file:
         pickle.dump(history, file)

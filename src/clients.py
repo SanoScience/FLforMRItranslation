@@ -32,17 +32,20 @@ class ClassicClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
-        models.train(self.model,
-                     self.train_loader,
-                     self.optimizer,
-                     self.criterion,
-                     validationloader=self.val_loader,
-                     epochs=config_train.N_EPOCHS_CLIENT)
+        history = models.train(self.model,
+                               self.train_loader,
+                               self.optimizer,
+                               self.criterion,
+                               validationloader=self.val_loader,
+                               epochs=config_train.N_EPOCHS_CLIENT)
 
-        return self.get_parameters(config={}), len(self.train_loader.dataset), {}
+        # TODO: how to compute this loss
+        loss_avg = sum([loss_value for loss_value in history["loss"]]) / len(history["loss"])
+        ssim_avg = sum([ssim_value for ssim_value in history["ssim"]]) / len(history["ssim"])
+
+        return self.get_parameters(config={}), len(self.train_loader.dataset), {"loss": loss_avg, "ssim": ssim_avg}
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
-        # TODO: valset instead of test
         self.set_parameters(parameters)
         loss, ssim = models.evaluate(self.model, self.test_loader, self.criterion)
         return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
@@ -52,7 +55,8 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
     """Standard Flower client for CNN training."""
 
     def __init__(self, client_id, model: models.UNet, optimizer, criterion,
-                 train_loader: DataLoader, test_loader: DataLoader, val_loader: DataLoader, straggler_schedule=None):  # pylint: disable=too-many-arguments
+                 train_loader: DataLoader, test_loader: DataLoader, val_loader: DataLoader,
+                 straggler_schedule=None):  # pylint: disable=too-many-arguments
         super().__init__(client_id, model, optimizer, criterion,
                          train_loader, test_loader, val_loader)
 
