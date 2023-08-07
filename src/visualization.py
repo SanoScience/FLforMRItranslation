@@ -1,34 +1,17 @@
+from typing import List
+
 import matplotlib.pyplot as plt
 import torch
 from torch import Tensor
 
-
-class MinMaxScalar(object):
-    def __init__(self, desired_range=(0.0, 1.0)):
-        super(MinMaxScalar, self).__init__()
-        self.desired_range = desired_range
-
-    def __call__(self, tensor: Tensor):
-        # TODO: implement variable desired_range usage
-        max_value = torch.max(tensor).data
-        min_value = torch.min(tensor)
-
-        # converting to float to be able to perform tensor multiplication
-        # otherwise an error
-        return (tensor / max_value).float()
-
-    def __repr__(self):
-        return "Min-max scaler"
-
-
 # visualization
-def plot_hist(tensor: Tensor, bins=240, title=None):
+def plot_hist(tensor: Tensor, bins=240, title : str = None):
     plt.hist(tensor.detach().numpy().ravel(), bins=bins)
     plt.title(title)
     plt.show()
 
 
-def plot_batch(to_plot, show=True, filepath=None, title="", cmap="gray"):
+def plot_batch(to_plot: List[torch.Tensor], show=True, filepath: str = None, title="", cmap="gray"):
     batch_size = len(to_plot[0])
     fig, axs = plt.subplots(len(to_plot), batch_size, figsize=(3 * batch_size, 15))
 

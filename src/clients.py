@@ -1,3 +1,6 @@
+import os
+import os.path
+import pickle
 from collections import OrderedDict
 from typing import Dict, Tuple
 
@@ -9,18 +12,24 @@ from torch.utils.data import DataLoader
 
 from configs import config_train
 from src import models
+from src.datasets import MRIDatasetNumpySlices
 
 
 class ClassicClient(fl.client.NumPyClient):
-    def __init__(self, client_id, model: models.UNet, optimizer, criterion,
-                 train_loader: DataLoader, test_loader: DataLoader, val_loader: DataLoader):
+    def __init__(self, client_id, model: models.UNet, optimizer, criterion, data_dir):
         self.client_id = client_id
         self.model = model
-        self.train_loader = train_loader
-        self.test_loader = test_loader
-        self.val_loader = val_loader
+        self.train_loader, self.test_loader, self.val_loader = load_data(data_dir,
+                                                                         batch_size=config_train.BATCH_SIZE,
+                                                                         with_num_workers=not config_train.LOCAL)
+
         self.optimizer = optimizer
         self.criterion = criterion
+
+        self.history = {"loss": [], "ssim": []}
+        self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR, f"fedavg_client_{self.client_id}")
+
+        print(f"Client {client_id} with data from directory: {data_dir}: INITIALIZED\n")
 
     def get_parameters(self, config):
         return [val.cpu().numpy() for val in self.model.state_dict().values()]
@@ -39,7 +48,6 @@ class ClassicClient(fl.client.NumPyClient):
                                validationloader=self.val_loader,
                                epochs=config_train.N_EPOCHS_CLIENT)
 
-        # TODO: how to compute this loss
         loss_avg = sum([loss_value for loss_value in history["loss"]]) / len(history["loss"])
         ssim_avg = sum([ssim_value for ssim_value in history["ssim"]]) / len(history["ssim"])
 
@@ -48,19 +56,33 @@ class ClassicClient(fl.client.NumPyClient):
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
         self.set_parameters(parameters)
         loss, ssim = models.evaluate(self.model, self.test_loader, self.criterion)
+
+        # adding to the history
+        self.history["loss"].append(loss)
+        self.history["ssim"].append(ssim)
+
+        # saving model and history if it is the last round
+        if config["current_round"] == config_train.N_ROUNDS:
+            self.model.save(self.client_dir)
+
+            with open(f"{self.client_dir}/history.pkl", 'wb') as file:
+                pickle.dump(self.history, file)
+
         return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
 
 
 class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attributes
     """Standard Flower client for CNN training."""
+    NUMBER_OF_SAMPLES = 25000
 
-    def __init__(self, client_id, model: models.UNet, optimizer, criterion,
-                 train_loader: DataLoader, test_loader: DataLoader, val_loader: DataLoader,
-                 straggler_schedule=None):  # pylint: disable=too-many-arguments
-        super().__init__(client_id, model, optimizer, criterion,
-                         train_loader, test_loader, val_loader)
+    def __init__(self, client_id, model: models.UNet, optimizer, criterion, data_dir: str,
+                 straggler_schedule=None, epochs_multiplier: int = 1):  # pylint: disable=too-many-arguments
+        super().__init__(client_id, model, optimizer, criterion, data_dir)
 
         self.straggler_schedule = straggler_schedule
+        self.epochs_multiplier = epochs_multiplier
+
+        self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR, f"fedprox_client_{self.client_id}")
 
     def fit(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[NDArrays, int, Dict]:
         """Implements distributed fit function for a given client."""
@@ -75,10 +97,16 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
         # returned) whether the client is a straggler or not. This info
         # is used by strategies other than FedProx to discard the update.
         num_epochs = config_train.N_EPOCHS_CLIENT
+        num_samples = len(self.train_loader.dataset)
 
+        # TODO: maybe not a straggler but always like this?
         if self.straggler_schedule is not None:
             if self.straggler_schedule[int(config["curr_round"]) - 1]:
-                num_epochs = np.random.randint(1, config_train.N_EPOCHS_CLIENT)
+                from math import ceil
+                # inversely proportional to the number of training samples
+                # results in iterating for about the same time with different dataset size
+                num_epochs = ceil(self.epochs_multiplier * (self.NUMBER_OF_SAMPLES / num_samples))
+                # num_epochs = np.random.randint(1, config_train.N_EPOCHS_CLIENT)
 
                 if config["drop_client"]:
                     # return without doing any training.
@@ -90,7 +118,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                         {"is_straggler": True},
                     )
 
-        models.train(
+        history = models.train(
             self.model,
             self.train_loader,
             self.optimizer,
@@ -100,30 +128,62 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
             validationloader=self.val_loader,
         )
 
-        return self.get_parameters({}), len(self.train_loader.dataset), {"is_straggler": False}
+        loss_avg = sum([loss_value for loss_value in history["loss"]]) / len(history["loss"])
+        ssim_avg = sum([ssim_value for ssim_value in history["ssim"]]) / len(history["ssim"])
+
+        return self.get_parameters({}), num_samples, {"loss": loss_avg, "ssim": ssim_avg, "is_straggler": False}
 
 
 class FedBNClient(ClassicClient):
     def set_parameters(self, parameters):
         self.model.train()
 
-        keys = [k for k in self.model.state_dict().keys() if "bn" not in k]
+        old_state_dict = self.model.state_dict()
+        keys = [k for k in old_state_dict.keys() if "bn" not in k]
         param_dict = zip(keys, parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
         self.model.load_state_dict(state_dict, strict=False)
 
+    def __repr__(self):
+        return "FedBN"
 
-def client_for_config(client_id, unet, optimizer, criterion, trainloader, testloader, valloader):
+
+def client_for_config(client_id, unet: models.UNet, optimizer, criterion, data_dir: str):
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
         stragglers_mat = np.transpose(
             np.random.choice([0, 1], size=config_train.N_ROUNDS,
                              p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
         )
 
-        return FedProxClient(client_id, unet, optimizer, criterion, trainloader, testloader, valloader, stragglers_mat)
+        return FedProxClient(client_id, unet, optimizer, criterion, data_dir, stragglers_mat)
 
     elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
-        return FedBNClient(client_id, unet, optimizer, criterion, trainloader, testloader, valloader)
+        return FedBNClient(client_id, unet, optimizer, criterion, data_dir)
 
     else:  # config_train.CLIENT_TYPE == config_train.ClientTypes.FED_AVG:
-        return ClassicClient(client_id, unet, optimizer, criterion, trainloader, testloader, valloader)
+        return ClassicClient(client_id, unet, optimizer, criterion, data_dir)
+
+
+def load_data(data_dir, batch_size, with_num_workers=True):
+    train_dir = os.path.join(data_dir, "train")
+    test_dir = os.path.join(data_dir, "test")
+    val_dir = os.path.join(data_dir, "validation")
+
+    trainset = MRIDatasetNumpySlices([train_dir])
+    testset = MRIDatasetNumpySlices([test_dir])
+    validationset = MRIDatasetNumpySlices([val_dir])
+
+    if with_num_workers:
+        # TODO: consider persistent_workers=True
+        train_loader = DataLoader(trainset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
+                                  pin_memory=True, shuffle=True)
+        test_loader = DataLoader(testset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
+                                 pin_memory=True, shuffle=True)
+        val_loader = DataLoader(validationset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
+                                pin_memory=True, shuffle=True)
+    else:
+        train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(validationset, batch_size=batch_size,  shuffle=True)
+
+    return train_loader, test_loader, val_loader

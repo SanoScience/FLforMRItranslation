@@ -3,7 +3,6 @@ import logging
 import numpy as np
 
 from functools import reduce
-from flwr.server import ClientManager
 from torch.utils.data import DataLoader
 
 from src import files_operations, loss_functions, models, datasets
@@ -14,82 +13,10 @@ from flwr.server.criterion import ClientProxy
 from flwr.common import Scalar, FitRes, Parameters, logger, Metrics, NDArrays, parameters_to_ndarrays, \
     ndarrays_to_parameters
 from flwr.server.strategy import Strategy
-from flwr.server.strategy import FedAdam, FedAvg, FedYogi, FedProx, FedAdagrad, aggregate
+from flwr.server.strategy import FedAdam, FedAvg, FedYogi, FedProx, FedAdagrad, FedAvgM, aggregate
 
 from typing import List, Tuple, Dict, Union, Optional, Type
 from collections import OrderedDict
-
-
-def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
-    # Multiply accuracy of each client by number of examples used
-    ssim_values = [num_examples * m["ssim"] for num_examples, m in metrics]
-    loss_values = [num_examples * m["loss"] for num_examples, m in metrics]
-
-    examples = [num_examples for num_examples, _ in metrics]
-
-    # Aggregate and return custom metric (weighted average)
-    results = {"loss": sum(loss_values) / sum(examples), "ssim": sum(ssim_values) / sum(examples)}
-
-    return results
-
-
-def get_on_fit_config():
-    if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
-        def fit_config_fn(server_round: int):
-            # resolve and convert to python dict
-            fit_config = {"drop_client": False, "curr_round": server_round}
-            return fit_config
-    else:
-        def fit_config_fn(server_round: int):
-            return {}
-
-    return fit_config_fn
-
-
-def get_evaluate_fn(model: models.UNet, loss_history=None, ssim_history=None):
-    data_dir = "C:\\Users\\JanFiszer\\data\\mega_small_hgg\\test"
-    if data_dir is None:
-        raise NotImplementedError
-    testset = datasets.MRIDatasetNumpySlices([data_dir])
-    testloader = DataLoader(testset, batch_size=config_train.BATCH_SIZE, num_workers=config_train.NUM_WORKERS,
-                            pin_memory=True)
-
-    def evaluate(
-            server_round: int, parameters: NDArrays, config: Dict[str, Scalar]
-    ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
-        param_dict = zip(model.state_dict().keys(), parameters)
-        state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
-        model.load_state_dict(state_dict)
-
-        criterion = loss_functions.loss_for_config()
-
-        # for global evaluation we will not have global parameters so the loss function mustn't be LossWithProximalTerm
-        if isinstance(criterion, loss_functions.LossWithProximalTerm):
-            criterion = criterion.base_loss_fn
-
-        loss, ssim = models.evaluate(model, testloader, criterion)
-
-        loss_history.append((server_round, loss))
-        ssim_history.append((server_round, ssim))
-
-        return loss, {"ssim": ssim}
-
-    return evaluate
-
-
-def save_aggregated_model(net: models.UNet, aggregated_parameters, server_round: int, ):
-    aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
-
-    params_dict = zip(net.state_dict().keys(), aggregated_ndarrays)
-    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-    net.load_state_dict(state_dict)
-
-    directory = config_train.TRAINED_MODEL_SERVER_DIR
-
-    files_operations.try_create_dir(directory)  # creating directory before to don't get warnings
-    net.save(directory, filename=f"round{server_round}.pth", create_dir=False)
-
-    logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
 
 
 def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, saving_frequency=1, *args, **kwargs):
@@ -121,7 +48,7 @@ class FedCostWAvg(FedAvg):
         self.model = model
         self.alpha = alpha
         self.saving_frequency = saving_frequency
-        self.previous_loss_values = None  # TODO: consider initializing with some values to don;t have to check if it is none
+        self.previous_loss_values = None
 
     def aggregate_fit(
             self,
@@ -194,7 +121,7 @@ class FedPIDAvg(FedCostWAvg):
 
         super().__init__(model, **kwargs)
 
-        self.alpha = alpha  # maybe not needed cuz it is in FedCostW
+        self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
         self.saving_frequency = saving_frequency
@@ -275,7 +202,22 @@ class FedPIDAvg(FedCostWAvg):
         return f"FedPIDAvg(alpha={self.alpha}, beta{self.beta}, gamma={self.gamma})"
 
 
-def strategy_from_config(model, loss_history, ssim_history):
+def save_aggregated_model(net: models.UNet, aggregated_parameters, server_round: int, ):
+    aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
+
+    params_dict = zip(net.state_dict().keys(), aggregated_ndarrays)
+    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+    net.load_state_dict(state_dict)
+
+    directory = config_train.TRAINED_MODEL_SERVER_DIR
+
+    files_operations.try_create_dir(directory)  # creating directory before to don't get warnings
+    net.save(directory, filename=f"round{server_round}.pth", create_dir=False)
+
+    logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
+
+
+def strategy_from_config(model, evaluate_fn):
     kwargs = {
         "evaluate_metrics_aggregation_fn": weighted_average,
         "fit_metrics_aggregation_fn": weighted_average,
@@ -283,22 +225,16 @@ def strategy_from_config(model, loss_history, ssim_history):
         "min_available_clients": config_train.MIN_AVAILABLE_CLIENTS,
         "fraction_fit": config_train.FRACTION_FIT,
         "on_fit_config_fn": get_on_fit_config(),
-        "evaluate_fn": get_evaluate_fn(model, loss_history, ssim_history),
+        "evaluate_fn": evaluate_fn,
+        "on_evaluate_config_fn": get_on_eval_config()
     }
 
     if config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_COSTW:
         return FedCostWAvg(model, **kwargs)
-                           # evaluate_metrics_aggregation_fn=weighted_average,
-                           # fit_metrics_aggregation_fn=weighted_average,
-                           # min_fit_clients=config_train.MIN_FIT_CLIENTS,
-                           # min_available_clients=config_train.MIN_AVAILABLE_CLIENTS,
-                           # fraction_fit=config_train.FRACTION_FIT,
-                           # on_fit_config_fn=get_on_fit_config(),
-                           # evaluate_fn=get_evaluate_fn(model, loss_history, ssim_history))
-    if config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_PID:
+    elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_PID:
         return FedPIDAvg(model, **kwargs)
 
-    if config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_PROX:
+    elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_PROX:
         strategy_class = FedProx
         kwargs["proximal_mu"] = config_train.PROXIMAL_MU
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_ADAM:
@@ -307,11 +243,78 @@ def strategy_from_config(model, loss_history, ssim_history):
         strategy_class = FedYogi
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_ADAGRAD:
         strategy_class = FedAdagrad
+    elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_AVGM:
+        strategy_class = FedAvgM
     else:  # FedBN and FedAvg
         strategy_class = FedAvg
 
     return create_dynamic_strategy(strategy_class, model, **kwargs)
 
+
+# FUNCTIONS
+# used by the strategy to during fit and evaluate
+def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
+    # Multiply accuracy of each client by number of examples used
+    ssim_values = [num_examples * m["ssim"] for num_examples, m in metrics]
+    loss_values = [num_examples * m["loss"] for num_examples, m in metrics]
+
+    examples = [num_examples for num_examples, _ in metrics]
+
+    # Aggregate and return custom metric (weighted average)
+    results = {"loss": sum(loss_values) / sum(examples), "ssim": sum(ssim_values) / sum(examples)}
+
+    return results
+
+
+def get_on_fit_config():
+    def on_fit_config_fn(server_round: int):
+        if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
+            fit_config = {"current_round": server_round, "drop_client": False}
+        else:
+            fit_config = {}
+        return fit_config
+    return on_fit_config_fn
+
+
+def get_on_eval_config():
+    def on_eval_config_fn(server_round: int):
+        fit_config = {"current_round": server_round}
+        return fit_config
+    return on_eval_config_fn
+
+
+def get_evaluate_fn(model: models.UNet, data_dir: str,
+                    loss_history: Optional[List] = None, ssim_history: Optional[List] = None):
+    # FedBN doesn't provide a global model to evaluate
+    if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
+        return None
+
+    testset = datasets.MRIDatasetNumpySlices([data_dir])
+    testloader = DataLoader(testset, batch_size=config_train.BATCH_SIZE, num_workers=config_train.NUM_WORKERS,
+                            pin_memory=True)
+
+    def evaluate(
+            server_round: int, parameters: NDArrays, config: Dict[str, Scalar]
+    ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
+        param_dict = zip(model.state_dict().keys(), parameters)
+        state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
+        model.load_state_dict(state_dict)
+
+        criterion = loss_functions.loss_for_config()
+
+        # for global evaluation we will not have global parameters so the loss function mustn't be LossWithProximalTerm
+        if isinstance(criterion, loss_functions.LossWithProximalTerm):
+            criterion = criterion.base_loss_fn
+
+        loss, ssim = models.evaluate(model, testloader, criterion)
+
+        # TODO: consider if server_round needed
+        loss_history.append((server_round, loss))
+        ssim_history.append((server_round, ssim))
+
+        return loss, {"ssim": ssim}
+
+    return evaluate
 # class SaveModelStrategy:
 #     def __init__(self, model, aggregation_class: Type[Strategy], saving_frequency=1, *args, **kwargs):
 #         self.model = model

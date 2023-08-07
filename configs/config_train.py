@@ -8,9 +8,9 @@ LOCAL = True
 N_EPOCHS_CENTRALIZED = 12
 
 # training parameters
-CLIENT_TYPE = ClientTypes.FED_AVG
+CLIENT_TYPE = ClientTypes.FED_BN
 LOSS_TYPE = LossFunctions.MSE_DSSIM
-AGGREGATION_METHOD = AggregationMethods.FED_PID
+AGGREGATION_METHOD = AggregationMethods.FED_AVG
 
 BATCH_NORMALIZATION = True if CLIENT_TYPE == ClientTypes.FED_BN else False
 N_EPOCHS_CLIENT = 1
@@ -39,5 +39,5 @@ else:
     DATA_ROOT_DIR = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL"
 
 now = datetime.datetime.now()
-TRAINED_MODEL_CLIENT_DIR = f"./trained_models/client/model-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}_{now.minute}"
-TRAINED_MODEL_SERVER_DIR = f"./trained_models/server/model-{AGGREGATION_METHOD.name}-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}_{now.minute}"
+# TRAINED_MODEL_CLIENT_DIR = f"./trained_models/client/model-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}_{now.minute}"
+TRAINED_MODEL_SERVER_DIR = f"./trained_models/server/model-{AGGREGATION_METHOD.name}-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}h"

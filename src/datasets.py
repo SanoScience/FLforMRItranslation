@@ -1,14 +1,12 @@
 import logging
-import os
 from glob import glob
 from typing import List
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from torchvision.transforms import Compose
 
-from configs import config_train
 from src.files_operations import load_nii_slices, get_nii_filepaths, TransformNIIDataToNumpySlices, trim_image
 
 
@@ -121,28 +119,3 @@ class MRIDatasetNumpySlices(Dataset):
         # converting to float to be able to perform tensor multiplication
         # otherwise an error
         return tensor_image.float(), tensor_target.float()
-
-
-def load_data(data_dir, batch_size, with_num_workers=True):
-    train_dir = os.path.join(data_dir, "train")
-    test_dir = os.path.join(data_dir, "test")
-    val_dir = os.path.join(data_dir, "validation")
-
-    trainset = MRIDatasetNumpySlices([train_dir])
-    testset = MRIDatasetNumpySlices([test_dir])
-    validationset = MRIDatasetNumpySlices([val_dir])
-
-    if with_num_workers:
-        # TODO: consider persistent_workers=True
-        train_loader = DataLoader(trainset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
-                                  pin_memory=True, shuffle=True)
-        test_loader = DataLoader(testset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
-                                 pin_memory=True, shuffle=True)
-        val_loader = DataLoader(validationset, batch_size=batch_size, num_workers=config_train.NUM_WORKERS,
-                                pin_memory=True, shuffle=True)
-    else:
-        train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
-        test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(validationset, batch_size=batch_size,  shuffle=True)
-
-    return train_loader, test_loader, val_loader

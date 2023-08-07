@@ -17,6 +17,7 @@ from src import visualization, files_operations as fop
 class UNet(nn.Module):
     def __init__(self, bilinear=False, batch_normalization=False):
         super(UNet, self).__init__()
+        self.batch_normalization = batch_normalization
         self.bilinear = bilinear
 
         self.inc = (DoubleConv(1, 64, batch_normalization))
@@ -62,6 +63,8 @@ class UNet(nn.Module):
 
         print("Model saved to: ", filepath)
 
+    def __repr__(self):
+        return f"UNet(batch_norm={self.batch_normalization})"
 
 class DoubleConv(nn.Module):
 
@@ -142,7 +145,7 @@ class OutConv(nn.Module):
         return torch.sigmoid(self.conv(x))
 
 
-model_dir = config_train.TRAINED_MODEL_CLIENT_DIR
+model_dir = config_train.TRAINED_MODEL_SERVER_DIR
 device = config_train.DEVICE
 batch_print_freq = config_train.BATCH_PRINT_FREQ
 ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
@@ -218,15 +221,19 @@ def train(model,
           prox_loss=False,
           validationloader=None,
           filename=None,
-          history_filename="history.pkl",
+          history_filename=None,
           plots_dir=None):
     print(f"Training... \n\ton device: {device} \n\twith loss: {criterion}\n")
 
     if not isinstance(criterion, Callable):
         raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
 
-    fop.try_create_dir(model_dir)
-    print(f"Model, history and plots will be save to {model_dir}")
+    if any([history_filename, plots_dir, filename]):
+        fop.try_create_dir(model_dir)
+        print(f"Model, history and plots will be saved to {model_dir}")
+    else:
+        print(f"Neither model, history nor plots from the training process will be saved!")
+
 
     n_batches = len(trainloader)
 
