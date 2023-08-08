@@ -19,7 +19,7 @@ if __name__ == "__main__":
     else:
         eval_data_dir = sys.argv[1]
 
-    unet = models.UNet(batch_normalization=config_train.BATCH_NORMALIZATION)
+    unet = models.UNet()
 
     # TODO: maybe already init as a dict instead of two lists
     loss_history = []

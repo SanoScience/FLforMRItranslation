@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch import Tensor
 
+
 # visualization
 def plot_hist(tensor: Tensor, bins=240, title : str = None):
     plt.hist(tensor.detach().numpy().ravel(), bins=bins)

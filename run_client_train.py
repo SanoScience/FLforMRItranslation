@@ -20,7 +20,7 @@ if __name__ == "__main__":
         server_node = sys.argv[3]
         with_num_workers = True
     # Model
-    unet = models.UNet(batch_normalization=config_train.BATCH_NORMALIZATION).to(config_train.DEVICE)
+    unet = models.UNet().to(config_train.DEVICE)
     optimizer = torch.optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
     criterion = loss_functions.loss_for_config()
 

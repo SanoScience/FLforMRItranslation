@@ -27,7 +27,8 @@ class ClassicClient(fl.client.NumPyClient):
         self.criterion = criterion
 
         self.history = {"loss": [], "ssim": []}
-        self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR, f"fedavg_client_{self.client_id}")
+        self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR,
+                                       f"{self.__repr__()}_client_{self.client_id}")
 
         print(f"Client {client_id} with data from directory: {data_dir}: INITIALIZED\n")
 
@@ -41,12 +42,13 @@ class ClassicClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
-        history = models.train(self.model,
-                               self.train_loader,
-                               self.optimizer,
-                               self.criterion,
-                               validationloader=self.val_loader,
-                               epochs=config_train.N_EPOCHS_CLIENT)
+        history = self.model.perform_train(self.train_loader,
+                                           self.optimizer,
+                                           self.criterion,
+                                           validationloader=self.val_loader,
+                                           epochs=config_train.N_EPOCHS_CLIENT)
+
+        print(f"END OF THIS ROUND CLIENT TRAINING\n")
 
         loss_avg = sum([loss_value for loss_value in history["loss"]]) / len(history["loss"])
         ssim_avg = sum([ssim_value for ssim_value in history["ssim"]]) / len(history["ssim"])
@@ -55,7 +57,9 @@ class ClassicClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
         self.set_parameters(parameters)
-        loss, ssim = models.evaluate(self.model, self.test_loader, self.criterion)
+        loss, ssim = self.model.evaluate(self.test_loader, self.criterion)
+
+        print(f"END OF CLIENT TESTING\n\n")
 
         # adding to the history
         self.history["loss"].append(loss)
@@ -69,6 +73,9 @@ class ClassicClient(fl.client.NumPyClient):
                 pickle.dump(self.history, file)
 
         return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
+
+    def __repr__(self):
+        return "FedAvg"
 
 
 class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attributes
@@ -118,20 +125,21 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                         {"is_straggler": True},
                     )
 
-        history = models.train(
-            self.model,
-            self.train_loader,
-            self.optimizer,
-            self.criterion,
-            epochs=num_epochs,
-            prox_loss=True,
-            validationloader=self.val_loader,
-        )
+        history = self.model.perform_train(self.train_loader,
+                                           self.optimizer,
+                                           self.criterion,
+                                           epochs=num_epochs,
+                                           prox_loss=True,
+                                           validationloader=self.val_loader,
+                                           )
 
         loss_avg = sum([loss_value for loss_value in history["loss"]]) / len(history["loss"])
         ssim_avg = sum([ssim_value for ssim_value in history["ssim"]]) / len(history["ssim"])
 
         return self.get_parameters({}), num_samples, {"loss": loss_avg, "ssim": ssim_avg, "is_straggler": False}
+
+    def __repr__(self):
+        return "FedProx"
 
 
 class FedBNClient(ClassicClient):
@@ -184,6 +192,6 @@ def load_data(data_dir, batch_size, with_num_workers=True):
     else:
         train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(validationset, batch_size=batch_size,  shuffle=True)
+        val_loader = DataLoader(validationset, batch_size=batch_size, shuffle=True)
 
     return train_loader, test_loader, val_loader

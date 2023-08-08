@@ -1,3 +1,4 @@
+import os
 import torch.optim as optim
 
 from src import loss_functions
@@ -48,7 +49,7 @@ if __name__ == '__main__':
 
     unet = UNet().to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
-    criterion = loss_functions.dssim_mse
+    criterion = loss_functions.DssimMse()
     model_filename = f"model_all_dirs.pth"
 
     train(unet,

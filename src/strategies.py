@@ -24,6 +24,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, s
         def __init__(self):
             # TODO: verify if it initialize the weights well
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
+            print("\n\nVERIFY IF STRATEGY CREATED ONCE!!!\n\n")
             super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
             self.model = model
             self.saving_frequency = saving_frequency
@@ -239,10 +240,13 @@ def strategy_from_config(model, evaluate_fn):
         kwargs["proximal_mu"] = config_train.PROXIMAL_MU
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_ADAM:
         strategy_class = FedAdam
+        kwargs["tau"] = 0.001
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_YOGI:
         strategy_class = FedYogi
+        kwargs["tau"] = 0.001
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_ADAGRAD:
         strategy_class = FedAdagrad
+        kwargs["tau"] = 0.001
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_AVGM:
         strategy_class = FedAvgM
     else:  # FedBN and FedAvg
@@ -306,8 +310,9 @@ def get_evaluate_fn(model: models.UNet, data_dir: str,
         if isinstance(criterion, loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
 
-        loss, ssim = models.evaluate(model, testloader, criterion)
+        loss, ssim = model.evaluate(testloader, criterion)
 
+        print("END OF SERVER TESTING.")
         # TODO: consider if server_round needed
         loss_history.append((server_round, loss))
         ssim_history.append((server_round, ssim))
