@@ -202,11 +202,14 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
     return t1_filepaths, t2_filepaths
 
 
-def try_create_dir(dir_name):
+def try_create_dir(dir_name, allow_overwrite=True):
     try:
         os.mkdir(dir_name)
     except FileExistsError:
-        logging.warning(f"Directory {dir_name} already exists. You may overwrite your files or create some collisions!")
+        if allow_overwrite:
+            logging.warning(f"Directory {dir_name} already exists. You may overwrite your files or create some collisions!")
+        else:
+            raise FileExistsError(f"Directory {dir_name} already exists. If you want to overwrite it change allow_overwrite for True")
 
     except FileNotFoundError:
         ex = FileNotFoundError(f"The path {dir_name} to directory willing to be created doesn't exist. You are in {os.getcwd()}.")

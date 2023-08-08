@@ -22,9 +22,7 @@ from collections import OrderedDict
 def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, saving_frequency=1, *args, **kwargs):
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
-            # TODO: verify if it initialize the weights well
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
-            print("\n\nVERIFY IF STRATEGY CREATED ONCE!!!\n\n")
             super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
             self.model = model
             self.saving_frequency = saving_frequency
@@ -240,13 +238,13 @@ def strategy_from_config(model, evaluate_fn):
         kwargs["proximal_mu"] = config_train.PROXIMAL_MU
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_ADAM:
         strategy_class = FedAdam
-        kwargs["tau"] = 0.001
+        kwargs["tau"] = config_train.TAU
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_YOGI:
         strategy_class = FedYogi
-        kwargs["tau"] = 0.001
+        kwargs["tau"] = config_train.TAU
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_ADAGRAD:
         strategy_class = FedAdagrad
-        kwargs["tau"] = 0.001
+        kwargs["tau"] = config_train.TAU
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_AVGM:
         strategy_class = FedAvgM
     else:  # FedBN and FedAvg

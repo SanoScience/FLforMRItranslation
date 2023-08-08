@@ -8,9 +8,9 @@ LOCAL = True
 N_EPOCHS_CENTRALIZED = 12
 
 # training parameters
-CLIENT_TYPE = ClientTypes.FED_AVG
-LOSS_TYPE = LossFunctions.MSE_DSSIM
-AGGREGATION_METHOD = AggregationMethods.FED_ADAGRAD
+CLIENT_TYPE = ClientTypes.FED_PROX
+LOSS_TYPE = LossFunctions.PROX
+AGGREGATION_METHOD = AggregationMethods.FED_PROX
 
 # BATCH_NORMALIZATION = True if CLIENT_TYPE == ClientTypes.FED_BN else False
 N_EPOCHS_CLIENT = 1
@@ -26,7 +26,8 @@ BATCH_PRINT_FREQ = 10
 PORT = "8087"
 
 # federated learning
-N_ROUNDS = 3
+N_ROUNDS = 5
+TAU = 0.001
 MIN_FIT_CLIENTS = 2
 FRACTION_FIT = 1.0
 MIN_AVAILABLE_CLIENTS = 2
@@ -42,4 +43,4 @@ else:
 now = datetime.datetime.now()
 # TRAINED_MODEL_CLIENT_DIR = f"./trained_models/client/model-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}_{now.minute}"
 _REPRESENTATIVE_WORD = CLIENT_TYPE if CLIENT_TYPE == ClientTypes.FED_BN else AGGREGATION_METHOD
-TRAINED_MODEL_SERVER_DIR = f"./trained_models/server/model-{_REPRESENTATIVE_WORD.name}-lr{LEARNING_RATE}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}h"
+TRAINED_MODEL_SERVER_DIR = f"./trained_models/server/model-{_REPRESENTATIVE_WORD.name}-lr{LEARNING_RATE}-rd{N_ROUNDS}-ep{N_EPOCHS_CLIENT}-{now.date()}-{now.hour}h"

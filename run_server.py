@@ -2,6 +2,7 @@ import pickle
 import socket
 import os
 import sys
+from shutil import copy2
 
 from src.strategies import *
 
@@ -9,8 +10,6 @@ import flwr as fl
 
 if not config_train.LOCAL:
     os.chdir("repos/FLforMRItranslation")
-
-# TODO: save metrics_distributed and losses_distributed
 
 
 if __name__ == "__main__":
@@ -47,3 +46,5 @@ if __name__ == "__main__":
 
         with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/history.pkl", "wb") as file:
             pickle.dump(history, file)
+
+    copy2("./configs/config_train.py", f"{config_train.TRAINED_MODEL_SERVER_DIR}/config.py")

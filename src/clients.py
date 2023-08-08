@@ -1,6 +1,7 @@
 import os
 import os.path
 import pickle
+import random
 from collections import OrderedDict
 from typing import Dict, Tuple
 
@@ -89,8 +90,6 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
         self.straggler_schedule = straggler_schedule
         self.epochs_multiplier = epochs_multiplier
 
-        self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR, f"fedprox_client_{self.client_id}")
-
     def fit(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[NDArrays, int, Dict]:
         """Implements distributed fit function for a given client."""
         self.set_parameters(parameters)
@@ -108,12 +107,15 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
         # TODO: maybe not a straggler but always like this?
         if self.straggler_schedule is not None:
-            if self.straggler_schedule[int(config["curr_round"]) - 1]:
-                from math import ceil
-                # inversely proportional to the number of training samples
-                # results in iterating for about the same time with different dataset size
-                num_epochs = ceil(self.epochs_multiplier * (self.NUMBER_OF_SAMPLES / num_samples))
-                # num_epochs = np.random.randint(1, config_train.N_EPOCHS_CLIENT)
+            if self.straggler_schedule[int(config["current_round"]) - 1]:
+                if config_train.LOCAL:
+                    num_epochs = random.randint(1, 3)
+                else:
+                    from math import ceil
+                    # inversely proportional to the number of training samples
+                    # results in iterating for about the same time with different dataset size
+                    num_epochs = ceil(self.epochs_multiplier * (self.NUMBER_OF_SAMPLES / num_samples))
+                    # num_epochs = np.random.randint(1, config_train.N_EPOCHS_CLIENT)
 
                 if config["drop_client"]:
                     # return without doing any training.
