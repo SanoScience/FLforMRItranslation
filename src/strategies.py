@@ -19,13 +19,14 @@ from typing import List, Tuple, Dict, Union, Optional, Type
 from collections import OrderedDict
 
 
-def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, saving_frequency=1, *args, **kwargs):
+def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, saving_frequency=-1, *args, **kwargs):
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
             super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
             self.model = model
-            self.saving_frequency = saving_frequency
+            if saving_frequency == -1:
+                self.saving_frequency = config_train.SAVING_FREQUENCY
 
         def aggregate_fit(
                 self,
@@ -42,12 +43,13 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, s
 
 
 class FedCostWAvg(FedAvg):
-    def __init__(self, model: models.UNet, saving_frequency=1, alpha=0.5, *args, **kwargs):
+    def __init__(self, model: models.UNet, saving_frequency=-1, alpha=0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = model
         self.alpha = alpha
-        self.saving_frequency = saving_frequency
         self.previous_loss_values = None
+        if saving_frequency == -1:
+            self.saving_frequency = config_train.SAVING_FREQUENCY
 
     def aggregate_fit(
             self,
@@ -116,16 +118,15 @@ class FedCostWAvg(FedAvg):
 
 
 class FedPIDAvg(FedCostWAvg):
-    def __init__(self, model: models.UNet, saving_frequency=1, alpha=0.45, beta=0.45, gamma=0.1, **kwargs):
+    def __init__(self, model: models.UNet, alpha=0.45, beta=0.45, gamma=0.1, **kwargs):
         if alpha + beta + gamma != 1.0:
             ValueError(f"Alpha, beta and gamma should sum up to 1.0")
 
         super().__init__(model, **kwargs)
-
+        # TODO: extra saving frequency need or not?
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
-        self.saving_frequency = saving_frequency
         self.previous_loss_values = []
 
     def aggregate_fit(
