@@ -191,7 +191,7 @@ class FedPIDAvg(FedCostWAvg):
 
         # noinspection PyTypeChecker
         weights_prime: NDArrays = [
-            reduce(np.add, layer_updates) / num_examples_total
+            reduce(np.add, layer_updates)
             for layer_updates in zip(*weighted_weights)
         ]
 
