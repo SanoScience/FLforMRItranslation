@@ -152,7 +152,7 @@ class UNet(nn.Module):
             train_ssims.append(epoch_ssim)
             train_losses.append(epoch_loss)
 
-            print("\tValidating...")
+            print("\tVALIDATION...")
             if validationloader is not None:
                 val_loss, val_ssim = self.evaluate(validationloader, criterion, plots_dir, epoch)
 
@@ -177,7 +177,7 @@ class UNet(nn.Module):
         if isinstance(criterion, src.loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
 
-        print(f"TESTING... \n\tON DEVICE: {device} \n\tWITH LOSS: {criterion}\n")
+        print("\tON DEVICE: {device} \n\tWITH LOSS: {criterion}\n")
 
         if not isinstance(criterion, Callable):
             raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")

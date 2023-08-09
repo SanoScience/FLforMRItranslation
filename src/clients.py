@@ -58,6 +58,7 @@ class ClassicClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
         self.set_parameters(parameters)
+        print(f"CLIENT {self.client_id} TESTING...")
         loss, ssim = self.model.evaluate(self.test_loader, self.criterion)
 
         print(f"END OF CLIENT TESTING\n\n")

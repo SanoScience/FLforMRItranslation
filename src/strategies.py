@@ -307,7 +307,7 @@ def get_evaluate_fn(model: models.UNet, data_dir: str,
         # for global evaluation we will not have global parameters so the loss function mustn't be LossWithProximalTerm
         if isinstance(criterion, loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
-
+        print("TESTING...")
         loss, ssim = model.evaluate(testloader, criterion)
 
         print("END OF SERVER TESTING.")
