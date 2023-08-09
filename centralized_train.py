@@ -4,7 +4,6 @@ import torch.optim as optim
 from src import loss_functions
 from src.datasets import *
 from src.models import *
-from src.models import train
 
 # for ares when in the home directory
 if not config_train.LOCAL:
@@ -52,11 +51,10 @@ if __name__ == '__main__':
     criterion = loss_functions.DssimMse()
     model_filename = f"model_all_dirs.pth"
 
-    train(unet,
-          trainloader,
-          optimizer,
-          criterion,
-          validationloader=valloader,
-          epochs=config_train.N_EPOCHS_CENTRALIZED,
-          filename=model_filename,
-          plots_dir="predictions")
+    unet.perform_train(trainloader,
+                       optimizer,
+                       criterion,
+                       validationloader=valloader,
+                       epochs=config_train.N_EPOCHS_CENTRALIZED,
+                       filename=model_filename,
+                       plots_dir="predictions")

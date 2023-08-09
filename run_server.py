@@ -13,18 +13,17 @@ if not config_train.LOCAL:
 
 
 if __name__ == "__main__":
-    if config_train.LOCAL:
-        eval_data_dir = "C:\\Users\\JanFiszer\\data\\mega_small_hgg\\test"
-    else:
-        eval_data_dir = sys.argv[1]
-
+    evaluate_fn = None
     unet = models.UNet().to(config_train.DEVICE)
 
     # TODO: maybe already init as a dict instead of two lists
     loss_history = []
     ssim_history = []
 
-    evaluate_fn = get_evaluate_fn(unet, eval_data_dir, loss_history, ssim_history)
+    if len(sys.argv) > 1:
+        eval_data_dir = sys.argv[1]
+        evaluate_fn = get_evaluate_fn(unet, eval_data_dir, loss_history, ssim_history)
+
     saving_strategy = strategy_from_config(unet, evaluate_fn)
 
     if config_train.LOCAL:

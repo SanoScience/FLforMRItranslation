@@ -216,8 +216,9 @@ def save_aggregated_model(net: models.UNet, aggregated_parameters, server_round:
     logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
 
 
-def strategy_from_config(model, evaluate_fn):
+def strategy_from_config(model, evaluate_fn=None):
     kwargs = {
+        "saving_frequency": config_train.SAVING_FREQUENCY,
         "evaluate_metrics_aggregation_fn": weighted_average,
         "fit_metrics_aggregation_fn": weighted_average,
         "min_fit_clients": config_train.MIN_FIT_CLIENTS,

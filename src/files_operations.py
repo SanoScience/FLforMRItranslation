@@ -151,6 +151,7 @@ def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[i
 
         return upper_bound, lower_bound
 
+    # noinspection PyUnresolvedReferences
     img = nib.load(filepath).get_fdata()
 
     if max_slices_index > img.shape[-1]:  # img.shape[-1] == total number of slices

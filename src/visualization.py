@@ -5,6 +5,23 @@ import torch
 from torch import Tensor
 
 
+def plot_learning_curves(loss_histories, labels, title=None, ylabel="Loss"):
+    plt.figure(figsize=(10, 6))
+
+    for loss_values, label in zip(loss_histories, labels):
+        epochs = range(1, len(loss_values) + 1)
+        plt.plot(epochs, loss_values, label=label)
+
+    if title is not None:
+        plt.title(title)
+
+    plt.xlabel('Epochs')
+    plt.ylabel(ylabel)
+    plt.legend()
+
+    plt.show()
+
+
 # visualization
 def plot_hist(tensor: Tensor, bins=240, title : str = None):
     plt.hist(tensor.detach().numpy().ravel(), bins=bins)
@@ -23,23 +40,9 @@ def plot_batch(to_plot: List[torch.Tensor], show=True, filepath: str = None, tit
             img_max = torch.max(set_to_plot)
             img_min = torch.min(set_to_plot)
 
-            # targets_max = torch.max(targets[i])
-            # targets_min = torch.min(targets[i])
-            #
-            # predicted_max = torch.max(predictions[i])
-            # predicted_min = torch.min(predictions[i])
-
             axs[j, i].imshow(set_to_plot[i].numpy()[0], cmap=cmap)
-            # axs[1, i].imshow(targets[i].numpy()[0], cmap=cmap)
-            # axs[2, i].imshow(predictions[i].detach().numpy()[0], cmap=cmap, vmin=0.0, vmax=1.0)
-
             axs[j, i].set_title(f'input\nmin: {img_min:.2f} max: {img_max:.2f}')
-            # axs[1, i].set_title(f'target\nmin: {targets_min:.2f} max: {targets_max:.2f}')
-            # axs[2, i].set_title(f'predicted\nmin: {predicted_min:.2f} max: {predicted_max:.2f}')
-
             axs[j, i].axis('off')
-            # axs[1, i].axis('off')
-            # axs[2, i].axis('off')
 
     if filepath is not None:
         plt.savefig(filepath)
@@ -47,28 +50,3 @@ def plot_batch(to_plot: List[torch.Tensor], show=True, filepath: str = None, tit
         plt.close()
     if show:
         plt.show()
-
-
-# def plot_batch(images, target, show=True, filepath=None, title="", cmap="gray"):
-#     batch_size = len(images)
-#     fig, axs = plt.subplots(2, batch_size, figsize=(3 * batch_size, 8))
-#
-#
-#     for i in range(batch_size):
-#         axs[0, i].imshow(images[i].numpy()[0], cmap=cmap)
-#         axs[1, i].imshow(target[i].numpy()[0], cmap=cmap)
-#
-#         axs[0, i].set_title('input')
-#         axs[1, i].set_title('target')
-#
-#         axs[0, i].axis('off')
-#         axs[1, i].axis('off')
-#
-#     if filepath is not None:
-#         plt.savefig(filepath)
-#         fig.clf()
-#         plt.close()
-#     if show:
-#         plt.show()
-
-

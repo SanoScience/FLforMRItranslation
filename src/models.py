@@ -1,7 +1,7 @@
 from os import path
 import pickle
 import time
-from typing import Tuple, Callable
+from typing import Callable
 
 import torch
 import torch.nn as nn

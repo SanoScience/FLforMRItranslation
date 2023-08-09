@@ -5,7 +5,7 @@ import torch
 
 from configs import config_train
 from src import datasets, models, loss_functions, visualization
-from src.models import evaluate
+from torch.utils.data import DataLoader
 
 if not config_train.LOCAL:
     os.chdir("repos/FLforMRItranslation")
@@ -17,7 +17,7 @@ if __name__ == '__main__':
     BATCH_SIZE = int(sys.argv[3])
 
     testset = datasets.MRIDatasetNumpySlices([test_dir])
-    testloader = torch.utils.data.DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)
+    testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)
 
     unet = models.UNet().to(config_train.DEVICE)
     if config_train.LOCAL:
@@ -32,9 +32,9 @@ if __name__ == '__main__':
 
     images = images.to(config_train.DEVICE)
     predictions = unet(images)
-    criterion = loss_functions.dssim_mse
+    criterion = loss_functions.DssimMse()
 
-    loss, ssim = evaluate(unet, testloader, criterion)
+    loss, ssim = unet.evaluate(testloader, criterion)
 
     representative_test_dir = test_dir.split('/')[-2]
     model_dir = '/'.join(e for e in model_path.split('/')[:-1])

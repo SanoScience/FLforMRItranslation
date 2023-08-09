@@ -27,6 +27,7 @@ PORT = "8087"
 
 # federated learning
 N_ROUNDS = 5
+SAVING_FREQUENCY = 8
 TAU = 0.001
 MIN_FIT_CLIENTS = 2
 FRACTION_FIT = 1.0

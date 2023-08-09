@@ -3,7 +3,7 @@ import sys
 
 from src import loss_functions, models
 from src.clients import *
-from src.clients import load_data
+
 
 if __name__ == "__main__":
     # moving on ares/athena to the repo directory
