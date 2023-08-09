@@ -18,7 +18,7 @@ if __name__ == "__main__":
     else:
         eval_data_dir = sys.argv[1]
 
-    unet = models.UNet()
+    unet = models.UNet().to(config_train.DEVICE)
 
     # TODO: maybe already init as a dict instead of two lists
     loss_history = []
