@@ -177,7 +177,7 @@ class UNet(nn.Module):
         if isinstance(criterion, src.loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
 
-        print("\tON DEVICE: {device} \n\tWITH LOSS: {criterion}\n")
+        print(f"\tON DEVICE: {device} \n\tWITH LOSS: {criterion}\n")
 
         if not isinstance(criterion, Callable):
             raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")

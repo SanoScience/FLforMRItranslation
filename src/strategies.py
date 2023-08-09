@@ -93,6 +93,8 @@ class FedCostWAvg(FedAvg):
 
         weighted_weights = []
 
+        # TODO: maybe optimize
+
         for (weights, num_examples), k_j in zip(results, Kjs):
             num_examples_normalized = self.alpha * num_examples / num_examples_total  # in the paper: alpha * (s_j)/S
             loss_factor = (1 - self.alpha) * k_j / k_j_total  # in the paper: (1 - alpha) * (k_j)/K
@@ -100,7 +102,7 @@ class FedCostWAvg(FedAvg):
 
         # noinspection PyTypeChecker
         weights_prime: NDArrays = [
-            reduce(np.add, layer_updates) / num_examples_total
+            reduce(np.add, layer_updates)   # potential big bug was here!!
             for layer_updates in zip(*weighted_weights)
         ]
 

@@ -58,7 +58,10 @@ class ClassicClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
         self.set_parameters(parameters)
-        print(f"CLIENT {self.client_id} TESTING...")
+
+        current_round = config["current_round"]
+
+        print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
         loss, ssim = self.model.evaluate(self.test_loader, self.criterion)
 
         print(f"END OF CLIENT TESTING\n\n")
@@ -68,7 +71,7 @@ class ClassicClient(fl.client.NumPyClient):
         self.history["ssim"].append(ssim)
 
         # saving model and history if it is the last round
-        if config["current_round"] == config_train.N_ROUNDS:
+        if current_round == config_train.N_ROUNDS:
             self.model.save(self.client_dir)
 
             with open(f"{self.client_dir}/history.pkl", 'wb') as file:
