@@ -25,8 +25,11 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, s
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
             super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
             self.model = model
+
             if saving_frequency == -1:
                 self.saving_frequency = config_train.SAVING_FREQUENCY
+            else:
+                self.saving_frequency = saving_frequency
 
         def aggregate_fit(
                 self,
@@ -50,6 +53,8 @@ class FedCostWAvg(FedAvg):
         self.previous_loss_values = None
         if saving_frequency == -1:
             self.saving_frequency = config_train.SAVING_FREQUENCY
+        else:
+            self.saving_frequency = saving_frequency
 
     def aggregate_fit(
             self,
