@@ -21,10 +21,11 @@ from typing import List, Tuple, Dict, Union, Optional, Type
 from collections import OrderedDict
 
 
-def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, saving_frequency=-1, *args, **kwargs):
+def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, *args, **kwargs):
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
-            super().__init__(initial_parameters=model.parameters(), *args, **kwargs)
+            initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
+            super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
             self.model = model
             self.aggregation_times = []
 
