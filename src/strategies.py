@@ -245,7 +245,6 @@ def save_aggregated_model(net: models.UNet, aggregated_parameters, server_round:
 
 def strategy_from_config(model, evaluate_fn=None):
     kwargs = {
-        "saving_frequency": config_train.SAVING_FREQUENCY,
         "evaluate_metrics_aggregation_fn": weighted_average,
         "fit_metrics_aggregation_fn": weighted_average,
         "min_fit_clients": config_train.MIN_FIT_CLIENTS,
@@ -298,10 +297,10 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
 
 def get_on_fit_config():
     def on_fit_config_fn(server_round: int):
+        fit_config = {"current_round": server_round}
         if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
-            fit_config = {"current_round": server_round, "drop_client": False}
-        else:
-            fit_config = {}
+            fit_config["drop_client"] = False
+
         return fit_config
 
     return on_fit_config_fn
@@ -348,11 +347,10 @@ def get_evaluate_fn(model: models.UNet,
         if isinstance(criterion, loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
 
-        for client_name, testloader in zip(client_names, testloaders):
-            print("TESTING...")
-            loss, ssim = model.evaluate(testloader, criterion)
+        print("TESTING...")
 
-            print("END OF SERVER TESTING.")
+        for client_name, testloader in zip(client_names, testloaders):
+            loss, ssim = model.evaluate(testloader, criterion)
             # TODO: consider if server_round needed
             loss_history[client_name].append(loss)
             ssim_history[client_name].append(ssim)
@@ -360,7 +358,10 @@ def get_evaluate_fn(model: models.UNet,
             total_loss += loss
             total_ssim += ssim
 
+        print("END OF SERVER TESTING.")
+
         return total_loss / len(client_names), {"ssim": total_ssim / len(client_names)}
+
 
     return evaluate
 

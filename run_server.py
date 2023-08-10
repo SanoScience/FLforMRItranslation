@@ -15,12 +15,11 @@ if not config_train.LOCAL:
 if __name__ == "__main__":
     unet = models.UNet().to(config_train.DEVICE)
 
-    # TODO: maybe already init as a dict instead of two lists
-    clients_names = ["lgg", "hgg", "wu_minn", "mgh"]
+    clients_names = client_names_from_eval_dirs()
     loss_history = {client_name: [] for client_name in clients_names}
     ssim_history = {client_name: [] for client_name in clients_names}
 
-    evaluate_fn = get_evaluate_fn(unet, client_names_from_eval_dirs(), loss_history, ssim_history)
+    evaluate_fn = get_evaluate_fn(unet, clients_names, loss_history, ssim_history)
 
     saving_strategy = strategy_from_config(unet, evaluate_fn)
 
