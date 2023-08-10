@@ -253,10 +253,10 @@ class DoubleConv(nn.Module):
                     nn.ReLU(inplace=True)]
         else:
             layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-                    nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels)
+                    nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels),
                     nn.ReLU(inplace=True),
                     nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-                    nn.GroupNorm(config_train.N_GROUP_NORM, out_channels)
+                    nn.GroupNorm(config_train.N_GROUP_NORM, out_channels),
                     nn.ReLU(inplace=True)]
 
         self.double_conv = nn.Sequential(*layers)
