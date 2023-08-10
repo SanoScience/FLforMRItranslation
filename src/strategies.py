@@ -1,3 +1,5 @@
+import time
+
 import torch
 import logging
 import numpy as np
@@ -25,6 +27,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, s
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
             super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
             self.model = model
+            self.aggregation_times = []
 
             if saving_frequency == -1:
                 self.saving_frequency = config_train.SAVING_FREQUENCY
@@ -37,7 +40,16 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, s
                 results: List[Tuple[ClientProxy, FitRes]],
                 failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
         ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+
+            start = time.time()
+
             aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
+
+            # printing and saving aggregation times
+            aggregation_time = time.time() - start
+            self.aggregation_times.append(aggregation_time)
+            print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
+
             save_aggregated_model(self.model, aggregated_parameters, server_round)
 
             return aggregated_parameters, aggregated_metrics
@@ -51,6 +63,7 @@ class FedCostWAvg(FedAvg):
         self.model = model
         self.alpha = alpha
         self.previous_loss_values = None
+        self.aggregation_times = []
         if saving_frequency == -1:
             self.saving_frequency = config_train.SAVING_FREQUENCY
         else:
@@ -67,6 +80,8 @@ class FedCostWAvg(FedAvg):
 
         loss_values = [fit_res.metrics["loss"] for _, fit_res in results]
 
+        start = time.time()
+
         if self.previous_loss_values is None:
             # for the first round aggregation
             parameters_aggregated = ndarrays_to_parameters(aggregate.aggregate(weights_results))
@@ -74,6 +89,11 @@ class FedCostWAvg(FedAvg):
             parameters_aggregated = ndarrays_to_parameters(self._aggregate(weights_results, loss_values))
 
         self.previous_loss_values = loss_values
+
+        # printing and saving aggregation times
+        aggregation_time = time.time() - start
+        self.aggregation_times.append(aggregation_time)
+        print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
 
         # AGGREGATING METRICS
         metrics_aggregated = {}
@@ -144,11 +164,18 @@ class FedPIDAvg(FedCostWAvg):
 
         loss_values = [fit_res.metrics["loss"] for _, fit_res in results]
 
+        start = time.time()
+
         if len(self.previous_loss_values) > 0:
             parameters_aggregated = ndarrays_to_parameters(self._aggregate(weights_results, loss_values))
         else:
             # for the first round aggregation
             parameters_aggregated = ndarrays_to_parameters(aggregate.aggregate(weights_results))
+
+        # printing and saving aggregation times
+        aggregation_time = time.time() - start
+        self.aggregation_times.append(aggregation_time)
+        print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
 
         # appending the loss to the list and keeping its size < 6
         self.previous_loss_values.append(loss_values)

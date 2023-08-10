@@ -46,4 +46,7 @@ if __name__ == "__main__":
         with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/history.pkl", "wb") as file:
             pickle.dump(history, file)
 
+    with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/aggregation_times.pkl", "wb") as file:
+        pickle.dump(saving_strategy.aggregation_times, file)
+
     copy2("./configs/config_train.py", f"{config_train.TRAINED_MODEL_SERVER_DIR}/config.py")
