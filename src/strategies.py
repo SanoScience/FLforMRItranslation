@@ -319,7 +319,11 @@ def get_evaluate_fn(model: models.UNet,
                     client_names: List[str],
                     loss_history: Optional[Dict] = None,
                     ssim_history: Optional[Dict] = None):
-    # FedBN doesn't provide a global model to evaluate
+    
+    """
+    This function assumes server ability to access the data. It might be agains FL idea/constrains.
+    It is just for measurment.evaluation purposes
+    """
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
         return None
 
