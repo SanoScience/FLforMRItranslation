@@ -143,8 +143,8 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                                            validationloader=self.val_loader,
                                            )
 
-        loss_avg = sum([loss_value for loss_value in history["loss"]]) / len(history["loss"])
-        ssim_avg = sum([ssim_value for ssim_value in history["ssim"]]) / len(history["ssim"])
+        loss_avg = sum([loss_value for loss_value in history["val_loss"]]) / len(history["val_loss"])
+        ssim_avg = sum([ssim_value for ssim_value in history["val_ssim"]]) / len(history["val_ssim"])
 
         return self.get_parameters({}), num_samples, {"loss": loss_avg, "ssim": ssim_avg, "is_straggler": False}
 

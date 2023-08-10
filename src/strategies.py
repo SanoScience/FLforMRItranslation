@@ -312,15 +312,24 @@ def get_on_eval_config():
     return on_eval_config_fn
 
 
-def get_evaluate_fn(model: models.UNet, data_dir: str,
-                    loss_history: Optional[List] = None, ssim_history: Optional[List] = None):
+def get_evaluate_fn(model: models.UNet,
+                    client_names: List[str],
+                    loss_history: Optional[Dict] = None,
+                    ssim_history: Optional[Dict] = None):
     # FedBN doesn't provide a global model to evaluate
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
         return None
 
-    testset = datasets.MRIDatasetNumpySlices([data_dir])
-    testloader = DataLoader(testset, batch_size=config_train.BATCH_SIZE, num_workers=config_train.NUM_WORKERS,
-                            pin_memory=True)
+    testsets = []
+    testloaders = []
+
+    for eval_dir in config_train.EVAL_DATA_DIRS:
+        testset = datasets.MRIDatasetNumpySlices(eval_dir)
+        testsets.append(testset)
+        testloaders.append(DataLoader(testset,
+                                      batch_size=config_train.BATCH_SIZE,
+                                      num_workers=config_train.NUM_WORKERS,
+                                      pin_memory=True))
 
     def evaluate(
             server_round: int, parameters: NDArrays, config: Dict[str, Scalar]
@@ -330,21 +339,33 @@ def get_evaluate_fn(model: models.UNet, data_dir: str,
         model.load_state_dict(state_dict)
 
         criterion = loss_functions.loss_for_config()
-
         # for global evaluation we will not have global parameters so the loss function mustn't be LossWithProximalTerm
         if isinstance(criterion, loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
-        print("TESTING...")
-        loss, ssim = model.evaluate(testloader, criterion)
 
-        print("END OF SERVER TESTING.")
-        # TODO: consider if server_round needed
-        loss_history.append((server_round, loss))
-        ssim_history.append((server_round, ssim))
+        for client_name, testloader in zip(client_names, testloaders):
+            print("TESTING...")
+            loss, ssim = model.evaluate(testloader, criterion)
 
-        return loss, {"ssim": ssim}
+            print("END OF SERVER TESTING.")
+            # TODO: consider if server_round needed
+            loss_history[client_name].append(loss)
+            ssim_history[client_name].append(ssim)
+
+
+        return loss, {"ssim": ssim ,"its_a_lie": 100.0}
 
     return evaluate
+
+
+def client_names_from_eval_dirs():
+    if config_train.LOCAL:
+        sep = "\\"
+    else:
+        sep = "/"
+
+    return [eval_dir.split(sep)[-2] for eval_dir in config_train.EVAL_DATA_DIRS]
+
 # class SaveModelStrategy:
 #     def __init__(self, model, aggregation_class: Type[Strategy], saving_frequency=1, *args, **kwargs):
 #         self.model = model
