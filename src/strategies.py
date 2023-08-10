@@ -34,7 +34,6 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, s
                 results: List[Tuple[ClientProxy, FitRes]],
                 failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
         ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-
             start = time.time()
 
             aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
@@ -120,7 +119,7 @@ class FedCostWAvg(FedAvg):
 
         # noinspection PyTypeChecker
         weights_prime: NDArrays = [
-            reduce(np.add, layer_updates)   # potential big bug was here!!
+            reduce(np.add, layer_updates)  # potential big bug was here!!
             for layer_updates in zip(*weighted_weights)
         ]
 
@@ -199,7 +198,8 @@ class FedPIDAvg(FedCostWAvg):
         num_examples_total = sum([num_examples for _, num_examples in results])
 
         Kjs = [old_loss - new_loss
-               for old_loss, new_loss in zip(self.previous_loss_values[-1], loss_values)]  # in the paper k_j = c(Mj_i-1) - c(Mi_j)
+               for old_loss, new_loss in
+               zip(self.previous_loss_values[-1], loss_values)]  # in the paper k_j = c(Mj_i-1) - c(Mi_j)
         k_j_total = sum(Kjs)  # in the paper: K = sum(k_j)
 
         Mjs = sum_columns(self.previous_loss_values)  # in the paper: sum(c(M_i-l))
@@ -210,7 +210,8 @@ class FedPIDAvg(FedCostWAvg):
             num_examples_normalized = self.alpha * num_examples / num_examples_total  # in the paper: alpha * (s_j)/S
             loss_difference = self.beta * k_j / k_j_total  # in the paper: beta * (k_j)/K
             loss_mean = self.gamma * m_j / m_j_total  # in the paper: gamma * m_j/I
-            weighted_weights.append([layer * (num_examples_normalized + loss_difference + loss_mean) for layer in weights])
+            weighted_weights.append(
+                [layer * (num_examples_normalized + loss_difference + loss_mean) for layer in weights])
 
         # noinspection PyTypeChecker
         weights_prime: NDArrays = [
@@ -302,6 +303,7 @@ def get_on_fit_config():
         else:
             fit_config = {}
         return fit_config
+
     return on_fit_config_fn
 
 
@@ -309,6 +311,7 @@ def get_on_eval_config():
     def on_eval_config_fn(server_round: int):
         fit_config = {"current_round": server_round}
         return fit_config
+
     return on_eval_config_fn
 
 
@@ -324,7 +327,7 @@ def get_evaluate_fn(model: models.UNet,
     testloaders = []
 
     for eval_dir in config_train.EVAL_DATA_DIRS:
-        testset = datasets.MRIDatasetNumpySlices(eval_dir)
+        testset = datasets.MRIDatasetNumpySlices([eval_dir])
         testsets.append(testset)
         testloaders.append(DataLoader(testset,
                                       batch_size=config_train.BATCH_SIZE,
@@ -337,6 +340,8 @@ def get_evaluate_fn(model: models.UNet,
         param_dict = zip(model.state_dict().keys(), parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
         model.load_state_dict(state_dict)
+
+        total_loss, total_ssim = 0.0, 0.0
 
         criterion = loss_functions.loss_for_config()
         # for global evaluation we will not have global parameters so the loss function mustn't be LossWithProximalTerm
@@ -352,8 +357,10 @@ def get_evaluate_fn(model: models.UNet,
             loss_history[client_name].append(loss)
             ssim_history[client_name].append(ssim)
 
+            total_loss += loss
+            total_ssim += ssim
 
-        return loss, {"ssim": ssim ,"its_a_lie": 100.0}
+        return total_loss / len(client_names), {"ssim": total_ssim / len(client_names)}
 
     return evaluate
 
