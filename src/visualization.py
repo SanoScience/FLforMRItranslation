@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 
 
-def plot_learning_curves(loss_histories, labels, title=None, ylabel="Loss"):
+def plot_learning_curves(loss_histories, labels, title=None, ylabel="Loss", xlabel="Rounds"):
     plt.figure(figsize=(10, 6))
 
     for loss_values, label in zip(loss_histories, labels):
@@ -15,7 +15,7 @@ def plot_learning_curves(loss_histories, labels, title=None, ylabel="Loss"):
     if title is not None:
         plt.title(title)
 
-    plt.xlabel('Epochs')
+    plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.legend()
 

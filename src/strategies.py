@@ -24,15 +24,9 @@ from collections import OrderedDict
 def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, saving_frequency=-1, *args, **kwargs):
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
-            initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
-            super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
+            super().__init__(initial_parameters=model.parameters(), *args, **kwargs)
             self.model = model
             self.aggregation_times = []
-
-            if saving_frequency == -1:
-                self.saving_frequency = config_train.SAVING_FREQUENCY
-            else:
-                self.saving_frequency = saving_frequency
 
         def aggregate_fit(
                 self,
@@ -50,7 +44,8 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, s
             self.aggregation_times.append(aggregation_time)
             print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
 
-            save_aggregated_model(self.model, aggregated_parameters, server_round)
+            if server_round % config_train.SAVING_FREQUENCY == 0:
+                save_aggregated_model(self.model, aggregated_parameters, server_round)
 
             return aggregated_parameters, aggregated_metrics
 
@@ -58,16 +53,12 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, s
 
 
 class FedCostWAvg(FedAvg):
-    def __init__(self, model: models.UNet, saving_frequency=-1, alpha=0.5, *args, **kwargs):
+    def __init__(self, model: models.UNet, alpha=0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = model
         self.alpha = alpha
         self.previous_loss_values = None
         self.aggregation_times = []
-        if saving_frequency == -1:
-            self.saving_frequency = config_train.SAVING_FREQUENCY
-        else:
-            self.saving_frequency = saving_frequency
 
     def aggregate_fit(
             self,
@@ -105,7 +96,7 @@ class FedCostWAvg(FedAvg):
 
         # SAVING MODEL
         if parameters_aggregated is not None:
-            if server_round % self.saving_frequency == 0:
+            if server_round % config_train.SAVING_FREQUENCY == 0:
                 save_aggregated_model(self.model, parameters_aggregated, server_round)
 
         return parameters_aggregated, metrics_aggregated
@@ -192,7 +183,7 @@ class FedPIDAvg(FedCostWAvg):
 
         # SAVING MODEL
         if parameters_aggregated is not None:
-            if server_round % self.saving_frequency == 0:
+            if server_round % config_train.SAVING_FREQUENCY == 0:
                 save_aggregated_model(self.model, parameters_aggregated, server_round)
 
         return parameters_aggregated, metrics_aggregated

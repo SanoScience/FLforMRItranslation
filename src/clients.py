@@ -43,16 +43,20 @@ class ClassicClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
+
+        current_round = config["current_round"]
+        print(f"ROUND {current_round}")
+
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
                                            self.criterion,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT)
 
-        print(f"END OF THIS ROUND CLIENT TRAINING\n")
+        print(f"END OF CLIENT TRAINING\n")
 
-        loss_avg = sum([loss_value for loss_value in history["loss"]]) / len(history["loss"])
-        ssim_avg = sum([ssim_value for ssim_value in history["ssim"]]) / len(history["ssim"])
+        loss_avg = sum([loss_value for loss_value in history["val_loss"]]) / len(history["val_loss"])
+        ssim_avg = sum([ssim_value for ssim_value in history["val_ssim"]]) / len(history["val_ssim"])
 
         return self.get_parameters(config={}), len(self.train_loader.dataset), {"loss": loss_avg, "ssim": ssim_avg}
 
