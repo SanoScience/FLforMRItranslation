@@ -40,9 +40,9 @@ if __name__ == '__main__':
     model_dir = '/'.join(e for e in model_path.split('/')[:-1])
     filepath = os.path.join(model_dir, f"test_{representative_test_dir}loss_-{loss:.4f}_ssim-{ssim:.4f}.jpg")
     visualization.plot_batch([images.cpu(), targets.cpu(), predictions.cpu().detach()],
-                     title=f"loss: {loss} ssim: {ssim}",
-                     show=False,
-                     filepath=filepath)
+                             title=f"loss: {loss} ssim: {ssim}",
+                             show=False,
+                             filepath=filepath)
 
     print("Plot saved to :", filepath)
     print("\nEvaluation ended.\n")

@@ -23,7 +23,7 @@ def plot_learning_curves(loss_histories, labels, title=None, ylabel="Loss", xlab
 
 
 # visualization
-def plot_hist(tensor: Tensor, bins=240, title : str = None):
+def plot_hist(tensor: Tensor, bins=240, title: str = None):
     plt.hist(tensor.detach().numpy().ravel(), bins=bins)
     plt.title(title)
     plt.show()

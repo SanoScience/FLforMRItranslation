@@ -319,10 +319,9 @@ def get_evaluate_fn(model: models.UNet,
                     client_names: List[str],
                     loss_history: Optional[Dict] = None,
                     ssim_history: Optional[Dict] = None):
-    
     """
-    This function assumes server ability to access the data. It might be agains FL idea/constrains.
-    It is just for measurment.evaluation purposes
+    This function assumes server ability to access the data. It might be against FL idea/constrains.
+    It is just for measurement/evaluation purposes
     """
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
         return None
@@ -366,7 +365,6 @@ def get_evaluate_fn(model: models.UNet,
         print("END OF SERVER TESTING.")
 
         return total_loss / len(client_names), {"ssim": total_ssim / len(client_names)}
-
 
     return evaluate
 

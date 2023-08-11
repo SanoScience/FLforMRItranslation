@@ -147,7 +147,8 @@ class UNet(nn.Module):
         for epoch in range(epochs):
             print(f"\tEPOCH: {epoch + 1}/{epochs}")
 
-            epoch_loss, epoch_ssim = self._train_one_epoch(trainloader, optimizer, criterion, batch_print_frequency, prox_loss)
+            epoch_loss, epoch_ssim = self._train_one_epoch(trainloader, optimizer, criterion, batch_print_frequency,
+                                                           prox_loss)
 
             train_ssims.append(epoch_ssim)
             train_losses.append(epoch_loss)
@@ -246,18 +247,18 @@ class DoubleConv(nn.Module):
 
         if config_train.BATCH_NORMALIZATION:
             layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-                    nn.BatchNorm2d(mid_channels),
-                    nn.ReLU(inplace=True),
-                    nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-                    nn.BatchNorm2d(out_channels),
-                    nn.ReLU(inplace=True)]
+                      nn.BatchNorm2d(mid_channels),
+                      nn.ReLU(inplace=True),
+                      nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
+                      nn.BatchNorm2d(out_channels),
+                      nn.ReLU(inplace=True)]
         else:
             layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-                    nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels),
-                    nn.ReLU(inplace=True),
-                    nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-                    nn.GroupNorm(config_train.N_GROUP_NORM, out_channels),
-                    nn.ReLU(inplace=True)]
+                      nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels),
+                      nn.ReLU(inplace=True),
+                      nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
+                      nn.GroupNorm(config_train.N_GROUP_NORM, out_channels),
+                      nn.ReLU(inplace=True)]
 
         self.double_conv = nn.Sequential(*layers)
 
