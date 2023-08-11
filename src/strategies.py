@@ -44,7 +44,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, *
             self.aggregation_times.append(aggregation_time)
             print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
 
-            if server_round % config_train.SAVING_FREQUENCY == 0:
+            if server_round % config_train.SAVING_FREQUENCY == 1:
                 save_aggregated_model(self.model, aggregated_parameters, server_round)
 
             return aggregated_parameters, aggregated_metrics
@@ -96,7 +96,7 @@ class FedCostWAvg(FedAvg):
 
         # SAVING MODEL
         if parameters_aggregated is not None:
-            if server_round % config_train.SAVING_FREQUENCY == 0:
+            if server_round % config_train.SAVING_FREQUENCY == 1:
                 save_aggregated_model(self.model, parameters_aggregated, server_round)
 
         return parameters_aggregated, metrics_aggregated
@@ -183,7 +183,7 @@ class FedPIDAvg(FedCostWAvg):
 
         # SAVING MODEL
         if parameters_aggregated is not None:
-            if server_round % config_train.SAVING_FREQUENCY == 0:
+            if server_round % config_train.SAVING_FREQUENCY == 1:
                 save_aggregated_model(self.model, parameters_aggregated, server_round)
 
         return parameters_aggregated, metrics_aggregated
