@@ -155,9 +155,9 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 class FedBNClient(ClassicClient):
     def set_parameters(self, parameters):
         self.model.train()
-
+        
         old_state_dict = self.model.state_dict()
-        keys = [k for k in old_state_dict.keys() if "bn" not in k]
+        keys = [k for k in old_state_dict.keys() if "norm" not in k]
         param_dict = zip(keys, parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
         self.model.load_state_dict(state_dict, strict=False)

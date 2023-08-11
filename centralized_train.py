@@ -9,14 +9,14 @@ from src.models import *
 if not config_train.LOCAL:
     os.chdir("repos/FLforMRItranslation")
 
-    train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/train",
-                         "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/train",
-                         "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_mgh_masks/train",
-                         "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_wu_minn"]
-    validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/validation",
-                              "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/validation",
-                              "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_mgh_masks/validation",
-                              "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_wu_minn/validation"]
+    train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/train"]
+                        #  "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/train",
+                        #  "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_mgh_masks/train",
+                        #  "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_wu_minn"]
+    validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg/validation"]
+                            #   "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/validation",
+                            #   "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_mgh_masks/validation",
+                            #   "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_wu_minn/validation"]
 else:
     train_directories = "C:\\Users\\JanFiszer\\data\\hgg_transformed\\validation"
     validation_directories = "C:\\Users\\JanFiszer\\data\\hgg_transformed\\validation"
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     unet = UNet().to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
     criterion = loss_functions.DssimMse()
-    model_filename = f"model_all_dirs.pth"
+    model_filename = f"model_group_norm.pth"
 
     unet.perform_train(trainloader,
                        optimizer,
@@ -57,4 +57,5 @@ if __name__ == '__main__':
                        validationloader=valloader,
                        epochs=config_train.N_EPOCHS_CENTRALIZED,
                        filename=model_filename,
-                       plots_dir="predictions")
+                       plots_dir="predictions", 
+                       history_filename="history.pkl")
