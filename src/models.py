@@ -215,7 +215,7 @@ class UNet(nn.Module):
 
         return test_loss, test_ssim
 
-    def save(self, dir_name: str, filename=None, create_dir=True):
+    def save(self, dir_name: str, filename: str = None, create_dir=True):
         if filename is None:
             filename = "model"
 

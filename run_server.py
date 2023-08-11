@@ -31,6 +31,8 @@ if __name__ == "__main__":
     print("SERVER STARTING...")
     print("Strategy used: {}\n".format(saving_strategy))
 
+    files_operations.try_create_dir(config_train.TRAINED_MODEL_SERVER_DIR)  # creating directory before to don't get warnings
+
     fl.server.start_server(
         server_address=server_address,
         config=fl.server.ServerConfig(num_rounds=config_train.N_ROUNDS),

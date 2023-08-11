@@ -36,12 +36,12 @@ class ClassicClient(fl.client.NumPyClient):
     def get_parameters(self, config):
         return [val.cpu().numpy() for val in self.model.state_dict().values()]
 
-    def set_parameters(self, parameters):
+    def set_parameters(self, parameters: NDArrays):
         param_dict = zip(self.model.state_dict().keys(), parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
         self.model.load_state_dict(state_dict)
 
-    def fit(self, parameters, config):
+    def fit(self, parameters: NDArrays, config):
         self.set_parameters(parameters)
 
         current_round = config["current_round"]
@@ -161,13 +161,17 @@ class FedBNClient(ClassicClient):
         self.model.train()
 
         old_state_dict = self.model.state_dict()
-        keys = [k for k in old_state_dict.keys() if "norm" not in k]
-        param_dict = zip(keys, parameters)
+
+        layer_names = {index: layer_name for index, layer_name in enumerate(old_state_dict.keys())
+                       if "norm" not in layer_name}
+
+        selected_parameters = [parameters[i] for i in layer_names.keys()]
+        param_dict = zip(layer_names.values(), selected_parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
         self.model.load_state_dict(state_dict, strict=False)
 
     def __repr__(self):
-        return "FedBN"
+        return f"FedBN(batch_norm={config_train.BATCH_NORMALIZATION})"
 
 
 def client_for_config(client_id, unet: models.UNet, optimizer, criterion, data_dir: str):
