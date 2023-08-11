@@ -3,7 +3,7 @@ import os.path
 import pickle
 import random
 from collections import OrderedDict
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 import flwr as fl
 import numpy as np
@@ -27,7 +27,9 @@ class ClassicClient(fl.client.NumPyClient):
         self.optimizer = optimizer
         self.criterion = criterion
 
+        self.history_fine_tuned = {"loss": [], "ssim": []}
         self.history = {"loss": [], "ssim": []}
+
         self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR,
                                        f"{self.__repr__()}_client_{self.client_id}")
 
@@ -47,6 +49,8 @@ class ClassicClient(fl.client.NumPyClient):
         current_round = config["current_round"]
         print(f"ROUND {current_round}")
 
+        self._evaluate(history_finetuned=True, current_round=current_round)
+
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
                                            self.criterion,
@@ -63,7 +67,13 @@ class ClassicClient(fl.client.NumPyClient):
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
         self.set_parameters(parameters)
 
-        current_round = config["current_round"]
+        loss, ssim = self._evaluate(history_finetuned=True, current_round=config["current_round"])
+
+        return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
+
+    def _evaluate(self, history_finetuned: bool, current_round: int):
+        history = self.history_fine_tuned if history_finetuned else self.history
+        filename = "history_finetuned.pkl" if history_finetuned else "history.pkl"
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
         loss, ssim = self.model.evaluate(self.test_loader, self.criterion)
@@ -71,17 +81,17 @@ class ClassicClient(fl.client.NumPyClient):
         print(f"END OF CLIENT TESTING\n\n")
 
         # adding to the history
-        self.history["loss"].append(loss)
-        self.history["ssim"].append(ssim)
+        history["loss"].append(loss)
+        history["ssim"].append(ssim)
 
         # saving model and history if it is the last round
         if current_round == config_train.N_ROUNDS:
             self.model.save(self.client_dir)
 
-            with open(f"{self.client_dir}/history.pkl", 'wb') as file:
+            with open(f"{self.client_dir}/{filename}", 'wb') as file:
                 pickle.dump(self.history, file)
 
-        return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
+        return loss, ssim
 
     def __repr__(self):
         return "FedAvg"
@@ -101,7 +111,6 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
     def fit(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[NDArrays, int, Dict]:
         """Implements distributed fit function for a given client."""
         self.set_parameters(parameters)
-
         # At each round check if the client is a straggler,
         # if so, train less epochs (to simulate partial work)
         # if the client is told to be dropped (e.g. because not using
