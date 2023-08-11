@@ -153,9 +153,13 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
 
 class FedBNClient(ClassicClient):
+        def get_parameters(self, config) -> NDArrays:
+        # Excluding parameters of BN layers when using FedBN
+        return [val.cpu().numpy() for name, val in self.model.state_dict().items() if "bn" not in name]
+
     def set_parameters(self, parameters):
         self.model.train()
-        
+
         old_state_dict = self.model.state_dict()
         keys = [k for k in old_state_dict.keys() if "norm" not in k]
         param_dict = zip(keys, parameters)
