@@ -234,7 +234,7 @@ class UNet(nn.Module):
         print("Model saved to: ", filepath)
 
     def __repr__(self):
-        return f"UNet(batch_norm={self.batch_normalization})"
+        return f"UNet(batch_norm={config_train.BATCH_NORMALIZATION})"
 
 
 class DoubleConv(nn.Module):
@@ -246,24 +246,43 @@ class DoubleConv(nn.Module):
             mid_channels = out_channels
 
         if config_train.BATCH_NORMALIZATION:
-            layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-                      nn.BatchNorm2d(mid_channels),
-                      nn.ReLU(inplace=True),
-                      nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-                      nn.BatchNorm2d(out_channels),
-                      nn.ReLU(inplace=True)]
+            self.norm1 = nn.BatchNorm2d(mid_channels)
+            self.norm2 = nn.BatchNorm2d(out_channels)
         else:
-            layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-                      nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels),
-                      nn.ReLU(inplace=True),
-                      nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-                      nn.GroupNorm(config_train.N_GROUP_NORM, out_channels),
-                      nn.ReLU(inplace=True)]
+            self.norm1 = nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels)
+            self.norm2 = nn.GroupNorm(config_train.N_GROUP_NORM, out_channels)
 
-        self.double_conv = nn.Sequential(*layers)
+        self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False)
+
+        # if config_train.BATCH_NORMALIZATION:
+        #     layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
+        #               nn.BatchNorm2d(mid_channels),
+        #               nn.ReLU(inplace=True),
+        #               nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
+        #               nn.BatchNorm2d(out_channels),
+        #               nn.ReLU(inplace=True)]
+        # else:
+        #     layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
+        #               nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels),
+        #               nn.ReLU(inplace=True),
+        #               nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
+        #               nn.GroupNorm(config_train.N_GROUP_NORM, out_channels),
+        #               nn.ReLU(inplace=True)]
+        #
+        # self.double_conv = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.double_conv(x)
+        x = self.conv1(x)
+        x = self.norm1(x)
+        x = self.relu(x)
+
+        x = self.conv2(x)
+        x = self.norm2(x)
+        x = self.relu(x)
+
+        return x
 
 
 class Down(nn.Module):
