@@ -49,7 +49,7 @@ class ClassicClient(fl.client.NumPyClient):
         current_round = config["current_round"]
         print(f"ROUND {current_round}")
 
-        self._evaluate(history_finetuned=True, current_round=current_round)
+        self._evaluate(history_finetuned=False, current_round=current_round)
 
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,

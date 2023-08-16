@@ -15,13 +15,13 @@ if not config_train.LOCAL:
 if __name__ == "__main__":
     unet = models.UNet().to(config_train.DEVICE)
 
-    clients_names = client_names_from_eval_dirs()
-    loss_history = {client_name: [] for client_name in clients_names}
-    ssim_history = {client_name: [] for client_name in clients_names}
+    # clients_names = client_names_from_eval_dirs()
+    # loss_history = {client_name: [] for client_name in clients_names}
+    # ssim_history = {client_name: [] for client_name in clients_names}
 
-    evaluate_fn = get_evaluate_fn(unet, clients_names, loss_history, ssim_history)
+    # evaluate_fn = get_evaluate_fn(unet, clients_names, loss_history, ssim_history)
 
-    saving_strategy = strategy_from_config(unet, evaluate_fn)
+    saving_strategy = strategy_from_config(unet, None)
 
     if config_train.LOCAL:
         server_address = f"0.0.0.0:{config_train.PORT}"
@@ -32,6 +32,7 @@ if __name__ == "__main__":
     print("Strategy used: {}\n".format(saving_strategy))
 
     files_operations.try_create_dir(config_train.TRAINED_MODEL_SERVER_DIR)  # creating directory before to don't get warnings
+    copy2("./configs/config_train.py", f"{config_train.TRAINED_MODEL_SERVER_DIR}/config.py") 
 
     fl.server.start_server(
         server_address=server_address,
@@ -39,13 +40,12 @@ if __name__ == "__main__":
         strategy=saving_strategy
     )
 
-    if len(loss_history) > 0:
-        history = {"loss": loss_history, "ssim": ssim_history}
+    # if len(loss_history) > 0:
+    #     history = {"loss": loss_history, "ssim": ssim_history}
 
-        with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/history.pkl", "wb") as file:
-            pickle.dump(history, file)
+    #     with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/history.pkl", "wb") as file:
+    #         pickle.dump(history, file)
 
     with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/aggregation_times.pkl", "wb") as file:
         pickle.dump(saving_strategy.aggregation_times, file)
 
-    copy2("./configs/config_train.py", f"{config_train.TRAINED_MODEL_SERVER_DIR}/config.py")
