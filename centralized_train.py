@@ -1,5 +1,6 @@
 import os
 import torch.optim as optim
+from torch.nn import MSELoss
 
 from src import loss_functions
 from src.datasets import *
@@ -48,8 +49,12 @@ if __name__ == '__main__':
 
     unet = UNet().to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
-    criterion = loss_functions.DssimMse()
-    model_filename = f"model_group_norm.pth"
+    criterion = MSELoss()
+    model_filename = f"model_real_without_norm.pth"
+
+    print()
+    print(unet)
+    print()
 
     unet.perform_train(trainloader,
                        optimizer,

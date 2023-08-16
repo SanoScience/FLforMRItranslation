@@ -250,42 +250,26 @@ class DoubleConv(nn.Module):
         if not mid_channels:
             mid_channels = out_channels
 
-        if not config_train.OLD_MODEL:
-            if config_train.BATCH_NORMALIZATION:
-                self.norm1 = nn.BatchNorm2d(mid_channels)
-                self.norm2 = nn.BatchNorm2d(out_channels)
-            else:
-                self.norm1 = nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels)
-                self.norm2 = nn.GroupNorm(config_train.N_GROUP_NORM, out_channels)
-
-            self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False)
-            self.relu = nn.ReLU(inplace=True)
-            self.conv2 = nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False)
+        if config_train.BATCH_NORMALIZATION:
+            self.norm1 = nn.BatchNorm2d(mid_channels)
+            self.norm2 = nn.BatchNorm2d(out_channels)
         else:
-            if config_train.BATCH_NORMALIZATION:
-                layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-                          nn.BatchNorm2d(mid_channels),
-                          nn.ReLU(inplace=True),
-                          nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-                          nn.BatchNorm2d(out_channels),
-                          nn.ReLU(inplace=True)]
-            else:
-                layers = [nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-                          nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels),
-                          nn.ReLU(inplace=True),
-                          nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-                          nn.GroupNorm(config_train.N_GROUP_NORM, out_channels),
-                          nn.ReLU(inplace=True)]
+            self.norm1 = nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels)
+            self.norm2 = nn.GroupNorm(config_train.N_GROUP_NORM, out_channels)
 
-            self.double_conv = nn.Sequential(*layers)
+        self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False)
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.norm1(x)
+        if not config_train.NO_NORMALIZATION:
+            x = self.norm1(x)
         x = self.relu(x)
 
         x = self.conv2(x)
-        x = self.norm2(x)
+        if not config_train.NO_NORMALIZATION:
+            x = self.norm2(x)
         x = self.relu(x)
 
         return x
