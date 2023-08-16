@@ -64,21 +64,21 @@ class ClassicClient(fl.client.NumPyClient):
         loss_avg = sum([loss_value for loss_value in history["val_loss"]]) / len(history["val_loss"])
         ssim_avg = sum([ssim_value for ssim_value in history["val_ssim"]]) / len(history["val_ssim"])
 
-        return self.get_parameters(config={}), len(self.train_loader.dataset), {"loss": loss_avg, "ssim": ssim_avg}
+        return self.get_parameters(config=config), len(self.train_loader.dataset), {"loss": loss_avg, "ssim": ssim_avg}
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
         self.set_parameters(parameters)
 
         loss, ssim = self._evaluate(history_finetuned=True, current_round=config["current_round"])
 
-        return loss, len(self.train_loader.dataset), {"loss": loss, "ssim": ssim}
+        return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
 
     def _evaluate(self, history_finetuned: bool, current_round: int):
         history = self.history_fine_tuned if history_finetuned else self.history
         filename = "history_finetuned.pkl" if history_finetuned else "history.pkl"
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
-        loss, ssim = self.model.evaluate(self.train_loader, self.criterion,
+        loss, ssim = self.model.evaluate(self.test_loader, self.criterion,
                                          plots_dir=f"{self.client_dir}/test_plots",
                                          plot_filename=f"round-1{current_round}")
 
@@ -124,6 +124,10 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
         # returned) whether the client is a straggler or not. This info
         # is used by strategies other than FedProx to discard the update.
         num_epochs = config_train.N_EPOCHS_CLIENT
+
+        current_round = config["current_round"]
+        print(f"ROUND {current_round}")
+
         num_samples = len(self.train_loader.dataset)
 
         # TODO: maybe not a straggler but always like this?
@@ -154,7 +158,9 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                                            epochs=num_epochs,
                                            prox_loss=True,
                                            validationloader=self.val_loader,
-                                           )
+                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots")
+
+        print(f"END OF CLIENT TRAINING\n")
 
         loss_avg = sum([loss_value for loss_value in history["val_loss"]]) / len(history["val_loss"])
         ssim_avg = sum([ssim_value for ssim_value in history["val_ssim"]]) / len(history["val_ssim"])
