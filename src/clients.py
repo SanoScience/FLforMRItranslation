@@ -49,13 +49,14 @@ class ClassicClient(fl.client.NumPyClient):
         current_round = config["current_round"]
         print(f"ROUND {current_round}")
 
-        self._evaluate(history_finetuned=False, current_round=current_round)
+        # self._evaluate(history_finetuned=False, current_round=current_round)
 
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
                                            self.criterion,
                                            validationloader=self.val_loader,
-                                           epochs=config_train.N_EPOCHS_CLIENT)
+                                           epochs=config_train.N_EPOCHS_CLIENT,
+                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots")
 
         print(f"END OF CLIENT TRAINING\n")
 
@@ -76,7 +77,9 @@ class ClassicClient(fl.client.NumPyClient):
         filename = "history_finetuned.pkl" if history_finetuned else "history.pkl"
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
-        loss, ssim = self.model.evaluate(self.train_loader, self.criterion)
+        loss, ssim = self.model.evaluate(self.train_loader, self.criterion,
+                                         plots_dir=f"{self.client_dir}/test_plots",
+                                         plot_filename=f"round-1{current_round}")
 
         print(f"END OF CLIENT TESTING\n\n")
 

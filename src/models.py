@@ -155,7 +155,7 @@ class UNet(nn.Module):
 
             print("\tVALIDATION...")
             if validationloader is not None:
-                val_loss, val_ssim = self.evaluate(validationloader, criterion, plots_dir, epoch)
+                val_loss, val_ssim = self.evaluate(validationloader, criterion, plots_dir, f"ep{epoch}")
 
                 val_ssims.append(val_ssim)
                 val_losses.append(val_loss)
@@ -174,7 +174,7 @@ class UNet(nn.Module):
 
         return history
 
-    def evaluate(self, testloader, criterion, plots_dir=None, epoch=0):
+    def evaluate(self, testloader, criterion, plots_dir=None, plot_filename=None):
         if isinstance(criterion, src.loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
 
@@ -209,7 +209,7 @@ class UNet(nn.Module):
               f"test_ssim: {test_ssim:.3f}\n")
 
         if plots_dir is not None:
-            filepath = path.join(model_dir, plots_dir, f"ep{epoch}.jpg")
+            filepath = path.join(model_dir, plots_dir, f"{plot_filename}.jpg")
             # maybe cast to cpu ?? still dunno if needed
             visualization.plot_batch([images_cpu, targets_cpu, predictions.to('cpu').detach()], filepath=filepath)
 
