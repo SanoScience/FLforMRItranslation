@@ -69,14 +69,14 @@ class ClassicClient(fl.client.NumPyClient):
 
         loss, ssim = self._evaluate(history_finetuned=True, current_round=config["current_round"])
 
-        return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
+        return loss, len(self.train_loader.dataset), {"loss": loss, "ssim": ssim}
 
     def _evaluate(self, history_finetuned: bool, current_round: int):
         history = self.history_fine_tuned if history_finetuned else self.history
         filename = "history_finetuned.pkl" if history_finetuned else "history.pkl"
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
-        loss, ssim = self.model.evaluate(self.test_loader, self.criterion)
+        loss, ssim = self.model.evaluate(self.train_loader, self.criterion)
 
         print(f"END OF CLIENT TESTING\n\n")
 

@@ -44,7 +44,7 @@ class LossWithProximalTerm:
         proximal_term = 0.0
 
         for local_weights, global_weights in zip(local_params, global_params):
-            proximal_term += (local_weights - global_weights).norm(2)
+            proximal_term += (local_weights - global_weights).norm(2) ** 2
 
         return self.base_loss_fn(predicted, targets) + (self.proximal_mu/2) * proximal_term
 
