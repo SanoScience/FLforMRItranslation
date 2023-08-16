@@ -40,7 +40,7 @@ def plot_batch(to_plot: List[torch.Tensor], show=True, filepath: str = None, tit
             img_max = torch.max(set_to_plot)
             img_min = torch.min(set_to_plot)
 
-            axs[j, i].imshow(set_to_plot[i].numpy()[0], cmap=cmap)
+            axs[j, i].imshow(set_to_plot[i].numpy()[0], cmap=cmap, vmin=0.0, vmax=1.0)
             axs[j, i].set_title(f'input\nmin: {img_min:.2f} max: {img_max:.2f}')
             axs[j, i].axis('off')
 
