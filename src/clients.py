@@ -27,7 +27,6 @@ class ClassicClient(fl.client.NumPyClient):
         self.optimizer = optimizer
         self.criterion = criterion
 
-        self.history_fine_tuned = {"loss": [], "ssim": []}
         self.history = {"loss": [], "ssim": []}
 
         self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR,
@@ -50,8 +49,6 @@ class ClassicClient(fl.client.NumPyClient):
         current_round = config["current_round"]
         print(f"ROUND {current_round}")
 
-        # self._evaluate(history_finetuned=False, current_round=current_round)
-
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
                                            self.criterion,
@@ -69,13 +66,11 @@ class ClassicClient(fl.client.NumPyClient):
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
         self.set_parameters(parameters)
 
-        loss, ssim = self._evaluate(history_finetuned=True, current_round=config["current_round"])
+        loss, ssim = self._evaluate(current_round=config["current_round"])
 
         return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
 
-    def _evaluate(self, history_finetuned: bool, current_round: int):
-        history = self.history_fine_tuned if history_finetuned else self.history
-        filename = "history_finetuned.pkl" if history_finetuned else "history.pkl"
+    def _evaluate(self, current_round: int):
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
         loss, ssim = self.model.evaluate(self.test_loader, self.criterion,
@@ -85,14 +80,14 @@ class ClassicClient(fl.client.NumPyClient):
         print(f"END OF CLIENT TESTING\n\n")
 
         # adding to the history
-        history["loss"].append(loss)
-        history["ssim"].append(ssim)
+        self.history["loss"].append(loss)
+        self.history["ssim"].append(ssim)
 
         # saving model and history if it is the last round
         if current_round == config_train.N_ROUNDS:
             self.model.save(self.client_dir, create_dir=False)
 
-            with open(f"{self.client_dir}/{filename}", 'wb') as file:
+            with open(f"{self.client_dir}/history.pkl", 'wb') as file:
                 pickle.dump(self.history, file)
 
         return loss, ssim
