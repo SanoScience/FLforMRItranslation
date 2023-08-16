@@ -12,7 +12,7 @@ from flwr.common.typing import NDArrays, Scalar
 from torch.utils.data import DataLoader
 
 from configs import config_train
-from src import models
+from src import models, files_operations as fop
 from src.datasets import MRIDatasetNumpySlices
 
 
@@ -33,6 +33,7 @@ class ClassicClient(fl.client.NumPyClient):
         self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR,
                                        f"{self.__repr__()}_client_{self.client_id}")
 
+        fop.try_create_dir(self.client_dir)
         print(f"Client {client_id} with data from directory: {data_dir}: INITIALIZED\n")
 
     def get_parameters(self, config):
@@ -89,7 +90,7 @@ class ClassicClient(fl.client.NumPyClient):
 
         # saving model and history if it is the last round
         if current_round == config_train.N_ROUNDS:
-            self.model.save(self.client_dir)
+            self.model.save(self.client_dir, create_dir=False)
 
             with open(f"{self.client_dir}/{filename}", 'wb') as file:
                 pickle.dump(self.history, file)
