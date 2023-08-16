@@ -13,6 +13,10 @@ import src.loss_functions
 from configs import config_train
 from src import visualization, files_operations as fop
 
+model_dir = config_train.TRAINED_MODEL_SERVER_DIR
+device = config_train.DEVICE
+batch_print_freq = config_train.BATCH_PRINT_FREQ
+ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
 
 class UNet(nn.Module):
     # TODO: test with bilinear = False
@@ -129,9 +133,9 @@ class UNet(nn.Module):
         n_batches = len(trainloader)
 
         if batch_print_freq > n_batches:
-            batch_print_frequency = n_batches - 2  # tbh not sure if this -2 is needed
+            print_freq = n_batches - 2  # tbh not sure if this -2 is needed
         else:
-            batch_print_frequency = batch_print_freq
+            print_freq = batch_print_freq
 
         train_losses = []
         train_ssims = []
@@ -147,8 +151,7 @@ class UNet(nn.Module):
         for epoch in range(epochs):
             print(f"\tEPOCH: {epoch + 1}/{epochs}")
 
-            epoch_loss, epoch_ssim = self._train_one_epoch(trainloader, optimizer, criterion, batch_print_frequency,
-                                                           prox_loss)
+            epoch_loss, epoch_ssim = self._train_one_epoch(trainloader, optimizer, criterion, print_freq, prox_loss)
 
             train_ssims.append(epoch_ssim)
             train_losses.append(epoch_loss)
@@ -209,7 +212,9 @@ class UNet(nn.Module):
               f"test_ssim: {test_ssim:.3f}\n")
 
         if plots_dir is not None:
-            filepath = path.join(model_dir, plots_dir, f"{plot_filename}.jpg")
+            directory = path.join(model_dir, plots_dir)
+            fop.try_create_dir(directory)
+            filepath = path.join(directory, f"{plot_filename}.jpg")
             # maybe cast to cpu ?? still dunno if needed
             visualization.plot_batch([images_cpu, targets_cpu, predictions.to('cpu').detach()], filepath=filepath)
 
@@ -337,11 +342,6 @@ class OutConv(nn.Module):
     def forward(self, x):
         return torch.sigmoid(self.conv(x))
 
-
-model_dir = config_train.TRAINED_MODEL_SERVER_DIR
-device = config_train.DEVICE
-batch_print_freq = config_train.BATCH_PRINT_FREQ
-ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
 
 # def test(model, testloader: DataLoader, criterion, plots_dir=None, epoch=None) -> Tuple[float, float]:
 #     print(f"Testing \non device: {device} \nwith loss: {criterion})...\n")
