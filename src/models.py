@@ -1,4 +1,5 @@
 from os import path
+from itertools import chain
 import pickle
 import time
 from typing import Callable
@@ -7,18 +8,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torchmetrics.image import StructuralSimilarityIndexMeasure
+from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
 
 import src.loss_functions
 from configs import config_train
-from src import visualization, files_operations as fop
+from src import visualization, loss_functions, files_operations as fop
 
 device = config_train.DEVICE
 batch_print_freq = config_train.BATCH_PRINT_FREQ
-ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
+ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
+psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
+mse = nn.MSELoss()
+
 
 class UNet(nn.Module):
     # TODO: test with bilinear = False
+
     def __init__(self, bilinear=False):
         super(UNet, self).__init__()
 
@@ -48,8 +53,14 @@ class UNet(nn.Module):
         return logits
 
     def _train_one_epoch(self, trainloader, optimizer, criterion, batch_print_frequency, prox_loss):
-        running_loss, total_ssim = 0.0, 0.0
-        epoch_loss, epoch_ssim = 0.0, 0.0
+        # TODO: enable choosing metrics
+        def reset_dict(dictionary: dict):
+            return {key: 0.0 for key in dictionary.keys()}
+
+        metrics = {"loss": criterion, "SSIM": ssim, "PNSR": psnr, "MSE": mse}
+
+        epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
+        total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
 
         n_batches = len(trainloader)
 
@@ -72,41 +83,33 @@ class UNet(nn.Module):
                 loss = criterion(predictions, targets, self.parameters(), global_params)
             else:
                 loss = criterion(predictions, targets)
-            loss.backward()
 
+            loss.backward()
             optimizer.step()
 
-            # predictions_double = predictions.double()
-            # targets_double = targets.double()
-
-            # print(f"Predictions shape: {predictions_double.shape} type: {predictions_double.type()}")
-            # print(f"Targets shape: {targets_double.shape} type: {targets_double.type()}")
-
-            ssim_value = ssim(predictions, targets)
-
-            running_loss += loss.item()
-            total_ssim += ssim_value.item()
-
-            epoch_loss += loss.item()
-            epoch_ssim += ssim_value.item()
+            for metric_name, metrics_obj in metrics.items():
+                metric_value = metrics_obj(predictions, targets)
+                total_metrics[metric_name] += metric_value.item()
+                epoch_metrics[metric_name] += metric_value.item()
 
             n_train_steps += 1
 
             if index % batch_print_frequency == batch_print_frequency - 1:
-                print(f'\tbatch {(index + 1)} out of {n_batches}\t'
-                      f'loss: {running_loss / batch_print_frequency:.3f} '
-                      f'ssim {total_ssim / batch_print_frequency:.3f}')
 
-                running_loss = 0.0
-                total_ssim = 0.0
+                divided_batch_metrics = {metric_name: total_value/batch_print_frequency for metric_name, total_value in total_metrics.items()}
+                metrics_str = loss_functions.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
 
-        epoch_loss /= n_train_steps
-        epoch_ssim /= n_train_steps
-        print(f"\n\tTime exceeded: {time.time() - start:.1f} "
-              f"epoch loss: {epoch_loss:.3f} ssim: {epoch_ssim:.3f}")
+                print(f'\tbatch {(index + 1)} out of {n_batches}{metrics_str}')
+
+                total_metrics = reset_dict(total_metrics)
+
+        divided_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in epoch_metrics.items()}
+        metrics_epoch_str = loss_functions.metrics_to_str(divided_epoch_metrics, starting_symbol="")
+
+        print(f"\n\tTime exceeded: {time.time() - start:.1f}\n\tEpoch metrics:{metrics_epoch_str}")
         print()
 
-        return epoch_loss, epoch_ssim
+        return divided_epoch_metrics
 
     def perform_train(self,
                       trainloader: DataLoader,
@@ -137,10 +140,11 @@ class UNet(nn.Module):
         else:
             print_freq = batch_print_freq
 
-        train_losses = []
-        train_ssims = []
-        val_losses = []
-        val_ssims = []
+        metric_names = ["loss", "SSIM", "PNSR", "MSE"]
+        val_metric_names = [f"val_{m_name}" for m_name in metric_names]
+
+        history = {m_name: [] for m_name in metric_names}
+        history.update({m_name: [] for m_name in val_metric_names})
 
         if plots_dir is not None:
             plots_path = path.join(model_dir, plots_dir)
@@ -151,21 +155,19 @@ class UNet(nn.Module):
         for epoch in range(epochs):
             print(f"\tEPOCH: {epoch + 1}/{epochs}")
 
-            epoch_loss, epoch_ssim = self._train_one_epoch(trainloader, optimizer, criterion, print_freq, prox_loss)
+            epoch_metrics = self._train_one_epoch(trainloader, optimizer, criterion, print_freq, prox_loss)
 
-            train_ssims.append(epoch_ssim)
-            train_losses.append(epoch_loss)
+            for metric in metric_names:
+                history[metric].append(epoch_metrics[metric])
 
             print("\tVALIDATION...")
             if validationloader is not None:
-                val_loss, val_ssim = self.evaluate(validationloader, criterion, model_dir, plots_dir, f"ep{epoch}")
+                val_metric = self.evaluate(validationloader, criterion, model_dir, plots_dir, f"ep{epoch}")
 
-                val_ssims.append(val_ssim)
-                val_losses.append(val_loss)
+                for metric in metric_names:
+                    history[metric].append(val_metric[metric])
 
         print("\tAll epochs finished.\n")
-
-        history = {"loss": train_losses, "ssim": train_ssims, "val_loss": val_losses, "val_ssim": val_ssims}
 
         # saving
         if history_filename is not None:
@@ -188,8 +190,7 @@ class UNet(nn.Module):
 
         n_test_steps = 0
 
-        test_loss = 0.0
-        test_ssim = 0.0
+        metrics = {m_name: 0.0 for m_name in config_train.METRICS}
 
         self.eval()
         with torch.no_grad():
@@ -198,18 +199,17 @@ class UNet(nn.Module):
                 targets = targets_cpu.to(device)
 
                 predictions = self.__call__(images)
-                loss = criterion(predictions, targets)
 
-                test_loss += loss.item()
-                test_ssim += ssim(predictions, targets).item()
+                for metric_name, metrics_obj in metrics.items():
+                    metric_value = metrics_obj(predictions, targets)
+                    metrics[metric_name] += metric_value.item()
 
                 n_test_steps += 1
 
-        test_loss /= n_test_steps
-        test_ssim /= n_test_steps
+        divided_metrics = {metric_name: metric_value / n_test_steps for metric_name, metric_value in config_train.METRICS}
+        metrics_str = loss_functions.metrics_to_str(divided_metrics, starting_symbol="\n\t")
 
-        print(f"\tFor evaluation set: test_loss: {test_loss:.3f} "
-              f"test_ssim: {test_ssim:.3f}\n")
+        print(f"\tFor evaluation set: {metrics_str}\n")
 
         if plots_dir is not None:
             directory = path.join(model_dir, plots_dir)
@@ -218,7 +218,7 @@ class UNet(nn.Module):
             # maybe cast to cpu ?? still dunno if needed
             visualization.plot_batch([images_cpu, targets_cpu, predictions.to('cpu').detach()], filepath=filepath)
 
-        return test_loss, test_ssim
+        return divided_metrics
 
     def save(self, dir_name: str, filename: str = None, create_dir=True):
         if filename is None:

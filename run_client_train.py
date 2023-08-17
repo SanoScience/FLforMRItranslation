@@ -9,7 +9,7 @@ if __name__ == "__main__":
     # moving on ares/athena to the repo directory
     if config_train.LOCAL:
         data_dir = "C:\\Users\\JanFiszer\\data\\mega_small_hgg"
-        client_id = "0"
+        client_id = "1"
         server_node = "127.0.0.1"
         with_num_workers = False
     else:

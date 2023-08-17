@@ -27,7 +27,7 @@ class ClassicClient(fl.client.NumPyClient):
         self.optimizer = optimizer
         self.criterion = criterion
 
-        self.history = {"loss": [], "ssim": []}
+        self.history = {metric_name: [] for metric_name in config_train.METRICS}
 
         self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR,
                                        f"{self.__repr__()}_client_{self.client_id}")
@@ -58,30 +58,34 @@ class ClassicClient(fl.client.NumPyClient):
 
         print(f"END OF CLIENT TRAINING\n")
 
-        loss_avg = sum([loss_value for loss_value in history["val_loss"]]) / len(history["val_loss"])
-        ssim_avg = sum([ssim_value for ssim_value in history["val_ssim"]]) / len(history["val_ssim"])
+        val_metric_names = [f"val_{metric}" for metric in config_train.METRICS]
+        avg_val_metric = {
+            metric_name: sum([metric_value for metric_value in history[metric_name]]) / len(history[metric_name])
+            for metric_name in val_metric_names}
 
-        return self.get_parameters(config=config), len(self.train_loader.dataset), {"loss": loss_avg, "ssim": ssim_avg}
+        return self.get_parameters(config=config), len(self.train_loader.dataset), avg_val_metric
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
         self.set_parameters(parameters)
 
-        loss, ssim = self._evaluate(current_round=config["current_round"])
+        metrics = self._evaluate(current_round=config["current_round"])
+        metric_without_loss = {k: v for k, v in metrics if k != "loss"}
 
-        return loss, len(self.test_loader.dataset), {"loss": loss, "ssim": ssim}
+        return metrics["loss"], len(self.test_loader.dataset), metric_without_loss
 
     def _evaluate(self, current_round: int):
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
-        loss, ssim = self.model.evaluate(self.test_loader, self.criterion,
-                                         plots_dir=f"{self.client_dir}/test_plots",
-                                         plot_filename=f"round-1{current_round}")
+        metrics = self.model.evaluate(self.test_loader, self.criterion,
+                                      plots_dir=f"{self.client_dir}/test_plots",
+                                      plot_filename=f"round-{current_round}")
 
         print(f"END OF CLIENT TESTING\n\n")
 
         # adding to the history
-        self.history["loss"].append(loss)
-        self.history["ssim"].append(ssim)
+        for metric_name, metric_value in metrics.items():
+            self.history[metric_name].append(metric_value)
+            self.history[metric_name].append(metric_value)
 
         # saving model and history if it is the last round
         if current_round == config_train.N_ROUNDS:
@@ -90,7 +94,7 @@ class ClassicClient(fl.client.NumPyClient):
             with open(f"{self.client_dir}/history.pkl", 'wb') as file:
                 pickle.dump(self.history, file)
 
-        return loss, ssim
+        return metrics
 
     def __repr__(self):
         return "FedAvg"
@@ -157,10 +161,14 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
         print(f"END OF CLIENT TRAINING\n")
 
-        loss_avg = sum([loss_value for loss_value in history["val_loss"]]) / len(history["val_loss"])
-        ssim_avg = sum([ssim_value for ssim_value in history["val_ssim"]]) / len(history["val_ssim"])
+        val_metric_names = [f"val_{metric}" for metric in config_train.METRICS]
+        avg_val_metrics = {
+            metric_name: sum([metric_value for metric_value in history[metric_name]]) / len(history[metric_name])
+            for metric_name in val_metric_names}
 
-        return self.get_parameters({}), num_samples, {"loss": loss_avg, "ssim": ssim_avg, "is_straggler": False}
+        avg_val_metrics["is_straggler"] = False
+
+        return self.get_parameters({}), num_samples, avg_val_metrics  # TODO: rename the last one
 
     def __repr__(self):
         return "FedProx"

@@ -1,3 +1,5 @@
+from typing import Dict, List
+
 import torch
 from configs import config_train
 from torch.nn import MSELoss
@@ -64,3 +66,11 @@ def loss_for_config():
         return DssimMse(sqrt=True)
     else:  # config_train.LOSS_TYPE == config_train.LossFunctions.MSE:
         return MSELoss()
+
+
+def metrics_to_str(metrics: Dict[str, List[float]], starting_symbol="\t"):
+    metrics_epoch_str = starting_symbol
+    for metric_name, epoch_value in metrics.items():
+        metrics_epoch_str += f"{metric_name}: {epoch_value:.3f}\t"
+
+    return metrics_epoch_str
