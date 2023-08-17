@@ -257,6 +257,8 @@ def strategy_from_config(model, evaluate_fn=None):
         return FedCostWAvg(model, **kwargs)
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_PID:
         return FedPIDAvg(model, **kwargs)
+    elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
+        return FedAvg(**kwargs)
 
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_PROX:
         strategy_class = FedProx
