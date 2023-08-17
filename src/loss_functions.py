@@ -15,9 +15,9 @@ class DssimMse:
         dssim = (1 - ssim(predicted, targets)) / 2
 
         if self.sqrt:
-            result = torch.sqrt_(mse(predicted, targets)) * dssim
+            result = torch.sqrt_(mse(predicted, targets)) + dssim
         else:
-            result = mse(predicted, targets) * dssim
+            result = mse(predicted, targets) + dssim
         return result
 
     def __repr__(self):
