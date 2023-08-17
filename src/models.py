@@ -13,7 +13,6 @@ import src.loss_functions
 from configs import config_train
 from src import visualization, files_operations as fop
 
-model_dir = config_train.TRAINED_MODEL_SERVER_DIR
 device = config_train.DEVICE
 batch_print_freq = config_train.BATCH_PRINT_FREQ
 ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
@@ -116,6 +115,7 @@ class UNet(nn.Module):
                       epochs,
                       prox_loss=False,
                       validationloader=None,
+                      model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
                       filename=None,
                       history_filename=None,
                       plots_dir=None):
@@ -158,7 +158,7 @@ class UNet(nn.Module):
 
             print("\tVALIDATION...")
             if validationloader is not None:
-                val_loss, val_ssim = self.evaluate(validationloader, criterion, plots_dir, f"ep{epoch}")
+                val_loss, val_ssim = self.evaluate(validationloader, criterion, model_dir, plots_dir, f"ep{epoch}")
 
                 val_ssims.append(val_ssim)
                 val_losses.append(val_loss)
@@ -177,7 +177,7 @@ class UNet(nn.Module):
 
         return history
 
-    def evaluate(self, testloader, criterion, plots_dir=None, plot_filename=None):
+    def evaluate(self, testloader, criterion, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, plots_dir=None, plot_filename=None):
         if isinstance(criterion, src.loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
 

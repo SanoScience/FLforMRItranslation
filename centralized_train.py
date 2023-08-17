@@ -49,18 +49,15 @@ if __name__ == '__main__':
 
     unet = UNet().to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
-    criterion = MSELoss()
-    model_filename = f"model_real_without_norm.pth"
-
-    print()
-    print(unet)
-    print()
+    criterion = loss_functions.DssimMse()
+    model_filename = f"model.pth"
 
     unet.perform_train(trainloader,
                        optimizer,
                        criterion,
                        validationloader=valloader,
                        epochs=config_train.N_EPOCHS_CENTRALIZED,
+                       model_dir=config_train.CENTRALIZED_DIR,
                        filename=model_filename,
                        plots_dir="predictions", 
                        history_filename="history.pkl")
