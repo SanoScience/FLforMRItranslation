@@ -12,6 +12,7 @@ if not config_train.LOCAL:
 
 if __name__ == '__main__':
     # test_dir = os.path.join(os.path.expanduser("~"), "data/hgg_transformed/validation")
+    print(sys.argv)
     test_dir = sys.argv[1]
     model_path = sys.argv[2]
     BATCH_SIZE = int(sys.argv[3])
@@ -39,11 +40,12 @@ if __name__ == '__main__':
     representative_test_dir = test_dir.split('/')[-2]
     model_dir = '/'.join(e for e in model_path.split('/')[:-1])
 
-    filepath = os.path.join(model_dir, f"test_{representative_test_dir}loss_-{metric_string}.jpg")
+    filepath = os.path.join(model_dir, f"test_{representative_test_dir}_loss_{metrics['loss']:.2f}_ssim{metrics['ssim']:.2f}.jpg")
     visualization.plot_batch([images.cpu(), targets.cpu(), predictions.cpu().detach()],
                              title=representative_test_dir,
                              show=False,
                              filepath=filepath)
 
     print("Plot saved to :", filepath)
+    print(metric_string)
     print("\nEvaluation ended.\n")

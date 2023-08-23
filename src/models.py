@@ -57,7 +57,7 @@ class UNet(nn.Module):
         def reset_dict(dictionary: dict):
             return {key: 0.0 for key in dictionary.keys()}
 
-        metrics = {"loss": criterion, "SSIM": ssim, "PNSR": psnr, "MSE": mse}
+        metrics = {"loss": criterion, "ssim": ssim, "pnsr": psnr, "mse": mse}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -189,7 +189,7 @@ class UNet(nn.Module):
             raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
 
         n_test_steps = 0
-        metrics = {"loss": criterion, "SSIM": ssim, "PNSR": psnr, "MSE": mse}
+        metrics = {"loss": criterion, "ssim": ssim, "pnsr": psnr, "mse": mse}
         metrics_values = {m_name: 0.0 for m_name in config_train.METRICS}
 
         self.eval()
