@@ -170,7 +170,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
         avg_val_metrics["is_straggler"] = False
 
-        return self.get_parameters({}), num_samples, avg_val_metrics  # TODO: rename the last one
+        return self.get_parameters({}), num_samples, avg_val_metrics
 
     def __repr__(self):
         return "FedProx"

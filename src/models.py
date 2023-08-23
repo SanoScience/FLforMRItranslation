@@ -244,18 +244,22 @@ class UNet(nn.Module):
 
 class DoubleConv(nn.Module):
 
-    def __init__(self, in_channels, out_channels, mid_channels=None):
+    def __init__(self, in_channels, out_channels, mid_channels=None, normalization=config_train.NORMALIZATION):
         super().__init__()
 
         if not mid_channels:
             mid_channels = out_channels
 
-        if config_train.BATCH_NORMALIZATION:
+        # choosing between one of three possible normalization types
+        if normalization == config_train.NormalizationType.BN:
             self.norm1 = nn.BatchNorm2d(mid_channels)
             self.norm2 = nn.BatchNorm2d(out_channels)
-        else:
+        elif normalization == config_train.NormalizationType.GN:
             self.norm1 = nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels)
             self.norm2 = nn.GroupNorm(config_train.N_GROUP_NORM, out_channels)
+        else:
+            self.norm1 = None
+            self.norm2 = None
 
         self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False)
         self.relu = nn.ReLU(inplace=True)
@@ -263,12 +267,12 @@ class DoubleConv(nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
-        if not config_train.NO_NORMALIZATION:
+        if self.norm1:
             x = self.norm1(x)
         x = self.relu(x)
 
         x = self.conv2(x)
-        if not config_train.NO_NORMALIZATION:
+        if self.norm2:
             x = self.norm2(x)
         x = self.relu(x)
 
@@ -325,33 +329,3 @@ class OutConv(nn.Module):
 
     def forward(self, x):
         return torch.sigmoid(self.conv(x))
-
-
-# def test(model, testloader: DataLoader, criterion, plots_dir=None, epoch=None) -> Tuple[float, float]:
-#     print(f"Testing \non device: {device} \nwith loss: {criterion})...\n")
-#
-#     if not isinstance(criterion, Callable):
-#         raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
-#
-#     n_steps = 0
-#
-#     total_loss = 0.0
-#     total_ssim = 0.0
-#     with torch.no_grad():
-#         for images_cpu, targets_cpu in testloader:
-#             images = images_cpu.to(device)
-#             targets = targets_cpu.to(device)
-#
-#             predictions = model(images)
-#             loss = criterion(predictions, targets)
-#
-#             total_loss += loss.item()
-#             total_ssim += ssim(predictions, targets).item()
-#
-#             n_steps += 1
-#
-#     loss_value, ssim_value = total_loss / n_steps, total_ssim / n_steps
-#
-#     print(f"Test loss: {loss_value:.4f} ssim: {ssim_value:.4f}")
-#
-#     return loss_value, ssim_value
