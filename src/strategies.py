@@ -283,14 +283,23 @@ def strategy_from_config(model, evaluate_fn=None):
 # FUNCTIONS
 # used by the strategy to during fit and evaluate
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
-    # Multiply accuracy of each client by number of examples used
-    ssim_values = [num_examples * m["ssim"] for num_examples, m in metrics]
-    loss_values = [num_examples * m["loss"] for num_examples, m in metrics]
+    val_metric_names = [f"val_{metric}" for metric in config_train.METRICS]
+
+    results = {}
+    first_iteration = True
+
+    for num_examples, m in metrics:
+        if first_iteration:
+            results = {metric_name: 0.0 for metric_name in m.keys()}
+            first_iteration = False
+
+        for metric_name, metric_value in m.items():
+            results[metric_name] += num_examples * metric_value
 
     examples = [num_examples for num_examples, _ in metrics]
 
-    # Aggregate and return custom metric (weighted average)
-    results = {"loss": sum(loss_values) / sum(examples), "ssim": sum(ssim_values) / sum(examples)}
+    for metric_name in results.keys():
+        results[metric_name] /= sum(examples)
 
     return results
 
@@ -322,6 +331,9 @@ def get_evaluate_fn(model: models.UNet,
     This function assumes server ability to access the data. It might be against FL idea/constrains.
     It is just for measurement/evaluation purposes
     """
+
+    raise NotImplementedError("New metrics: PNSR and MSE not include here!!")
+
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
         return None
 

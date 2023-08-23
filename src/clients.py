@@ -54,7 +54,8 @@ class ClassicClient(fl.client.NumPyClient):
                                            self.criterion,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
-                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots")
+                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
+                                           )
 
         print(f"END OF CLIENT TRAINING\n")
 
@@ -69,7 +70,7 @@ class ClassicClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
 
         metrics = self._evaluate(current_round=config["current_round"])
-        metric_without_loss = {k: v for k, v in metrics if k != "loss"}
+        metric_without_loss = {k: v for k, v in metrics.items() if k != "loss"}
 
         return metrics["loss"], len(self.test_loader.dataset), metric_without_loss
 
@@ -78,7 +79,8 @@ class ClassicClient(fl.client.NumPyClient):
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
         metrics = self.model.evaluate(self.test_loader, self.criterion,
                                       plots_dir=f"{self.client_dir}/test_plots",
-                                      plot_filename=f"round-{current_round}")
+                                      plot_filename=f"round-{current_round}"
+                                      )
 
         print(f"END OF CLIENT TESTING\n\n")
 

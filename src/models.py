@@ -140,10 +140,9 @@ class UNet(nn.Module):
         else:
             print_freq = batch_print_freq
 
-        metric_names = ["loss", "SSIM", "PNSR", "MSE"]
-        val_metric_names = [f"val_{m_name}" for m_name in metric_names]
+        val_metric_names = [f"val_{m_name}" for m_name in config_train.METRICS]
 
-        history = {m_name: [] for m_name in metric_names}
+        history = {m_name: [] for m_name in config_train.METRICS}
         history.update({m_name: [] for m_name in val_metric_names})
 
         if plots_dir is not None:
@@ -157,15 +156,16 @@ class UNet(nn.Module):
 
             epoch_metrics = self._train_one_epoch(trainloader, optimizer, criterion, print_freq, prox_loss)
 
-            for metric in metric_names:
+            for metric in config_train.METRICS:
                 history[metric].append(epoch_metrics[metric])
 
             print("\tVALIDATION...")
             if validationloader is not None:
                 val_metric = self.evaluate(validationloader, criterion, model_dir, plots_dir, f"ep{epoch}")
 
-                for metric in metric_names:
-                    history[metric].append(val_metric[metric])
+                for metric in val_metric_names:
+                    # trimming after val_ to get only the metric name since it is provided by the
+                    history[metric].append(val_metric[metric[len("val_"):]])
 
         print("\tAll epochs finished.\n")
 
@@ -189,8 +189,8 @@ class UNet(nn.Module):
             raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
 
         n_test_steps = 0
-
-        metrics = {m_name: 0.0 for m_name in config_train.METRICS}
+        metrics = {"loss": criterion, "SSIM": ssim, "PNSR": psnr, "MSE": mse}
+        metrics_values = {m_name: 0.0 for m_name in config_train.METRICS}
 
         self.eval()
         with torch.no_grad():
@@ -202,11 +202,11 @@ class UNet(nn.Module):
 
                 for metric_name, metrics_obj in metrics.items():
                     metric_value = metrics_obj(predictions, targets)
-                    metrics[metric_name] += metric_value.item()
+                    metrics_values[metric_name] += metric_value.item()
 
                 n_test_steps += 1
 
-        divided_metrics = {metric_name: metric_value / n_test_steps for metric_name, metric_value in config_train.METRICS}
+        divided_metrics = {metric_name: metric_value / n_test_steps for metric_name, metric_value in metrics_values.items()}
         metrics_str = loss_functions.metrics_to_str(divided_metrics, starting_symbol="\n\t")
 
         print(f"\tFor evaluation set: {metrics_str}\n")
