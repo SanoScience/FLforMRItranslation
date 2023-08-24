@@ -17,11 +17,23 @@ if __name__ == '__main__':
 
     dataset = MRIDatasetNumpySlices([data_dir_ares])
 
-    print(dataset.images)
-    print(dataset.targets)
-
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True)
 
-    images, targets = next(iter(dataloader))
+    first_iteration = True
+    for images, targets in dataloader:
+        for image, target in zip(images, targets):
+            if first_iteration:
+                image_shape = image.shape
+                target_shape = target.shape
+                first_iteration = False
+            else:
+                if image.shape != image_shape:
+                    print(f"WARNING: The shapes are different", image_shape, "!=", image.shape)
+                elif target.shape != target_shape:
+                    print(f"WARNING: The shapes are different", target_shape, "!=", target.shape)
+                else:
+                    print("good")
 
     plot_batch([images, targets], filepath="plot_maybe_bad.jpg", show=False)
+
+

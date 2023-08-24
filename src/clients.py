@@ -195,7 +195,7 @@ class FedBNClient(ClassicClient):
         self.model.load_state_dict(state_dict, strict=False)
 
     def __repr__(self):
-        return f"FedBN(batch_norm={config_train.BATCH_NORMALIZATION})"
+        return f"FedBN(batch_norm={config_train.NORMALIZATION})"
 
 
 def client_for_config(client_id, unet: models.UNet, optimizer, criterion, data_dir: str):
