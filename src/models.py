@@ -323,20 +323,20 @@ class Up(nn.Module):
 
 
 class OldUNet(nn.Module):
-    def __init__(self, bilinear=False):
+    def __init__(self, bilinear=False, normalization=config_train.NORMALIZATION):
         super(OldUNet, self).__init__()
         self.bilinear = bilinear
 
-        self.inc = (OldDoubleConv(1, 64))
-        self.down1 = (OldDown(64, 128))
-        self.down2 = (OldDown(128, 256))
-        self.down3 = (OldDown(256, 512))
+        self.inc = (DoubleConv(1, 64, normalization))
+        self.down1 = (Down(64, 128, normalization))
+        self.down2 = (Down(128, 256, normalization))
+        self.down3 = (Down(256, 512, normalization))
         factor = 2 if bilinear else 1
-        self.down4 = (OldDown(512, 1024 // factor))
-        self.up1 = (OldUp(1024, 512 // factor, bilinear))
-        self.up2 = (OldUp(512, 256 // factor, bilinear))
-        self.up3 = (OldUp(256, 128 // factor, bilinear))
-        self.up4 = (OldUp(128, 64, bilinear))
+        self.down4 = (Down(512, 1024 // factor, normalization))
+        self.up1 = (Up(1024, 512 // factor,  normalization, bilinear))
+        self.up2 = (Up(512, 256 // factor, normalization, bilinear))
+        self.up3 = (Up(256, 128 // factor, normalization, bilinear))
+        self.up4 = (Up(128, 64, normalization, bilinear))
         self.outc = (OutConv(64, 1))
 
     def forward(self, x):
