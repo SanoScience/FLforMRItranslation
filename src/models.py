@@ -238,8 +238,8 @@ class UNet(nn.Module):
 
         print("Model saved to: ", filepath)
 
-    def __repr__(self):
-        return f"UNet(batch_norm={config_train.BATCH_NORMALIZATION})"
+    def __str__(self):
+        return f"UNet(batch_norm={config_train.NORMALIZATION})"
 
 
 class DoubleConv(nn.Module):
