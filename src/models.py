@@ -376,17 +376,25 @@ class OldDoubleConv(nn.Module):
         super().__init__()
         if not mid_channels:
             mid_channels = out_channels
-        self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
-        )
+
+        self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False)
+        self.norm1 = nn.BatchNorm2d(mid_channels)
+        self.relu =  nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False)
+        self.norm2 = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
-        return self.double_conv(x)
+        x = self.conv1(x)
+        if self.norm1:
+            x = self.norm1(x)
+        x = self.relu(x)
+
+        x = self.conv2(x)
+        if self.norm2:
+            x = self.norm2(x)
+        x = self.relu(x)
+
+        return x
 
 
 class OldDown(nn.Module):
