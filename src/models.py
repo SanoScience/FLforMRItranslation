@@ -539,7 +539,7 @@ def train(model,
                 targets = targets_cpu.to(config_train.DEVICE)
 
                 predictions = model(images)
-                loss = config_train.CRITERION(predictions, targets)
+                loss = criterion(predictions, targets)
 
                 val_loss += loss.item()
                 val_ssim += ssim(predictions, targets).item()
