@@ -454,7 +454,7 @@ def train(model,
 
     print(f"Training \non device: {config_train.DEVICE} \nwith loss: {criterion})...\n")
 
-    model_dir = config_train.TRAINED_MODEL_SERVER_DIR
+    model_dir = config_train.CENTRALIZED_DIR
     fop.try_create_dir(model_dir)
     print(f"Created directory {model_dir}")
 
@@ -555,7 +555,7 @@ def train(model,
         if plots_dir is not None:
             filepath = path.join(model_dir, plots_dir, f"ep{epoch}.jpg")
             # maybe cast to cpu ?? still dunno if needed
-            visualization.plot_batch([images, targets, predictions.to('cpu').detach()], filepath=filepath)
+            visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()], filepath=filepath)
 
     print("\nEnd of this round.")
 

@@ -20,7 +20,8 @@ if __name__ == '__main__':
     testset = datasets.MRIDatasetNumpySlices([test_dir])
     testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)
 
-    unet = models.UNet().to(config_train.DEVICE)
+    # unet = models.UNet().to(config_train.DEVICE)
+    unet = models.OldUNet().to(config_train.DEVICE)
     if config_train.LOCAL:
         unet.load_state_dict(torch.load(os.path.join(model_path), map_location=torch.device('cpu')))
     else:

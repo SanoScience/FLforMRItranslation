@@ -41,11 +41,6 @@ if __name__ == '__main__':
                            num_workers=config_train.NUM_WORKERS,
                            pin_memory=True)
 
-    # train_dataset = MRIDatasetNumpySlices([ROOT_DIR_TRAIN])
-    # validation_dataset = MRIDatasetNumpySlices([ROOT_DIR_VAL])
-    # trainloader = DataLoader(train_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
-    # valloader = DataLoader(validation_dataset, batch_size=config_train.BATCH_SIZE, shuffle=True)
-
     old_unet = OldUNet().to(config_train.DEVICE)
     optimizer = optim.Adam(old_unet.parameters(), lr=config_train.LEARNING_RATE)
     criterion = loss_functions.DssimMse()
@@ -58,7 +53,7 @@ if __name__ == '__main__':
     # optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
     # criterion = loss_functions.DssimMse()
     # model_filename = f"model.pth"
-    #
+    
     # unet.perform_train(trainloader,
     #                    optimizer,
     #                    criterion,
