@@ -34,14 +34,12 @@ if __name__ == '__main__':
                              batch_size=config_train.BATCH_SIZE,
                              shuffle=True,
                              num_workers=num_workers,
-                             pin_memory=True,
-                             persistent_workers=True)
+                             pin_memory=True)
     valloader = DataLoader(validation_dataset,
                            batch_size=config_train.BATCH_SIZE,
                            shuffle=True,
                            num_workers=num_workers,
-                           pin_memory=True,
-                           persistent_workers=True)
+                           pin_memory=True)
 
     # train_dataset = MRIDatasetNumpySlices([ROOT_DIR_TRAIN])
     # validation_dataset = MRIDatasetNumpySlices([ROOT_DIR_VAL])
