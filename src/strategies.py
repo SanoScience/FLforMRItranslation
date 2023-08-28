@@ -67,6 +67,8 @@ class FedCostWAvg(FedAvg):
             failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         # AGGREGATING WEIGHTS
+        raise NotImplementedError
+        # TODO: implement to deal with fact that clients' results aren't in the same order
         weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in results]
 
         loss_values = [fit_res.metrics["loss"] for _, fit_res in results]
