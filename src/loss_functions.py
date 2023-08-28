@@ -59,54 +59,41 @@ class LossWithProximalTerm:
         return f"ProxLoss (mu={self.proximal_mu} base_fn={self.base_loss_fn})"
 
 
-class ImprovedSSIM(Metric):
+class ZoomedSSIM(Metric):
     def __init__(self, data_range=1.0):
         super().__init__()
-        self.add_state("summed_ssim", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("ssim_list", default=[], dist_reduce_fx="cat")
         self.add_state("batch_size", default=torch.tensor(0), dist_reduce_fx="sum")
         self.ssim = StructuralSimilarityIndexMeasure(data_range=data_range).to(config_train.DEVICE)
 
     def update(self, preds: torch.Tensor, targets: torch.Tensor):
+
         # preds, targets = self._input_format()
         assert preds.shape == targets.shape
 
         for pred, target in zip(preds, targets):
             image = target.detach()[0]
 
-            looking_for_first = True
-            first_index_row = -1
-            last_index_row = -1
+            non_zeros = torch.nonzero(image)
+            first_index_row = int(non_zeros[0][0])
+            last_index_row = int(non_zeros[-1][0])
 
-            for index, row in enumerate(image):
-                if looking_for_first and torch.sum(row) > 0:
-                    first_index_row = index
-                    looking_for_first = False
-                if not looking_for_first and torch.sum(row) == 0:
-                    last_index_row = index
-                    looking_for_first = True
-                    break
+            non_zeros_T = torch.nonzero(torch.t(image))
+            first_index_col = int(non_zeros_T[0][0])
+            last_index_col = int(non_zeros_T[-1][0])
 
-            first_index_col = -1
-            last_index_col = -1
-
-            for index, col in enumerate(torch.t(image)):
-                if looking_for_first and sum(col) > 0:
-                    first_index_col = index
-                    looking_for_first = False
-                if not looking_for_first and sum(col) == 0:
-                    last_index_col = index
-                    break
-
-            trimmed_targets = torch.tensor(image[first_index_row:last_index_row, first_index_col:last_index_col])
-            trimmed_predicted = torch.tensor(pred[0, first_index_row:last_index_row, first_index_col:last_index_col])
+            trimmed_targets = image.detach().clone()[first_index_row:last_index_row, first_index_col:last_index_col]
+            trimmed_predicted = pred.detach().clone()[0, first_index_row:last_index_row, first_index_col:last_index_col]
 
             # expanding dimensions to fit BxCxHxW format
-            self.summed_ssim += self.ssim(trimmed_predicted[None, None, :, :], trimmed_targets[None, None, :, :])
+            ssim_value = self.ssim(trimmed_predicted[None, None, :, :], trimmed_targets[None, None, :, :])
+            self.ssim_list.append(ssim_value)
 
         self.batch_size += preds.shape[0]
 
+
     def compute(self):
-        return self.summed_ssim / self.batch_size
+        return torch.tensor(sum(self.ssim_list) / self.batch_size)
 
     # def __call__(self, predicted, targets):
     #     for image in targets:
@@ -152,7 +139,7 @@ def loss_for_config():
         return MSELoss()
 
 
-def metrics_to_str(metrics: Dict[str, List[float]], starting_symbol="\t"):
+def metrics_to_str(metrics: Dict[str, List[float]], starting_symbol=""):
     metrics_epoch_str = starting_symbol
     for metric_name, epoch_value in metrics.items():
         metrics_epoch_str += f"{metric_name}: {epoch_value:.3f}\t"

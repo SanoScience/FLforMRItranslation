@@ -19,7 +19,7 @@ batch_print_freq = config_train.BATCH_PRINT_FREQ
 ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
 psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
 mse = nn.MSELoss()
-zoomed_ssim = None
+zoomed_ssim = loss_functions.ZoomedSSIM()
 
 class UNet(nn.Module):
     # TODO: test with bilinear = False
@@ -295,7 +295,7 @@ class OldUNet(nn.Module):
         print("Model saved to: ", filepath)
 
     def _train_one_epoch(self, trainloader, optimizer):
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse}
+        metrics = {"loss": self.criterion, "ssim": ssim, "zoomed_ssim": zoomed_ssim, "pnsr": psnr, "mse": mse}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
