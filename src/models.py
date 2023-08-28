@@ -19,7 +19,7 @@ batch_print_freq = config_train.BATCH_PRINT_FREQ
 ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
 psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
 mse = nn.MSELoss()
-zoomed_ssim = loss_functions.ZoomedSSIM()
+zoomed_ssim = None
 
 class UNet(nn.Module):
     # TODO: test with bilinear = False
@@ -395,9 +395,12 @@ class OldUNet(nn.Module):
         history = {m_name: [] for m_name in config_train.METRICS}
         history.update({m_name: [] for m_name in val_metric_names})
 
+
         if plots_dir is not None:
             plots_path = path.join(model_dir, plots_dir)
             fop.try_create_dir(plots_path)
+        else:
+            plots_path = None
 
         for epoch in range(epochs):
             print(f"\tEPOCH: {epoch + 1}/{epochs}")
@@ -409,7 +412,7 @@ class OldUNet(nn.Module):
 
             print("\tVALIDATION...")
             if validationloader is not None:
-                val_metric = self.test(validationloader, model_dir, plots_dir, f"ep{epoch}.jpg")
+                val_metric = self.evaluate(validationloader, plots_path, f"ep{epoch}.jpg")
 
                 for metric in val_metric_names:
                     # trimming after val_ to get only the metric name since it is provided by the
@@ -427,7 +430,7 @@ class OldUNet(nn.Module):
 
         return history
 
-    def test(self, testloader, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, plots_dir=None, plot_filename=None):
+    def evaluate(self, testloader, plots_path=None, plot_filename=None):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
@@ -450,8 +453,8 @@ class OldUNet(nn.Module):
 
                 n_steps += 1
 
-        if plots_dir is not None:
-            filepath = path.join(model_dir, plots_dir, plot_filename)
+        if plots_path:
+            filepath = path.join(plots_path, plot_filename)
             # maybe cast to cpu ?? still dunno if needed
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
                                      filepath=filepath)

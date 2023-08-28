@@ -21,7 +21,8 @@ if __name__ == '__main__':
     testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)
 
     # unet = models.UNet().to(config_train.DEVICE)
-    unet = models.OldUNet().to(config_train.DEVICE)
+    criterion = loss_functions.DssimMse()
+    unet = models.OldUNet(criterion).to(config_train.DEVICE)
     if config_train.LOCAL:
         unet.load_state_dict(torch.load(os.path.join(model_path), map_location=torch.device('cpu')))
     else:
@@ -34,7 +35,20 @@ if __name__ == '__main__':
 
     images = images.to(config_train.DEVICE)
     predictions = unet(images)
-    criterion = loss_functions.DssimMse()
+
+    # loss, ssim = unet.test(testloader, criterion)
+    # representative_test_dir = test_dir.split('/')[-2]
+    # model_dir = '/'.join(e for e in model_path.split('/')[:-1])
+
+    # filepath = os.path.join(model_dir, f"test_{representative_test_dir}_loss_{loss:.2f}_ssim{ssim:.2f}.jpg")
+    # visualization.plot_batch([images.cpu(), targets.cpu(), predictions.cpu().detach()],
+    #                          title=representative_test_dir,
+    #                          show=False,
+    #                          filepath=filepath)
+
+    # print("Plot saved to :", filepath)
+    # print(f"ssim {ssim} loss {loss}")
+    # print("\nEvaluation ended.\n")
 
     metrics = unet.evaluate(testloader, criterion)
     metric_string = loss_functions.metrics_to_str(metrics, starting_symbol="")
