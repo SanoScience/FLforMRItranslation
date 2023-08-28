@@ -21,7 +21,6 @@ psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
 mse = nn.MSELoss()
 improved_ssim = loss_functions.ImprovedSSIM()
 
-
 class UNet(nn.Module):
     # TODO: test with bilinear = False
 
@@ -89,23 +88,25 @@ class UNet(nn.Module):
             optimizer.step()
 
             for metric_name, metrics_obj in metrics.items():
-                metric_value = metrics_obj(predictions, targets)
+                if metric_name == "loss":
+                    metric_value = loss
+                else:
+                    metric_value = metrics_obj(predictions, targets)
                 total_metrics[metric_name] += metric_value.item()
                 epoch_metrics[metric_name] += metric_value.item()
 
             n_train_steps += 1
 
             if index % batch_print_frequency == batch_print_frequency - 1:
-                divided_batch_metrics = {metric_name: total_value / batch_print_frequency for metric_name, total_value
-                                         in total_metrics.items()}
+
+                divided_batch_metrics = {metric_name: total_value/batch_print_frequency for metric_name, total_value in total_metrics.items()}
                 metrics_str = loss_functions.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
 
                 print(f'\tbatch {(index + 1)} out of {n_batches}{metrics_str}')
 
                 total_metrics = reset_dict(total_metrics)
 
-        divided_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in
-                                 epoch_metrics.items()}
+        divided_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in epoch_metrics.items()}
         metrics_epoch_str = loss_functions.metrics_to_str(divided_epoch_metrics, starting_symbol="")
 
         print(f"\n\tTime exceeded: {time.time() - start:.1f}\n\tEpoch metrics:{metrics_epoch_str}")
@@ -181,8 +182,7 @@ class UNet(nn.Module):
 
         return history
 
-    def evaluate(self, testloader, criterion, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, plots_dir=None,
-                 plot_filename=None):
+    def evaluate(self, testloader, criterion, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, plots_dir=None, plot_filename=None):
         if isinstance(criterion, src.loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
 
@@ -209,8 +209,7 @@ class UNet(nn.Module):
 
                 n_test_steps += 1
 
-        divided_metrics = {metric_name: metric_value / n_test_steps for metric_name, metric_value in
-                           metrics_values.items()}
+        divided_metrics = {metric_name: metric_value / n_test_steps for metric_name, metric_value in metrics_values.items()}
         metrics_str = loss_functions.metrics_to_str(divided_metrics, starting_symbol="\n\t")
 
         print(f"\tFor evaluation set: {metrics_str}\n")
@@ -245,87 +244,7 @@ class UNet(nn.Module):
     def __str__(self):
         return f"UNet(batch_norm={config_train.NORMALIZATION})"
 
-
-class DoubleConv(nn.Module):
-
-    def __init__(self, in_channels, out_channels, normalization, mid_channels=None):
-        super().__init__()
-
-        if not mid_channels:
-            mid_channels = out_channels
-
-        # choosing between one of three possible normalization types
-        if normalization == config_train.NormalizationType.BN:
-            self.norm1 = nn.BatchNorm2d(mid_channels)
-            self.norm2 = nn.BatchNorm2d(out_channels)
-        elif normalization == config_train.NormalizationType.GN:
-            self.norm1 = nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels)
-            self.norm2 = nn.GroupNorm(config_train.N_GROUP_NORM, out_channels)
-        else:
-            self.norm1 = None
-            self.norm2 = None
-
-        self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        if self.norm1:
-            x = self.norm1(x)
-        x = self.relu(x)
-
-        x = self.conv2(x)
-        if self.norm2:
-            x = self.norm2(x)
-        x = self.relu(x)
-
-        return x
-
-
-class Down(nn.Module):
-    """Downscaling with maxpool then double conv"""
-
-    def __init__(self, in_channels, out_channels, normalization):
-        super().__init__()
-        self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2),
-            DoubleConv(in_channels, out_channels, normalization)
-        )
-
-    def forward(self, x):
-        return self.maxpool_conv(x)
-
-
-class Up(nn.Module):
-    """Upscaling then double conv"""
-
-    def __init__(self, in_channels, out_channels, normalization, bilinear=True):
-        super().__init__()
-
-        # if bilinear, use the normal convolutions to reduce the number of channels
-        if bilinear:
-            self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-            self.conv = DoubleConv(in_channels, out_channels, normalization, mid_channels=in_channels // 2)
-        else:
-            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-            self.conv = DoubleConv(in_channels, out_channels, normalization)
-
-    def forward(self, x1, x2):
-        x1 = self.up(x1)
-        # input is CHW
-        diffY = x2.size()[2] - x1.size()[2]
-        diffX = x2.size()[3] - x1.size()[3]
-
-        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
-                        diffY // 2, diffY - diffY // 2])
-        # if you have padding issues, see
-        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
-        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
-        x = torch.cat([x2, x1], dim=1)
-        return self.conv(x)
-
-
+    
 class OldUNet(nn.Module):
     def __init__(self, criterion, bilinear=False, normalization=config_train.NORMALIZATION):
         super(OldUNet, self).__init__()
@@ -376,7 +295,7 @@ class OldUNet(nn.Module):
         print("Model saved to: ", filepath)
 
     def _train_one_epoch(self, trainloader, optimizer):
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse}
+        metrics = {"ssim": ssim, "pnsr": psnr, "mse": mse}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -415,13 +334,21 @@ class OldUNet(nn.Module):
             loss.backward()
             optimizer.step()
 
-            ssim_value = ssim(predictions, targets)
+            for metric_name, metric_object in metrics.items():
+                if metric_name == "loss":
+                    metric_value = loss
+                else:
+                    metric_value = metric_object(predictions, targets)
+                total_metrics[metric_name] += metric_value.item()
+                epoch_metrics[metric_name] += metric_value.item()
 
-            running_loss += loss.item()
-            total_ssim += ssim_value.item()
-
-            epoch_loss += loss.item()
-            epoch_ssim += ssim_value.item()
+            # ssim_value = ssim(predictions, targets)
+            #
+            # running_loss += loss.item()
+            # total_ssim += ssim_value.item()
+            #
+            # epoch_loss += loss.item()
+            # epoch_ssim += ssim_value.item()
 
             n_train_steps += 1
 
@@ -433,8 +360,9 @@ class OldUNet(nn.Module):
                 running_loss = 0.0
                 total_ssim = 0.0
 
-        epoch_loss /= n_train_steps
-        epoch_ssim /= n_train_steps
+        divided_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in epoch_metrics.items()}
+        metrics_epoch_str = loss_functions.metrics_to_str(divided_epoch_metrics, starting_symbol="")
+
         print(f"\n\tTime exceeded: {time.time() - start:.1f}")
         print(f"\tEpoch metrics: {epoch_loss:.3f} ssim: {epoch_ssim:.3f}")
 
@@ -535,6 +463,86 @@ class OldUNet(nn.Module):
               f"val_ssim: {val_ssim:.3f}")
 
         return val_loss, val_ssim
+
+
+class DoubleConv(nn.Module):
+
+    def __init__(self, in_channels, out_channels, normalization, mid_channels=None):
+        super().__init__()
+
+        if not mid_channels:
+            mid_channels = out_channels
+
+        # choosing between one of three possible normalization types
+        if normalization == config_train.NormalizationType.BN:
+            self.norm1 = nn.BatchNorm2d(mid_channels)
+            self.norm2 = nn.BatchNorm2d(out_channels)
+        elif normalization == config_train.NormalizationType.GN:
+            self.norm1 = nn.GroupNorm(config_train.N_GROUP_NORM, mid_channels)
+            self.norm2 = nn.GroupNorm(config_train.N_GROUP_NORM, out_channels)
+        else:
+            self.norm1 = None
+            self.norm2 = None
+
+        self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        if self.norm1:
+            x = self.norm1(x)
+        x = self.relu(x)
+
+        x = self.conv2(x)
+        if self.norm2:
+            x = self.norm2(x)
+        x = self.relu(x)
+
+        return x
+
+
+class Down(nn.Module):
+    """Downscaling with maxpool then double conv"""
+
+    def __init__(self, in_channels, out_channels, normalization):
+        super().__init__()
+        self.maxpool_conv = nn.Sequential(
+            nn.MaxPool2d(2),
+            DoubleConv(in_channels, out_channels, normalization)
+        )
+
+    def forward(self, x):
+        return self.maxpool_conv(x)
+
+
+class Up(nn.Module):
+    """Upscaling then double conv"""
+
+    def __init__(self, in_channels, out_channels, normalization, bilinear=True):
+        super().__init__()
+
+        # if bilinear, use the normal convolutions to reduce the number of channels
+        if bilinear:
+            self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            self.conv = DoubleConv(in_channels, out_channels, normalization, mid_channels=in_channels // 2)
+        else:
+            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+            self.conv = DoubleConv(in_channels, out_channels, normalization)
+
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        # input is CHW
+        diffY = x2.size()[2] - x1.size()[2]
+        diffX = x2.size()[3] - x1.size()[3]
+
+        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+        # if you have padding issues, see
+        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
+        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
+        x = torch.cat([x2, x1], dim=1)
+        return self.conv(x)
 
 
 class OutConv(nn.Module):
