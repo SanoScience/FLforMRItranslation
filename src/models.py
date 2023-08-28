@@ -19,7 +19,7 @@ batch_print_freq = config_train.BATCH_PRINT_FREQ
 ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
 psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
 mse = nn.MSELoss()
-improved_ssim = loss_functions.ImprovedSSIM()
+zoomed_ssim = loss_functions.ZoomedSSIM()
 
 class UNet(nn.Module):
     # TODO: test with bilinear = False
@@ -57,7 +57,7 @@ class UNet(nn.Module):
         def reset_dict(dictionary: dict):
             return {key: 0.0 for key in dictionary.keys()}
 
-        metrics = {"loss": criterion, "ssim": ssim, "pnsr": psnr, "mse": mse}
+        metrics = {"loss": criterion, "ssim": ssim, "zoomed_ssim": zoomed_ssim, "pnsr": psnr, "mse": mse}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -244,7 +244,7 @@ class UNet(nn.Module):
     def __str__(self):
         return f"UNet(batch_norm={config_train.NORMALIZATION})"
 
-    
+
 class OldUNet(nn.Module):
     def __init__(self, criterion, bilinear=False, normalization=config_train.NORMALIZATION):
         super(OldUNet, self).__init__()
@@ -295,7 +295,7 @@ class OldUNet(nn.Module):
         print("Model saved to: ", filepath)
 
     def _train_one_epoch(self, trainloader, optimizer):
-        metrics = {"ssim": ssim, "pnsr": psnr, "mse": mse}
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -305,8 +305,8 @@ class OldUNet(nn.Module):
         start = time.time()
         n_train_steps = 0
 
-        running_loss, total_ssim = 0.0, 0.0
-        epoch_loss, epoch_ssim = 0.0, 0.0
+        # running_loss, total_ssim = 0.0, 0.0
+        # epoch_loss, epoch_ssim = 0.0, 0.0
 
         use_prox_loss = config_train.LOSS_TYPE == config_train.LossFunctions.PROX
         if n_batches < config_train.BATCH_PRINT_FREQ:
@@ -353,20 +353,21 @@ class OldUNet(nn.Module):
             n_train_steps += 1
 
             if index % batch_print_frequency == batch_print_frequency - 1:
-                print(f'\tbatch {(index + 1)} out of {n_batches}\t'
-                      f'loss: {running_loss / batch_print_frequency:.3f} '
-                      f'ssim {total_ssim / batch_print_frequency:.3f}')
+                divided_batch_metrics = {metric_name: total_value/batch_print_frequency for metric_name, total_value in total_metrics.items()}
+                metrics_str = loss_functions.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
+                print(f'\tbatch {(index + 1)} out of {n_batches} {metrics_str}')
 
-                running_loss = 0.0
-                total_ssim = 0.0
+                total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
+                # running_loss = 0.0
+                # total_ssim = 0.0
 
-        divided_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in epoch_metrics.items()}
-        metrics_epoch_str = loss_functions.metrics_to_str(divided_epoch_metrics, starting_symbol="")
+        averaged_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in epoch_metrics.items()}
+        metrics_epoch_str = loss_functions.metrics_to_str(averaged_epoch_metrics, starting_symbol="")
 
         print(f"\n\tTime exceeded: {time.time() - start:.1f}")
-        print(f"\tEpoch metrics: {epoch_loss:.3f} ssim: {epoch_ssim:.3f}")
+        print(f"\tEpoch metrics: {metrics_epoch_str}")
 
-        return epoch_loss, epoch_ssim
+        return averaged_epoch_metrics
 
     def perform_train(self,
                       trainloader,
@@ -377,7 +378,6 @@ class OldUNet(nn.Module):
                       filename=None,
                       history_filename=None,
                       plots_dir=None):
-        # TODO: transform from config to local vars
 
         print(f"TRAINING... \n\ton device: {device} \n\twith loss: {self.criterion}\n")
 
@@ -390,10 +390,10 @@ class OldUNet(nn.Module):
         else:
             print(f"\tWARNING: Neither model, history nor plots from the training process will be saved!")
 
-        train_losses = []
-        train_ssims = []
-        val_losses = []
-        val_ssims = []
+        val_metric_names = [f"val_{m_name}" for m_name in config_train.METRICS]
+
+        history = {m_name: [] for m_name in config_train.METRICS}
+        history.update({m_name: [] for m_name in val_metric_names})
 
         if plots_dir is not None:
             plots_path = path.join(model_dir, plots_dir)
@@ -402,19 +402,18 @@ class OldUNet(nn.Module):
         for epoch in range(epochs):
             print(f"\tEPOCH: {epoch + 1}/{epochs}")
 
-            epoch_loss, epoch_ssim = self._train_one_epoch(trainloader, optimizer)
+            epoch_metrics = self._train_one_epoch(trainloader, optimizer)
 
-            train_ssims.append(epoch_ssim)
-            train_losses.append(epoch_loss)
+            for metric in config_train.METRICS:
+                history[metric].append(epoch_metrics[metric])
 
             print("\tVALIDATION...")
             if validationloader is not None:
-                val_loss, val_ssim = self.test(validationloader, model_dir, plots_dir, f"ep{epoch}.jpg")
+                val_metric = self.test(validationloader, model_dir, plots_dir, f"ep{epoch}.jpg")
 
-                val_ssims.append(val_ssim)
-                val_losses.append(val_loss)
-
-        history = {"loss": train_losses, "ssim": train_ssims, "val_loss": val_losses, "val_ssim": val_ssims}
+                for metric in val_metric_names:
+                    # trimming after val_ to get only the metric name since it is provided by the
+                    history[metric].append(val_metric[metric[len("val_"):]])
 
         print("\tAll epochs finished.\n")
 
@@ -436,18 +435,18 @@ class OldUNet(nn.Module):
 
         n_steps = 0
 
-        total_loss = 0.0
-        total_ssim = 0.0
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse}
+        metrics_values = {m_name: 0.0 for m_name in config_train.METRICS}
         with torch.no_grad():
             for images_cpu, targets_cpu in testloader:
                 images = images_cpu.to(config_train.DEVICE)
                 targets = targets_cpu.to(config_train.DEVICE)
 
                 predictions = self(images)
-                loss = self.criterion(predictions, targets)
 
-                total_loss += loss.item()
-                total_ssim += ssim(predictions, targets).item()
+                for metric_name, metrics_obj in metrics.items():
+                    metric_value = metrics_obj(predictions, targets)
+                    metrics_values[metric_name] += metric_value.item()
 
                 n_steps += 1
 
@@ -457,16 +456,15 @@ class OldUNet(nn.Module):
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
                                      filepath=filepath)
 
-        val_loss = total_loss / n_steps
-        val_ssim = total_ssim / n_steps
-        print(f"\tFor validation set: val_loss: {val_loss:.3f} "
-              f"val_ssim: {val_ssim:.3f}")
+        averaged_metrics = {metric_name: metric_value / n_steps for metric_name, metric_value in metrics_values.items()}
+        metrics_str = loss_functions.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
 
-        return val_loss, val_ssim
+        print(f"\tFor evaluation set: {metrics_str}\n")
+
+        return averaged_metrics
 
 
 class DoubleConv(nn.Module):
-
     def __init__(self, in_channels, out_channels, normalization, mid_channels=None):
         super().__init__()
 
