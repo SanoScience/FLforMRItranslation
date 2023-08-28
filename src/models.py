@@ -327,8 +327,10 @@ class Up(nn.Module):
 
 
 class OldUNet(nn.Module):
-    def __init__(self, bilinear=False, normalization=config_train.NORMALIZATION):
+    def __init__(self, criterion, bilinear=False, normalization=config_train.NORMALIZATION):
         super(OldUNet, self).__init__()
+
+        self.criterion = criterion
         self.bilinear = bilinear
 
         self.inc = (DoubleConv(1, 64, normalization))
@@ -373,8 +375,8 @@ class OldUNet(nn.Module):
 
         print("Model saved to: ", filepath)
 
-    def _train_one_epoch(self, trainloader, optimizer, criterion):
-        metrics = {"loss": criterion, "ssim": ssim, "pnsr": psnr, "mse": mse}
+    def _train_one_epoch(self, trainloader, optimizer):
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -406,9 +408,9 @@ class OldUNet(nn.Module):
             predictions = self(images)
 
             if use_prox_loss:
-                loss = criterion(predictions, targets, self.parameters(), global_params)
+                loss = self.criterion(predictions, targets, self.parameters(), global_params)
             else:
-                loss = criterion(predictions, targets)
+                loss = self.criterion(predictions, targets)
 
             loss.backward()
             optimizer.step()
@@ -441,7 +443,6 @@ class OldUNet(nn.Module):
     def perform_train(self,
                       trainloader,
                       optimizer,
-                      criterion,
                       epochs,
                       validationloader=None,
                       model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
@@ -450,10 +451,10 @@ class OldUNet(nn.Module):
                       plots_dir=None):
         # TODO: transform from config to local vars
 
-        print(f"TRAINING... \n\ton device: {device} \n\twith loss: {criterion}\n")
+        print(f"TRAINING... \n\ton device: {device} \n\twith loss: {self.criterion}\n")
 
-        if not isinstance(criterion, Callable):
-            raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
+        if not isinstance(self.criterion, Callable):
+            raise TypeError(f"Loss function (criterion) has to be callable. It is {type(self.criterion)} which is not.")
 
         if any([history_filename, plots_dir, filename]):
             fop.try_create_dir(model_dir)
@@ -473,14 +474,14 @@ class OldUNet(nn.Module):
         for epoch in range(epochs):
             print(f"\tEPOCH: {epoch + 1}/{epochs}")
 
-            epoch_loss, epoch_ssim = self._train_one_epoch(trainloader, optimizer, criterion)
+            epoch_loss, epoch_ssim = self._train_one_epoch(trainloader, optimizer)
 
             train_ssims.append(epoch_ssim)
             train_losses.append(epoch_loss)
 
             print("\tVALIDATION...")
             if validationloader is not None:
-                val_loss, val_ssim = self.test(validationloader, criterion, model_dir, plots_dir, f"ep{epoch}.jpg")
+                val_loss, val_ssim = self.test(validationloader, model_dir, plots_dir, f"ep{epoch}.jpg")
 
                 val_ssims.append(val_ssim)
                 val_losses.append(val_loss)
@@ -499,11 +500,11 @@ class OldUNet(nn.Module):
 
         return history
 
-    def test(self, testloader, criterion, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, plots_dir=None, plot_filename=None):
-        print(f"\tON DEVICE: {device} \n\tWITH LOSS: {criterion}\n")
+    def test(self, testloader, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, plots_dir=None, plot_filename=None):
+        print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
-        if not isinstance(criterion, Callable):
-            raise TypeError(f"Loss function (criterion) has to be callable.It is {type(criterion)} which is not.")
+        if not isinstance(self.criterion, Callable):
+            raise TypeError(f"Loss function (criterion) has to be callable.It is {type(self.criterion)} which is not.")
 
         n_steps = 0
 
@@ -515,7 +516,7 @@ class OldUNet(nn.Module):
                 targets = targets_cpu.to(config_train.DEVICE)
 
                 predictions = self(images)
-                loss = criterion(predictions, targets)
+                loss = self.criterion(predictions, targets)
 
                 total_loss += loss.item()
                 total_ssim += ssim(predictions, targets).item()
