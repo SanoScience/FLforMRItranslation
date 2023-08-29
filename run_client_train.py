@@ -20,11 +20,11 @@ if __name__ == "__main__":
         server_node = sys.argv[3]
         with_num_workers = True
     # Model
-    unet = models.UNet().to(config_train.DEVICE)
-    optimizer = torch.optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
     criterion = loss_functions.loss_for_config()
+    unet = models.UNet(criterion).to(config_train.DEVICE)
+    optimizer = torch.optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
 
-    client = client_for_config(client_id, unet, optimizer, criterion, data_dir)
+    client = client_for_config(client_id, unet, optimizer, data_dir)
 
     # Address
     server_address = f"{server_node}:{config_train.PORT}"

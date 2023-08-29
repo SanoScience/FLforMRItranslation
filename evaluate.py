@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     # unet = models.UNet().to(config_train.DEVICE)
     criterion = loss_functions.DssimMse()
-    unet = models.OldUNet(criterion).to(config_train.DEVICE)
+    unet = models.UNet(criterion).to(config_train.DEVICE)
     if config_train.LOCAL:
         unet.load_state_dict(torch.load(os.path.join(model_path), map_location=torch.device('cpu')))
     else:

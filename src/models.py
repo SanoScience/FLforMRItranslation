@@ -21,11 +21,11 @@ psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
 mse = nn.MSELoss()
 zoomed_ssim = loss_functions.ZoomedSSIM()
 
-class UNet(nn.Module):
+class UNetBuggy(nn.Module):
     # TODO: test with bilinear = False
 
     def __init__(self, bilinear=False, normalization=config_train.NORMALIZATION):
-        super(UNet, self).__init__()
+        super(UNetBuggy, self).__init__()
 
         self.inc = (DoubleConv(1, 64, normalization))
         self.down1 = (Down(64, 128, normalization))
@@ -245,9 +245,9 @@ class UNet(nn.Module):
         return f"UNet(batch_norm={config_train.NORMALIZATION})"
 
 
-class OldUNet(nn.Module):
-    def __init__(self, criterion, bilinear=False, normalization=config_train.NORMALIZATION):
-        super(OldUNet, self).__init__()
+class UNet(nn.Module):
+    def __init__(self, criterion=None, bilinear=False, normalization=config_train.NORMALIZATION):
+        super(UNet, self).__init__()
 
         self.criterion = criterion
         self.bilinear = bilinear
@@ -355,7 +355,7 @@ class OldUNet(nn.Module):
             if index % batch_print_frequency == batch_print_frequency - 1:
                 divided_batch_metrics = {metric_name: total_value/batch_print_frequency for metric_name, total_value in total_metrics.items()}
                 metrics_str = loss_functions.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
-                print(f'\tbatch {(index + 1)} out of {n_batches} {metrics_str}')
+                print(f'\tbatch {(index + 1)} out of {n_batches}\t\t{metrics_str}')
 
                 total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
                 # running_loss = 0.0

@@ -17,7 +17,7 @@ from src.datasets import MRIDatasetNumpySlices
 
 
 class ClassicClient(fl.client.NumPyClient):
-    def __init__(self, client_id, model: models.UNet, optimizer, criterion, data_dir):
+    def __init__(self, client_id, model: models.UNet, optimizer, data_dir):
         self.client_id = client_id
         self.model = model
         self.train_loader, self.test_loader, self.val_loader = load_data(data_dir,
@@ -25,7 +25,6 @@ class ClassicClient(fl.client.NumPyClient):
                                                                          with_num_workers=not config_train.LOCAL)
 
         self.optimizer = optimizer
-        self.criterion = criterion
 
         self.history = {metric_name: [] for metric_name in config_train.METRICS}
 
@@ -51,7 +50,6 @@ class ClassicClient(fl.client.NumPyClient):
 
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
-                                           self.criterion,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
                                            plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
@@ -77,8 +75,8 @@ class ClassicClient(fl.client.NumPyClient):
     def _evaluate(self, current_round: int):
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
-        metrics = self.model.evaluate(self.test_loader, self.criterion,
-                                      plots_dir=f"{self.client_dir}/test_plots",
+        metrics = self.model.evaluate(self.test_loader,
+                                      plots_path=f"{self.client_dir}/test_plots",
                                       plot_filename=f"round-{current_round}"
                                       )
 
@@ -91,7 +89,7 @@ class ClassicClient(fl.client.NumPyClient):
 
         # saving model and history if it is the last round
         if current_round == config_train.N_ROUNDS:
-            self.model.save(self.client_dir, create_dir=False)
+            self.model.save(self.client_dir)
 
             with open(f"{self.client_dir}/history.pkl", 'wb') as file:
                 pickle.dump(self.history, file)
@@ -106,9 +104,9 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
     """Standard Flower client for CNN training."""
     NUMBER_OF_SAMPLES = 25000
 
-    def __init__(self, client_id, model: models.UNet, optimizer, criterion, data_dir: str,
+    def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str,
                  straggler_schedule=None, epochs_multiplier: int = 1):  # pylint: disable=too-many-arguments
-        super().__init__(client_id, model, optimizer, criterion, data_dir)
+        super().__init__(client_id, model, optimizer, data_dir)
 
         self.straggler_schedule = straggler_schedule
         self.epochs_multiplier = epochs_multiplier
@@ -155,9 +153,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
-                                           self.criterion,
                                            epochs=num_epochs,
-                                           prox_loss=True,
                                            validationloader=self.val_loader,
                                            plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots")
 
@@ -198,20 +194,20 @@ class FedBNClient(ClassicClient):
         return f"FedBN(batch_norm={config_train.NORMALIZATION})"
 
 
-def client_for_config(client_id, unet: models.UNet, optimizer, criterion, data_dir: str):
+def client_for_config(client_id, unet: models.UNet, optimizer, data_dir: str):
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
         stragglers_mat = np.transpose(
             np.random.choice([0, 1], size=config_train.N_ROUNDS,
                              p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
         )
 
-        return FedProxClient(client_id, unet, optimizer, criterion, data_dir, stragglers_mat)
+        return FedProxClient(client_id, unet, optimizer, data_dir, stragglers_mat)
 
     elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
-        return FedBNClient(client_id, unet, optimizer, criterion, data_dir)
+        return FedBNClient(client_id, unet, optimizer, data_dir)
 
     else:  # config_train.CLIENT_TYPE == config_train.ClientTypes.FED_AVG:
-        return ClassicClient(client_id, unet, optimizer, criterion, data_dir)
+        return ClassicClient(client_id, unet, optimizer, data_dir)
 
 
 def load_data(data_dir, batch_size, with_num_workers=True):
