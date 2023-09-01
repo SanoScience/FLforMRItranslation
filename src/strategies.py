@@ -239,7 +239,7 @@ def save_aggregated_model(net: models.UNet, aggregated_parameters, server_round:
     net.load_state_dict(state_dict)
 
     directory = config_train.TRAINED_MODEL_SERVER_DIR
-    net.save(directory, filename=f"round{server_round}.pth", create_dir=False)
+    net.save(directory, filename=f"round{server_round}.pth")
     logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
 
 

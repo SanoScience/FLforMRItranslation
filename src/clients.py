@@ -85,7 +85,6 @@ class ClassicClient(fl.client.NumPyClient):
         # adding to the history
         for metric_name, metric_value in metrics.items():
             self.history[metric_name].append(metric_value)
-            self.history[metric_name].append(metric_value)
 
         # saving model and history if it is the last round
         if current_round == config_train.N_ROUNDS:
@@ -175,7 +174,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 class FedBNClient(ClassicClient):
     def get_parameters(self, config) -> NDArrays:
         # Excluding parameters of BN layers when using FedBN
-        return [val.cpu().numpy() for name, val in self.model.state_dict().items() if "norm" not in name]
+        return [val.cpu().numpy() for name, val in self.model.state_dict().items()]
 
     def set_parameters(self, parameters):
         self.model.train()

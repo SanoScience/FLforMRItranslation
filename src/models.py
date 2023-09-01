@@ -454,6 +454,7 @@ class UNet(nn.Module):
                 n_steps += 1
 
         if plots_path:
+            fop.try_create_dir(plots_path)
             filepath = path.join(plots_path, plot_filename)
             # maybe cast to cpu ?? still dunno if needed
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
