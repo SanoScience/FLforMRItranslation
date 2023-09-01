@@ -448,6 +448,8 @@ class UNet(nn.Module):
                 predictions = self(images)
 
                 for metric_name, metrics_obj in metrics.items():
+                    if isinstance(metrics_obj, loss_functions.LossWithProximalTerm):
+                        metrics_obj = metrics_obj.base_loss_fn
                     metric_value = metrics_obj(predictions, targets)
                     metrics_values[metric_name] += metric_value.item()
 
