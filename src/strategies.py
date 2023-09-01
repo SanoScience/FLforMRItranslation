@@ -67,19 +67,17 @@ class FedCostWAvg(FedAvg):
             failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         # AGGREGATING WEIGHTS
-        raise NotImplementedError
-        # TODO: implement to deal with fact that clients' results aren't in the same order
         weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in results]
 
-        loss_values = [fit_res.metrics["loss"] for _, fit_res in results]
-
+        loss_values = {fit_res.metrics["client_id"]: fit_res.metrics["val_loss"] for _, fit_res in results}
+        sorted_loss_values = OrderedDict(sorted(loss_values.items()))
         start = time.time()
 
         if self.previous_loss_values is None:
             # for the first round aggregation
             parameters_aggregated = ndarrays_to_parameters(aggregate.aggregate(weights_results))
         else:
-            parameters_aggregated = ndarrays_to_parameters(self._aggregate(weights_results, loss_values))
+            parameters_aggregated = ndarrays_to_parameters(self._aggregate(weights_results, sorted_loss_values))
 
         self.previous_loss_values = loss_values
 
@@ -103,7 +101,7 @@ class FedCostWAvg(FedAvg):
 
         return parameters_aggregated, metrics_aggregated
 
-    def _aggregate(self, results: List[Tuple[NDArrays, int]], loss_values: List[Scalar]) -> NDArrays:
+    def _aggregate(self, results: List[Tuple[NDArrays, int]], loss_values: OrderedDict[str, Scalar]) -> NDArrays:
         # Calculate the total number of examples used during training
         num_examples_total = sum([num_examples for _, num_examples in results])
 
@@ -245,8 +243,8 @@ def save_aggregated_model(net: models.UNet, aggregated_parameters, server_round:
 
 def strategy_from_config(model, evaluate_fn=None):
     kwargs = {
-        "evaluate_metrics_aggregation_fn": weighted_average,
-        "fit_metrics_aggregation_fn": weighted_average,
+        # "evaluate_metrics_aggregation_fn": weighted_average,
+        # "fit_metrics_aggregation_fn": weighted_average,
         "min_fit_clients": config_train.MIN_FIT_CLIENTS,
         "min_available_clients": config_train.MIN_AVAILABLE_CLIENTS,
         "fraction_fit": config_train.FRACTION_FIT,
@@ -276,7 +274,7 @@ def strategy_from_config(model, evaluate_fn=None):
         kwargs["tau"] = config_train.TAU
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_AVGM:
         strategy_class = FedAvgM
-    else:  # FedBN and FedAvg
+    else:  # FedAvg
         strategy_class = FedAvg
 
     return create_dynamic_strategy(strategy_class, model, **kwargs)
@@ -285,18 +283,12 @@ def strategy_from_config(model, evaluate_fn=None):
 # FUNCTIONS
 # used by the strategy to during fit and evaluate
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
-    val_metric_names = [f"val_{metric}" for metric in config_train.METRICS]
-
-    results = {}
-    first_iteration = True
+    # val_metric_names = [f"val_{metric}" for metric in config_train.METRICS]
+    results = {metric_name: 0.0 for metric_name in config_train.METRICS}
 
     for num_examples, m in metrics:
-        if first_iteration:
-            results = {metric_name: 0.0 for metric_name in m.keys()}
-            first_iteration = False
-
-        for metric_name, metric_value in m.items():
-            results[metric_name] += num_examples * metric_value
+        for metric_name in results.keys():
+            results[metric_name] += num_examples * m[metric_name]
 
     examples = [num_examples for num_examples, _ in metrics]
 

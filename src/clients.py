@@ -62,6 +62,8 @@ class ClassicClient(fl.client.NumPyClient):
             metric_name: sum([metric_value for metric_value in history[metric_name]]) / len(history[metric_name])
             for metric_name in val_metric_names}
 
+        avg_val_metric["client_id"] = self.client_id
+
         return self.get_parameters(config=config), len(self.train_loader.dataset), avg_val_metric
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
