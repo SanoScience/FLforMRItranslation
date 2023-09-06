@@ -223,7 +223,7 @@ class FedPIDAvg(FedCostWAvg):
 
         # SAVING MODEL
         if parameters_aggregated is not None:
-            if server_round % config_train.SAVING_FREQUENCY == 1:
+            if server_round % config_train.SAVING_FREQUENCY == 1 or server_round == config_train.N_ROUNDS:
                 save_aggregated_model(self.model, parameters_aggregated, server_round)
 
         return parameters_aggregated, metrics_aggregated
