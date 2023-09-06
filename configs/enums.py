@@ -23,6 +23,7 @@ class AggregationMethods(Enum):
     FED_COSTW = 6
     FED_PID = 7
     FED_AVGM = 8
+    FED_MEAN = 9
 
 
 class NormalizationType(Enum):

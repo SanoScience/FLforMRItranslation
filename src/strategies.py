@@ -44,12 +44,52 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, *
             self.aggregation_times.append(aggregation_time)
             print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
 
-            if server_round % config_train.SAVING_FREQUENCY == 1:
+            if server_round % config_train.SAVING_FREQUENCY == 1 or server_round == config_train.N_ROUNDS:
                 save_aggregated_model(self.model, aggregated_parameters, server_round)
 
             return aggregated_parameters, aggregated_metrics
 
     return SavingModelStrategy()
+
+
+class FedMean(FedAvg):
+    def __init__(self, model, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model = model
+
+    def aggregate_fit(
+        self,
+        server_round: int,
+        results: List[Tuple[ClientProxy, FitRes]],
+        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+        weights = [parameters_to_ndarrays(fit_res.parameters) for _, fit_res in results]
+
+        parameters_aggregated = ndarrays_to_parameters((self._aggregate(weights)))
+
+        # AGGREGATING METRICS
+        metrics_aggregated = {}
+        if self.fit_metrics_aggregation_fn:
+            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+            metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
+        elif server_round == 1:  # Only log this warning once
+            logger.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
+
+        # SAVING MODEL
+        if parameters_aggregated is not None:
+            if server_round % config_train.SAVING_FREQUENCY == 1 or server_round == config_train.N_ROUNDS:
+                save_aggregated_model(self.model, parameters_aggregated, server_round)
+
+        return parameters_aggregated, metrics_aggregated
+
+    def _aggregate(self, results: List[NDArrays]):
+        n_clients = len(results)
+
+        aggregated_results = [
+            reduce(np.add, layer) / n_clients
+            for layer in results
+        ]
+        return aggregated_results
 
 
 class FedCostWAvg(FedAvg):
@@ -96,7 +136,7 @@ class FedCostWAvg(FedAvg):
 
         # SAVING MODEL
         if parameters_aggregated is not None:
-            if server_round % config_train.SAVING_FREQUENCY == 1:
+            if server_round % config_train.SAVING_FREQUENCY == 1 or server_round == config_train.N_ROUNDS:
                 save_aggregated_model(self.model, parameters_aggregated, server_round)
 
         return parameters_aggregated, metrics_aggregated
@@ -259,6 +299,8 @@ def strategy_from_config(model, evaluate_fn=None):
         return FedPIDAvg(model, **kwargs)
     elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
         return FedAvg(**kwargs)
+    elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_MEAN:
+        return FedMean(model, ** kwargs)
 
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_PROX:
         strategy_class = FedProx
