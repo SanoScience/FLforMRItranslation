@@ -12,6 +12,7 @@ class LossFunctions(Enum):
     MSE_DSSIM = 2
     PROX = 3
     RMSE_DDSIM = 4
+    MSE_ZOOMED_DSSIM = 5
 
 
 class AggregationMethods(Enum):

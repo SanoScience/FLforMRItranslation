@@ -9,12 +9,16 @@ from torchmetrics.metric import Metric
 
 
 class DssimMse:
-    def __init__(self, sqrt=False):
+    def __init__(self, sqrt=False, zoomed_ssim=False):
+        self.zoomed_ssim = zoomed_ssim
         self.sqrt = sqrt
 
     def __call__(self, predicted, targets):
         mse = MSELoss()
-        ssim = StructuralSimilarityIndexMeasure().to(config_train.DEVICE)
+        if self.zoomed_ssim:
+            ssim = ZoomedSSIM()
+        else:
+            ssim = StructuralSimilarityIndexMeasure().to(config_train.DEVICE)
 
         dssim = (1 - ssim(predicted, targets)) / 2
 
