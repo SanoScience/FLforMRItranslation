@@ -132,6 +132,7 @@ class ZoomedSSIM(Metric):
     #
     #     return self.ssim(trimmed_predicted, trimmed_targets)
 
+
 def loss_for_config():
     if config_train.LOSS_TYPE == config_train.LossFunctions.MSE_DSSIM:
         return DssimMse()
@@ -139,6 +140,8 @@ def loss_for_config():
         return LossWithProximalTerm(config_train.PROXIMAL_MU, DssimMse())
     elif config_train.LOSS_TYPE == config_train.LossFunctions.RMSE_DDSIM:
         return DssimMse(sqrt=True)
+    elif config_train.LOSS_TYPE == config_train.LossFunctions.MSE_ZOOMED_DSSIM:
+        return DssimMse(zoomed_ssim=True)
     else:  # config_train.LOSS_TYPE == config_train.LossFunctions.MSE:
         return MSELoss()
 
