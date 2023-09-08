@@ -36,10 +36,15 @@ class DssimMse:
         return representation
 
     def __str__(self):
+        representation = "DSSIM"
+
         if self.sqrt:
-            representation = f"DSSIM RootMSE"
+            representation += " RootMSE"
         else:
-            representation = f"DSSIM MSE"
+            representation += f" MSE"
+
+        if self.zoomed_ssim:
+            representation += " (zoomed_ssim=True)"
         return representation
 
 
