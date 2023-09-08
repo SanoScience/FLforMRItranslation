@@ -194,12 +194,14 @@ class FedPIDAvg(FedCostWAvg):
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in results]
 
-        loss_values = [fit_res.metrics["loss"] for _, fit_res in results]
+        loss_values = {fit_res.metrics["client_id"]: fit_res.metrics["val_loss"] for _, fit_res in results}
+        sorted_loss = OrderedDict(sorted(loss_values.items()))
+        sorted_loss_values = list(sorted_loss.values())
 
         start = time.time()
 
         if len(self.previous_loss_values) > 0:
-            parameters_aggregated = ndarrays_to_parameters(self._aggregate(weights_results, loss_values))
+            parameters_aggregated = ndarrays_to_parameters(self._aggregate(weights_results, sorted_loss_values))
         else:
             # for the first round aggregation
             parameters_aggregated = ndarrays_to_parameters(aggregate.aggregate(weights_results))
@@ -210,7 +212,7 @@ class FedPIDAvg(FedCostWAvg):
         print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
 
         # appending the loss to the list and keeping its size < 6
-        self.previous_loss_values.append(loss_values)
+        self.previous_loss_values.append(sorted_loss_values)
         if len(self.previous_loss_values) > 5:
             self.previous_loss_values.pop(0)  # not the most optimal but the list never bigger than 5
 
