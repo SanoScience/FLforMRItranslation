@@ -110,7 +110,8 @@ class FedCostWAvg(FedAvg):
         weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in results]
 
         loss_values = {fit_res.metrics["client_id"]: fit_res.metrics["val_loss"] for _, fit_res in results}
-        sorted_loss_values = OrderedDict(sorted(loss_values.items()))
+        sorted_loss = OrderedDict(sorted(loss_values.items()))
+        sorted_loss_values = list(sorted_loss.values())
         start = time.time()
 
         if self.previous_loss_values is None:
@@ -119,7 +120,7 @@ class FedCostWAvg(FedAvg):
         else:
             parameters_aggregated = ndarrays_to_parameters(self._aggregate(weights_results, sorted_loss_values))
 
-        self.previous_loss_values = loss_values
+        self.previous_loss_values = sorted_loss_values
 
         # printing and saving aggregation times
         aggregation_time = time.time() - start
@@ -141,7 +142,7 @@ class FedCostWAvg(FedAvg):
 
         return parameters_aggregated, metrics_aggregated
 
-    def _aggregate(self, results: List[Tuple[NDArrays, int]], loss_values: OrderedDict[str, Scalar]) -> NDArrays:
+    def _aggregate(self, results: List[Tuple[NDArrays, int]], loss_values: List[Scalar]) -> NDArrays:
         # Calculate the total number of examples used during training
         num_examples_total = sum([num_examples for _, num_examples in results])
 
