@@ -16,4 +16,3 @@ if __name__ == '__main__':
     transpose_order = (2, 0, 1)
     transformer = TransformNIIDataToNumpySlices(target_root_dir, current_data_dir, transpose_order, target_zero_ratio=0.8)
     transformer.create_train_val_test_sets("T1_bet/T1_bet.nii.gz", "T2_bet/T2_bet_reg.nii.gz", n_patients=n_patients, seed=42)
-
