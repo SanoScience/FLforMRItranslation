@@ -319,6 +319,7 @@ def strategy_from_config(model, evaluate_fn=None):
         kwargs["tau"] = config_train.TAU
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_AVGM:
         strategy_class = FedAvgM
+        kwargs["server_momentum"] = config_train.MOMENTUM
     else:  # FedAvg
         strategy_class = FedAvg
 
