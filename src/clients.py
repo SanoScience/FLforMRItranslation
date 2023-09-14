@@ -103,7 +103,7 @@ class ClassicClient(fl.client.NumPyClient):
 
 class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attributes
     """Standard Flower client for CNN training."""
-    NUMBER_OF_SAMPLES = 25000
+    NUMBER_OF_SAMPLES = 1000 
 
     def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str,
                  straggler_schedule=None, epochs_multiplier: int = 1):  # pylint: disable=too-many-arguments
@@ -128,7 +128,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
         current_round = config["current_round"]
         print(f"ROUND {current_round}")
 
-        num_samples = len(self.train_loader.dataset)
+        num_samples = len(self.train_loader)
 
         # TODO: maybe not a straggler but always like this?
         if self.straggler_schedule is not None:
