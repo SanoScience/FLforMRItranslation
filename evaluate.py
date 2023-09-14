@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # print(f"ssim {ssim} loss {loss}")
     # print("\nEvaluation ended.\n")
 
-    metrics = unet.evaluate(testloader, criterion)
+    metrics = unet.evaluate(testloader)
     metric_string = loss_functions.metrics_to_str(metrics, starting_symbol="")
     representative_test_dir = test_dir.split('/')[-2]
     model_dir = '/'.join(e for e in model_path.split('/')[:-1])
