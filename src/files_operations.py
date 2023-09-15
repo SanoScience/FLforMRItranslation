@@ -106,27 +106,32 @@ class TransformNIIDataToNumpySlices:
     def create_set(self, t1_paths, t2_paths, t1_dir, t2_dir):
         for patient_id, (t1_path, t2_path) in enumerate(zip(t1_paths, t2_paths)):
             print("Patient number ", patient_id, " in process...\n")
+
             t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_path,
                                                                           self.transpose_order,
                                                                           self.image_size,
                                                                           self.MIN_SLICE_INDEX,
                                                                           self.MAX_SLICE_INDEX,
                                                                           target_zero_ratio=self.target_zero_ratio)
-            t2_slices, _, _ = load_nii_slices(t2_path, self.transpose_order, self.image_size, min_slice_index, max_slice_index)
 
-            for index, (t1_slice, t2_slice) in enumerate(zip(t1_slices, t2_slices)):
-                filename = f"patient{patient_id}-slice{index}{self.SLICES_FILE_FORMAT}"
-                # saving a t1 slice
-                t1_slice_path = os.path.join(t1_dir, filename)
-                np.save(t1_slice_path, t1_slice)
+            if t1_slices:
+                t2_slices, _, _ = load_nii_slices(t2_path, self.transpose_order, self.image_size, min_slice_index, max_slice_index)
 
-                # saving a t2 slice
-                t2_slice_path = os.path.join(t2_dir, filename)
-                np.save(t2_slice_path, t2_slice)
+                for index, (t1_slice, t2_slice) in enumerate(zip(t1_slices, t2_slices)):
+                    filename = f"patient{patient_id}-slice{index}{self.SLICES_FILE_FORMAT}"
+                    # saving a t1 slice
+                    t1_slice_path = os.path.join(t1_dir, filename)
+                    np.save(t1_slice_path, t1_slice)
 
-                print("Created pair of t1 and t2 slices: ", t1_slice_path, t2_slice_path)
+                    # saving a t2 slice
+                    t2_slice_path = os.path.join(t2_dir, filename)
+                    np.save(t2_slice_path, t2_slice)
 
-            print(f"T1 and T2 slice shape{t1_slice.shape} {t2_slice.shape}")
+                    print("Created pair of t1 and t2 slices: ", t1_slice_path, t2_slice_path)
+
+                print(f"T1 and T2 slice shape{t1_slice.shape} {t2_slice.shape}")
+            else:
+                print("Skipped due to the shape\n")
 
 
 def trim_image(image, target_image_size: Tuple[int, int]):
@@ -163,15 +168,21 @@ def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[i
     if transpose_order is not None:
         img = np.transpose(img, transpose_order)
 
+    # an ugly way to deal with oasis different shape in the dataset
+    if img.shape[2] != 256:
+        print(f"Wrong image shape {img.shape}")
+        return None, None, None
+
     if image_size is not None:
-        img = [trim_image(brain_slice) for brain_slice in img]
+        img = [trim_image(brain_slice, image_size) for brain_slice in img]
 
     if min_slice_index == -1 or max_slices_index == -1:
         min_slice_index, max_slices_index = get_optimal_slice_range(img, target_zero_ratio=target_zero_ratio)
 
     print(f"Slice range used for file {filepath}: <{min_slice_index}, {max_slices_index}>")
+    selected_slices = [img[slice_index] for slice_index in range(min_slice_index, max_slices_index + 1, index_step)]
 
-    return [img[slice_index] for slice_index in range(min_slice_index, max_slices_index + 1, index_step)], min_slice_index, max_slices_index
+    return selected_slices, min_slice_index, max_slices_index
 
 
 def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data_dir, n_patients=-1):
