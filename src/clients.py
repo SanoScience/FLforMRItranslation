@@ -107,12 +107,13 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
     """Standard Flower client for CNN training."""
     NUMBER_OF_SAMPLES = 1000 
 
-    def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str, model_dir=config_train.TRAINED_MODEL_SERVER_DIR
+    def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str, model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
                  straggler_schedule=None, epochs_multiplier: int = 1):  # pylint: disable=too-many-arguments
         super().__init__(client_id, model, optimizer, data_dir)
 
         self.straggler_schedule = straggler_schedule
         self.epochs_multiplier = epochs_multiplier
+        self.model_dir = model_dir
 
     def fit(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[NDArrays, int, Dict]:
         """Implements distributed fit function for a given client."""

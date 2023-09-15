@@ -1,4 +1,5 @@
 import time
+from shutil import copy2
 
 import torch
 import logging
@@ -322,7 +323,7 @@ def save_aggregated_model(net: models.UNet, aggregated_parameters, model_dir, se
     logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {model_dir}")
 
 
-def strategy_from_string(model, strategy_name, model_dir, evaluate_fn=None):
+def strategy_from_string(model, strategy_name, evaluate_fn=None):
     drd = config_train.DATA_ROOT_DIR
     lt = config_train.LOSS_TYPE.name
     lr = config_train.LEARNING_RATE
@@ -332,7 +333,7 @@ def strategy_from_string(model, strategy_name, model_dir, evaluate_fn=None):
     d = config_train.now.date()
     h = config_train.now.hour
 
-    model_dir = f"{drd}/trained_models/model-{client_type_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}-{h}h"
+    model_dir = f"{drd}/trained_models/model-{strategy_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}-{h}h"
 
     files_operations.try_create_dir(config_train.TRAINED_MODEL_SERVER_DIR)  # creating directory before to don't get warnings
     copy2("./configs/config_train.py", f"{config_train.TRAINED_MODEL_SERVER_DIR}/config.py") 
@@ -347,10 +348,10 @@ def strategy_from_string(model, strategy_name, model_dir, evaluate_fn=None):
         "evaluate_fn": evaluate_fn,
         "on_evaluate_config_fn": get_on_eval_config()
     }
-    elif strategy_name == "fedbn":
+    if strategy_name == "fedbn":
         return FedAvg(**kwargs)
 
-    if strategy_name == "fedcostw":
+    elif strategy_name == "fedcostw":
         return FedCostWAvg(model, model_dir, **kwargs)
     elif strategy_name == "fedpid":
         return FedPIDAvg(model, model_dir, **kwargs)

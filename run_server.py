@@ -1,8 +1,6 @@
-import pickle
 import socket
 import os
 import sys
-from shutil import copy2
 
 from src.strategies import *
 
@@ -36,10 +34,8 @@ if __name__ == "__main__":
 
         server_address = f"{socket.gethostname()}:{port_number}"
 
-
     print("SERVER STARTING...")
     print("Strategy used: {}\n".format(strategy))
-
 
     fl.server.start_server(
         server_address=server_address,
