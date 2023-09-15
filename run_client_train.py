@@ -17,17 +17,23 @@ if __name__ == "__main__":
 
         data_dir = sys.argv[1]
         client_id = sys.argv[2]
-        server_node = sys.argv[3]
+        server_address = sys.argv[3]
         with_num_workers = True
     # Model
     criterion = loss_functions.loss_for_config()
     unet = models.UNet(criterion).to(config_train.DEVICE)
     optimizer = torch.optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
-
-    client = client_for_config(client_id, unet, optimizer, data_dir)
-
+    
+    if len(sys.argv) < 5:
+        client = client_for_config(client_id, unet, optimizer, data_dir)
+    else:
+        client = client_for_string(client_id, unet, optimizer, data_dir, sys.argv[4])
     # Address
-    server_address = f"{server_node}:{config_train.PORT}"
+    # If port not provided it is taken from the config
+    if ":" not in server_address:
+        server_address = f"{server_address}:{config_train.PORT}"
+
+    print(server_address)
 
     fl.client.start_numpy_client(
         server_address=server_address,

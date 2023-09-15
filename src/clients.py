@@ -210,6 +210,24 @@ def client_for_config(client_id, unet: models.UNet, optimizer, data_dir: str):
     else:  # config_train.CLIENT_TYPE == config_train.ClientTypes.FED_AVG:
         return ClassicClient(client_id, unet, optimizer, data_dir)
 
+def client_for_string(client_id, unet: models.UNet, optimizer, data_dir: str, client_type_name):
+    if client_type_name == "fedprox":
+        stragglers_mat = np.transpose(
+            np.random.choice([0, 1], size=config_train.N_ROUNDS,
+                             p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
+        )
+
+        return FedProxClient(client_id, unet, optimizer, data_dir, stragglers_mat)
+
+    elif client_type_name == "fedbn":
+        return FedBNClient(client_id, unet, optimizer, data_dir)
+
+    elif  client_type_name == "fedavg":
+        return ClassicClient(client_id, unet, optimizer, data_dir)
+    
+    else:
+        raise ValueError(f"Given client type ('{client_type_name}') name is invalid.")
+
 
 def load_data(data_dir, batch_size, with_num_workers=True):
     train_dir = os.path.join(data_dir, "train")

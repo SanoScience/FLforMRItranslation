@@ -284,6 +284,49 @@ def save_aggregated_model(net: models.UNet, aggregated_parameters, server_round:
     logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
 
 
+def strategy_from_string(model, strategy_name, evaluate_fn=None):
+    kwargs = {
+        # "evaluate_metrics_aggregation_fn": weighted_average,
+        # "fit_metrics_aggregation_fn": weighted_average,
+        "min_fit_clients": config_train.MIN_FIT_CLIENTS,
+        "min_available_clients": config_train.MIN_AVAILABLE_CLIENTS,
+        "fraction_fit": config_train.FRACTION_FIT,
+        "on_fit_config_fn": get_on_fit_config(),
+        "evaluate_fn": evaluate_fn,
+        "on_evaluate_config_fn": get_on_eval_config()
+    }
+
+    if strategy_name == "fedcostw":
+        return FedCostWAvg(model, **kwargs)
+    elif strategy_name == "fedpid":
+        return FedPIDAvg(model, **kwargs)
+    elif strategy_name == "fedbn":
+        return FedAvg(**kwargs)
+    elif strategy_name == "fedmean":
+        return FedMean(model, ** kwargs)
+
+    elif strategy_name == "fedprox":
+        strategy_class = FedProx
+        kwargs["proximal_mu"] = config_train.PROXIMAL_MU
+    elif strategy_name == "fedadam":
+        strategy_class = FedAdam
+        kwargs["tau"] = config_train.TAU
+    elif strategy_name == "fedyogi":
+        strategy_class = FedYogi
+        kwargs["tau"] = config_train.TAU
+    elif strategy_name == "fedadagrad":
+        strategy_class = FedAdagrad
+        kwargs["tau"] = config_train.TAU
+    elif strategy_name == "fedavgm":
+        strategy_class = FedAvgM
+        kwargs["server_momentum"] = config_train.MOMENTUM
+    elif strategy_name == "fedavg":
+        strategy_class = FedAvg
+    else:
+        raise ValueError(f"Wrong starategy name: {strategy_name}")
+
+    return create_dynamic_strategy(strategy_class, model, **kwargs)
+
 def strategy_from_config(model, evaluate_fn=None):
     kwargs = {
         # "evaluate_metrics_aggregation_fn": weighted_average,

@@ -20,16 +20,24 @@ if __name__ == "__main__":
     # ssim_history = {client_name: [] for client_name in clients_names}
 
     # evaluate_fn = get_evaluate_fn(unet, clients_names, loss_history, ssim_history)
-
-    saving_strategy = strategy_from_config(unet, None)
+    if len(sys.argv) < 2:
+        strategy = strategy_from_config(unet, None)
+    else:
+        strategy = strategy_from_string(unet, sys.argv[2])
 
     if config_train.LOCAL:
         server_address = f"0.0.0.0:{config_train.PORT}"
     else:
-        server_address = f"{socket.gethostname()}:{config_train.PORT}"
+        if len(sys.argv) > 1:
+            port_number = sys.argv[1]
+        else:
+            port_number = config_train.PORT
+
+        server_address = f"{socket.gethostname()}:{port_number}"
+
 
     print("SERVER STARTING...")
-    print("Strategy used: {}\n".format(saving_strategy))
+    print("Strategy used: {}\n".format(strategy))
 
     files_operations.try_create_dir(config_train.TRAINED_MODEL_SERVER_DIR)  # creating directory before to don't get warnings
     copy2("./configs/config_train.py", f"{config_train.TRAINED_MODEL_SERVER_DIR}/config.py") 
@@ -37,7 +45,7 @@ if __name__ == "__main__":
     fl.server.start_server(
         server_address=server_address,
         config=fl.server.ServerConfig(num_rounds=config_train.N_ROUNDS),
-        strategy=saving_strategy
+        strategy=strategy
     )
 
     # if len(loss_history) > 0:
@@ -46,6 +54,8 @@ if __name__ == "__main__":
     #     with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/history.pkl", "wb") as file:
     #         pickle.dump(history, file)
 
-    with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/aggregation_times.pkl", "wb") as file:
-        pickle.dump(saving_strategy.aggregation_times, file)
+    # if FedBN basic FedAvg is used so no aggregation times aviable
+    if not isinstance(strategy, FedAvg):
+        with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/aggregation_times.pkl", "wb") as file:
+            pickle.dump(saving_strategy.aggregation_times, file)
 
