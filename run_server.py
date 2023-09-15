@@ -21,6 +21,7 @@ if __name__ == "__main__":
 
     # evaluate_fn = get_evaluate_fn(unet, clients_names, loss_history, ssim_history)
     if len(sys.argv) < 2:
+        training_dir = config_train.TRAINED_MODEL_SERVER_DIR
         strategy = strategy_from_config(unet, None)
     else:
         strategy = strategy_from_string(unet, sys.argv[2])
@@ -39,8 +40,6 @@ if __name__ == "__main__":
     print("SERVER STARTING...")
     print("Strategy used: {}\n".format(strategy))
 
-    files_operations.try_create_dir(config_train.TRAINED_MODEL_SERVER_DIR)  # creating directory before to don't get warnings
-    copy2("./configs/config_train.py", f"{config_train.TRAINED_MODEL_SERVER_DIR}/config.py") 
 
     fl.server.start_server(
         server_address=server_address,
@@ -55,7 +54,5 @@ if __name__ == "__main__":
     #         pickle.dump(history, file)
 
     # if FedBN basic FedAvg is used so no aggregation times aviable
-    if not isinstance(strategy, FedAvg):
-        with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/aggregation_times.pkl", "wb") as file:
-            pickle.dump(saving_strategy.aggregation_times, file)
+
 

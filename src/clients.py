@@ -17,7 +17,7 @@ from src.datasets import MRIDatasetNumpySlices
 
 
 class ClassicClient(fl.client.NumPyClient):
-    def __init__(self, client_id, model: models.UNet, optimizer, data_dir):
+    def __init__(self, client_id, model: models.UNet, optimizer, data_dir, model_dir=config_train.TRAINED_MODEL_SERVER_DIR):
         self.client_id = client_id
         self.model = model
         self.train_loader, self.test_loader, self.val_loader = load_data(data_dir,
@@ -25,6 +25,7 @@ class ClassicClient(fl.client.NumPyClient):
                                                                          with_num_workers=not config_train.LOCAL)
 
         self.optimizer = optimizer
+        self.model_dir = model_dir
 
         self.history = {metric_name: [] for metric_name in config_train.METRICS}
 
@@ -50,6 +51,7 @@ class ClassicClient(fl.client.NumPyClient):
 
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
+                                           model_dir=self.model_dir,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
                                            plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
@@ -105,7 +107,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
     """Standard Flower client for CNN training."""
     NUMBER_OF_SAMPLES = 1000 
 
-    def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str,
+    def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str, model_dir=config_train.TRAINED_MODEL_SERVER_DIR
                  straggler_schedule=None, epochs_multiplier: int = 1):  # pylint: disable=too-many-arguments
         super().__init__(client_id, model, optimizer, data_dir)
 
@@ -155,6 +157,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
                                            epochs=num_epochs,
+                                           model_dir=self.model_dir,
                                            validationloader=self.val_loader,
                                            plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots")
 
@@ -211,19 +214,30 @@ def client_for_config(client_id, unet: models.UNet, optimizer, data_dir: str):
         return ClassicClient(client_id, unet, optimizer, data_dir)
 
 def client_for_string(client_id, unet: models.UNet, optimizer, data_dir: str, client_type_name):
+    drd = config_train.DATA_ROOT_DIR
+    lt = config_train.LOSS_TYPE.name
+    lr = config_train.LEARNING_RATE
+    rd = config_train.N_ROUNDS
+    ec = config_train.N_EPOCHS_CLIENT
+    n = config_train.NORMALIZATION.name
+    d = config_train.now.date()
+    h = config_train.now.hour
+
+    model_dir = f"{drd}/trained_models/model-{client_type_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}-{h}h"
+    
     if client_type_name == "fedprox":
         stragglers_mat = np.transpose(
             np.random.choice([0, 1], size=config_train.N_ROUNDS,
                              p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
         )
 
-        return FedProxClient(client_id, unet, optimizer, data_dir, stragglers_mat)
+        return FedProxClient(client_id, unet, optimizer, data_dir, stragglers_mat, model_dir)
 
     elif client_type_name == "fedbn":
-        return FedBNClient(client_id, unet, optimizer, data_dir)
+        return FedBNClient(client_id, unet, optimizer, data_dir, model_dir)
 
-    elif  client_type_name == "fedavg":
-        return ClassicClient(client_id, unet, optimizer, data_dir)
+    elif  client_type_name in  ["fedavg", "fedcostw", "fedpid", "fedavgm", "fedadam", "fedadagrad", "fedyogi", "fedmean"]:
+        return ClassicClient(client_id, unet, optimizer, data_dir, model_dir)
     
     else:
         raise ValueError(f"Given client type ('{client_type_name}') name is invalid.")

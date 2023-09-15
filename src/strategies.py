@@ -21,7 +21,7 @@ from typing import List, Tuple, Dict, Union, Optional, Type
 from collections import OrderedDict
 
 
-def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, *args, **kwargs):
+def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, model_dir, *args, **kwargs):
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
@@ -44,8 +44,17 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, *
             self.aggregation_times.append(aggregation_time)
             print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
 
-            if server_round % config_train.SAVING_FREQUENCY == 1 or server_round == config_train.N_ROUNDS:
-                save_aggregated_model(self.model, aggregated_parameters, server_round)
+            # saving in intervals
+            if server_round % config_train.SAVING_FREQUENCY == 1:
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+
+            # saving in the last round
+            if server_round == config_train.N_ROUNDS:
+                # model
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                # aggregation times
+                with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/aggregation_times.pkl", "wb") as file:
+                    pickle.dump(strategy.aggregation_times, file)
 
             return aggregated_parameters, aggregated_metrics
 
@@ -53,9 +62,10 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, *
 
 
 class FedMean(FedAvg):
-    def __init__(self, model, *args, **kwargs):
+    def __init__(self, model, model_dir, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = model
+        self.model_dir = model_dir
 
     def aggregate_fit(
         self,
@@ -77,8 +87,17 @@ class FedMean(FedAvg):
 
         # SAVING MODEL
         if parameters_aggregated is not None:
-            if server_round % config_train.SAVING_FREQUENCY == 1 or server_round == config_train.N_ROUNDS:
-                save_aggregated_model(self.model, parameters_aggregated, server_round)
+            # saving in intervals
+            if server_round % config_train.SAVING_FREQUENCY == 1:
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+
+            # saving in the last round
+            if server_round == config_train.N_ROUNDS:
+                # model
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                # aggregation times
+                with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/aggregation_times.pkl", "wb") as file:
+                    pickle.dump(strategy.aggregation_times, file)
 
         return parameters_aggregated, metrics_aggregated
 
@@ -93,12 +112,13 @@ class FedMean(FedAvg):
 
 
 class FedCostWAvg(FedAvg):
-    def __init__(self, model: models.UNet, alpha=0.5, *args, **kwargs):
+    def __init__(self, model: models.UNet, model_dir, alpha=0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = model
         self.alpha = alpha
         self.previous_loss_values = None
         self.aggregation_times = []
+        self.model_dir = model_dir
 
     def aggregate_fit(
             self,
@@ -137,8 +157,17 @@ class FedCostWAvg(FedAvg):
 
         # SAVING MODEL
         if parameters_aggregated is not None:
-            if server_round % config_train.SAVING_FREQUENCY == 1 or server_round == config_train.N_ROUNDS:
-                save_aggregated_model(self.model, parameters_aggregated, server_round)
+            # saving in intervals
+            if server_round % config_train.SAVING_FREQUENCY == 1:
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+
+            # saving in the last round
+            if server_round == config_train.N_ROUNDS:
+                # model
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                # aggregation times
+                with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/aggregation_times.pkl", "wb") as file:
+                    pickle.dump(strategy.aggregation_times, file)
 
         return parameters_aggregated, metrics_aggregated
 
@@ -175,7 +204,7 @@ class FedCostWAvg(FedAvg):
 
 
 class FedPIDAvg(FedCostWAvg):
-    def __init__(self, model: models.UNet, alpha=0.45, beta=0.45, gamma=0.1, **kwargs):
+    def __init__(self, model: models.UNet, model_dir, alpha=0.45, beta=0.45, gamma=0.1, **kwargs):
         if alpha + beta + gamma != 1.0:
             ValueError(f"Alpha, beta and gamma should sum up to 1.0")
 
@@ -185,6 +214,7 @@ class FedPIDAvg(FedCostWAvg):
         self.beta = beta
         self.gamma = gamma
         self.previous_loss_values = []
+        self.model_dir = model_dir
 
     def aggregate_fit(
             self,
@@ -226,8 +256,17 @@ class FedPIDAvg(FedCostWAvg):
 
         # SAVING MODEL
         if parameters_aggregated is not None:
-            if server_round % config_train.SAVING_FREQUENCY == 1 or server_round == config_train.N_ROUNDS:
-                save_aggregated_model(self.model, parameters_aggregated, server_round)
+            # saving in intervals
+            if server_round % config_train.SAVING_FREQUENCY == 1:
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+
+            # saving in the last round
+            if server_round == config_train.N_ROUNDS:
+                # model
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                # aggregation times
+                with open(f"{config_train.TRAINED_MODEL_SERVER_DIR}/aggregation_times.pkl", "wb") as file:
+                    pickle.dump(strategy.aggregation_times, file)
 
         return parameters_aggregated, metrics_aggregated
 
@@ -272,19 +311,32 @@ class FedPIDAvg(FedCostWAvg):
         return f"FedPIDAvg(alpha={self.alpha}, beta{self.beta}, gamma={self.gamma})"
 
 
-def save_aggregated_model(net: models.UNet, aggregated_parameters, server_round: int, ):
+def save_aggregated_model(net: models.UNet, aggregated_parameters, model_dir, server_round: int, ):
     aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
 
     params_dict = zip(net.state_dict().keys(), aggregated_ndarrays)
     state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
     net.load_state_dict(state_dict)
 
-    directory = config_train.TRAINED_MODEL_SERVER_DIR
-    net.save(directory, filename=f"round{server_round}.pth")
-    logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
+    net.save(model_dir, filename=f"round{server_round}.pth")
+    logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {model_dir}")
 
 
-def strategy_from_string(model, strategy_name, evaluate_fn=None):
+def strategy_from_string(model, strategy_name, model_dir, evaluate_fn=None):
+    drd = config_train.DATA_ROOT_DIR
+    lt = config_train.LOSS_TYPE.name
+    lr = config_train.LEARNING_RATE
+    rd = config_train.N_ROUNDS
+    ec = config_train.N_EPOCHS_CLIENT
+    n = config_train.NORMALIZATION.name
+    d = config_train.now.date()
+    h = config_train.now.hour
+
+    model_dir = f"{drd}/trained_models/model-{client_type_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}-{h}h"
+
+    files_operations.try_create_dir(config_train.TRAINED_MODEL_SERVER_DIR)  # creating directory before to don't get warnings
+    copy2("./configs/config_train.py", f"{config_train.TRAINED_MODEL_SERVER_DIR}/config.py") 
+
     kwargs = {
         # "evaluate_metrics_aggregation_fn": weighted_average,
         # "fit_metrics_aggregation_fn": weighted_average,
@@ -295,15 +347,16 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
         "evaluate_fn": evaluate_fn,
         "on_evaluate_config_fn": get_on_eval_config()
     }
-
-    if strategy_name == "fedcostw":
-        return FedCostWAvg(model, **kwargs)
-    elif strategy_name == "fedpid":
-        return FedPIDAvg(model, **kwargs)
     elif strategy_name == "fedbn":
         return FedAvg(**kwargs)
+
+    if strategy_name == "fedcostw":
+        return FedCostWAvg(model, model_dir, **kwargs)
+    elif strategy_name == "fedpid":
+        return FedPIDAvg(model, model_dir, **kwargs)
+
     elif strategy_name == "fedmean":
-        return FedMean(model, ** kwargs)
+        return FedMean(model, model_dir, ** kwargs)
 
     elif strategy_name == "fedprox":
         strategy_class = FedProx
@@ -325,7 +378,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
     else:
         raise ValueError(f"Wrong starategy name: {strategy_name}")
 
-    return create_dynamic_strategy(strategy_class, model, **kwargs)
+    return create_dynamic_strategy(strategy_class, model, model_dir, **kwargs)
 
 def strategy_from_config(model, evaluate_fn=None):
     kwargs = {
