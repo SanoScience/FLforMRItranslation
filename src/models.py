@@ -131,7 +131,7 @@ class UNetBuggy(nn.Module):
             raise TypeError(f"Loss function (criterion) has to be callable. It is {type(criterion)} which is not.")
 
         if any([history_filename, plots_dir, filename]):
-            fop.try_create_dir(model_dir)
+            # fop.try_create_dir(model_dir)
             print(f"\tModel, history and plots will be saved to {model_dir}")
         else:
             print(f"\tWARNING: Neither model, history nor plots from the training process will be saved!")
@@ -164,7 +164,7 @@ class UNetBuggy(nn.Module):
 
             print("\tVALIDATION...")
             if validationloader is not None:
-                val_metric = self.evaluate(validationloader, criterion, model_dir, plots_dir, f"ep{epoch}")
+                val_metric = self.evaluate(validationloader, criterion, plots_path, f"ep{epoch}")
 
                 for metric in val_metric_names:
                     # trimming after val_ to get only the metric name since it is provided by the
@@ -182,7 +182,7 @@ class UNetBuggy(nn.Module):
 
         return history
 
-    def evaluate(self, testloader, criterion, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, plots_dir=None, plot_filename=None):
+    def evaluate(self, testloader, criterion, plots_dir=None, plot_filename=None):
         if isinstance(criterion, src.loss_functions.LossWithProximalTerm):
             criterion = criterion.base_loss_fn
 
@@ -214,10 +214,9 @@ class UNetBuggy(nn.Module):
 
         print(f"\tFor evaluation set: {metrics_str}\n")
 
-        if plots_dir is not None:
-            directory = path.join(model_dir, plots_dir)
-            fop.try_create_dir(directory)
-            filepath = path.join(directory, f"{plot_filename}.jpg")
+        if plots_dir:
+            fop.try_create_dir(plots_dir)
+            filepath = path.join(plots_dir, f"{plot_filename}.jpg")
             # maybe cast to cpu ?? still dunno if needed
             visualization.plot_batch([images_cpu, targets_cpu, predictions.to('cpu').detach()], filepath=filepath)
 

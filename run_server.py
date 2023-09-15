@@ -19,10 +19,11 @@ if __name__ == "__main__":
 
     # evaluate_fn = get_evaluate_fn(unet, clients_names, loss_history, ssim_history)
     if len(sys.argv) < 2:
-        training_dir = config_train.TRAINED_MODEL_SERVER_DIR
         strategy = strategy_from_config(unet, None)
+        print(f"Strategy taken from config.")
     else:
         strategy = strategy_from_string(unet, sys.argv[2])
+        print(f"Strategy taken from given string: {sys.argv[2]}")
 
     if config_train.LOCAL:
         server_address = f"0.0.0.0:{config_train.PORT}"

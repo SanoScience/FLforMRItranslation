@@ -335,8 +335,8 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
 
     model_dir = f"{drd}/trained_models/model-{strategy_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}-{h}h"
 
-    files_operations.try_create_dir(config_train.TRAINED_MODEL_SERVER_DIR)  # creating directory before to don't get warnings
-    copy2("./configs/config_train.py", f"{config_train.TRAINED_MODEL_SERVER_DIR}/config.py") 
+    files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
+    copy2("./configs/config_train.py", f"{model_dir}/config.py") 
 
     kwargs = {
         # "evaluate_metrics_aggregation_fn": weighted_average,
