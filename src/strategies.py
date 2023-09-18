@@ -56,7 +56,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
                 save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
                 # aggregation times
                 with open(f"{model_dir}/aggregation_times.pkl", "wb") as file:
-                    pickle.dump(aggregation_times, file)
+                    pickle.dump(self.aggregation_times, file)
 
             return aggregated_parameters, aggregated_metrics
 
@@ -68,6 +68,7 @@ class FedMean(FedAvg):
         super().__init__(*args, **kwargs)
         self.model = model
         self.model_dir = model_dir
+        self.aggregation_times = []
 
     def aggregate_fit(
         self,
@@ -80,6 +81,8 @@ class FedMean(FedAvg):
         aggregated_parameters = ndarrays_to_parameters((self._aggregate(weights)))
 
         # AGGREGATING METRICS
+        start = time.time()
+
         metrics_aggregated = {}
         if self.fit_metrics_aggregation_fn:
             fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
@@ -87,19 +90,22 @@ class FedMean(FedAvg):
         elif server_round == 1:  # Only log this warning once
             logger.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
 
+        aggregation_time = time.time() - start
+        self.aggregation_times.append(aggregation_time)
+
         # SAVING MODEL
         if aggregated_parameters is not None:
             # saving in intervals
             if server_round % config_train.SAVING_FREQUENCY == 1:
-                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
 
             # saving in the last round
             if server_round == config_train.N_ROUNDS:
                 # model
-                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
                 # aggregation times
-                with open(f"{model_dir}/aggregation_times.pkl", "wb") as file:
-                    pickle.dump(aggregation_times, file)
+                with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
+                    pickle.dump(self.aggregation_times, file)
 
         return aggregated_parameters, metrics_aggregated
 
@@ -161,15 +167,15 @@ class FedCostWAvg(FedAvg):
         if aggregated_parameters is not None:
             # saving in intervals
             if server_round % config_train.SAVING_FREQUENCY == 1:
-                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
 
             # saving in the last round
             if server_round == config_train.N_ROUNDS:
                 # model
-                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
                 # aggregation times
-                with open(f"{model_dir}/aggregation_times.pkl", "wb") as file:
-                    pickle.dump(strategy.aggregation_times, file)
+                with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
+                    pickle.dump(self.aggregation_times, file)
 
         return aggregated_parameters, metrics_aggregated
 
@@ -259,15 +265,15 @@ class FedPIDAvg(FedCostWAvg):
         if aggregated_parameters is not None:
             # saving in intervals
             if server_round % config_train.SAVING_FREQUENCY == 1:
-                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
 
             # saving in the last round
             if server_round == config_train.N_ROUNDS:
                 # model
-                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
                 # aggregation times
-                with open(f"{model_dir}/aggregation_times.pkl", "wb") as file:
-                    pickle.dump(strategy.aggregation_times, file)
+                with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
+                    pickle.dump(self.aggregation_times, file)
 
         return aggregated_parameters, metrics_aggregated
 
