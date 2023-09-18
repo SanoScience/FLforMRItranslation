@@ -25,11 +25,10 @@ class ClassicClient(fl.client.NumPyClient):
                                                                          with_num_workers=not config_train.LOCAL)
 
         self.optimizer = optimizer
-        self.model_dir = model_dir
 
         self.history = {metric_name: [] for metric_name in config_train.METRICS}
 
-        self.client_dir = os.path.join(config_train.TRAINED_MODEL_SERVER_DIR,
+        self.client_dir = os.path.join(model_dir,
                                        f"{self.__repr__()}_client_{self.client_id}")
 
         fop.try_create_dir(self.client_dir)
@@ -51,7 +50,7 @@ class ClassicClient(fl.client.NumPyClient):
 
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
-                                           model_dir=self.model_dir,
+                                           model_dir=self.client_dir,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
                                            plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
@@ -109,11 +108,11 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
     def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str, model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
                  straggler_schedule=None, epochs_multiplier: int = 1):  # pylint: disable=too-many-arguments
-        super().__init__(client_id, model, optimizer, data_dir)
+        super().__init__(client_id, model, optimizer, data_dir, model_dir)
 
         self.straggler_schedule = straggler_schedule
         self.epochs_multiplier = epochs_multiplier
-        self.model_dir = model_dir
+
 
     def fit(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[NDArrays, int, Dict]:
         """Implements distributed fit function for a given client."""
@@ -158,7 +157,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
                                            epochs=num_epochs,
-                                           model_dir=self.model_dir,
+                                           model_dir=self.client_dir,
                                            validationloader=self.val_loader,
                                            plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots")
 
@@ -232,7 +231,7 @@ def client_for_string(client_id, unet: models.UNet, optimizer, data_dir: str, cl
                              p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
         )
 
-        return FedProxClient(client_id, unet, optimizer, data_dir, stragglers_mat, model_dir)
+        return FedProxClient(client_id, unet, optimizer, data_dir, model_dir, stragglers_mat)
 
     elif client_type_name == "fedbn":
         return FedBNClient(client_id, unet, optimizer, data_dir, model_dir)
