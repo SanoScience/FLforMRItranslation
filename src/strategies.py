@@ -23,7 +23,7 @@ from typing import List, Tuple, Dict, Union, Optional, Type
 from collections import OrderedDict
 
 
-def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, model_dir, *args, **kwargs):
+def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, *args, **kwargs):
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
@@ -64,7 +64,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
 
 
 class FedMean(FedAvg):
-    def __init__(self, model, model_dir, *args, **kwargs):
+    def __init__(self, model, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = model
         self.model_dir = model_dir
@@ -111,16 +111,13 @@ class FedMean(FedAvg):
 
     def _aggregate(self, results: List[NDArrays]):
         n_clients = len(results)
-
-        aggregated_results = [
-            reduce(np.add, layer) / n_clients
-            for layer in results
-        ]
+        # as in FedAvg but without num_examples
+        aggregated_results = [reduce(np.add, layer) / n_clients for layer in zip(*results)]
         return aggregated_results
 
 
 class FedCostWAvg(FedAvg):
-    def __init__(self, model: models.UNet, model_dir, alpha=0.5, *args, **kwargs):
+    def __init__(self, model: models.UNet, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, alpha=0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = model
         self.alpha = alpha
@@ -212,7 +209,7 @@ class FedCostWAvg(FedAvg):
 
 
 class FedPIDAvg(FedCostWAvg):
-    def __init__(self, model: models.UNet, model_dir, alpha=0.45, beta=0.45, gamma=0.1, **kwargs):
+    def __init__(self, model: models.UNet, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, alpha=0.45, beta=0.45, gamma=0.1, **kwargs):
         if alpha + beta + gamma != 1.0:
             ValueError(f"Alpha, beta and gamma should sum up to 1.0")
 
