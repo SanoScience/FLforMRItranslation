@@ -144,15 +144,14 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                     num_epochs = ceil(self.epochs_multiplier * (self.NUMBER_OF_SAMPLES / num_samples))
                     # num_epochs = np.random.randint(1, config_train.N_EPOCHS_CLIENT)
 
-                if config["drop_client"]:
-                    # return without doing any training.
-                    # The flag in the metric will be used to tell the strategy
-                    # to discard the model upon aggregation
-                    return (
-                        self.get_parameters({}),
-                        len(self.train_loader),
-                        {"is_straggler": True},
-                    )
+                # return without doing any training.
+                # The flag in the metric will be used to tell the strategy
+                # to discard the model upon aggregation
+                return (
+                    self.get_parameters({}),
+                    len(self.train_loader),
+                    {"is_straggler": True},
+                )
 
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
