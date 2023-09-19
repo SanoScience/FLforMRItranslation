@@ -213,7 +213,7 @@ def client_for_config(client_id, unet: models.UNet, optimizer, data_dir: str):
     else:  # config_train.CLIENT_TYPE == config_train.ClientTypes.FED_AVG:
         return ClassicClient(client_id, unet, optimizer, data_dir)
 
-def client_for_string(client_id, unet: models.UNet, optimizer, data_dir: str, client_type_name):
+def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, client_type_name):
     drd = config_train.DATA_ROOT_DIR
     lt = config_train.LOSS_TYPE.name
     lr = config_train.LEARNING_RATE
@@ -236,7 +236,7 @@ def client_for_string(client_id, unet: models.UNet, optimizer, data_dir: str, cl
     elif client_type_name == "fedbn":
         return FedBNClient(client_id, unet, optimizer, data_dir, model_dir)
 
-    elif  client_type_name in  ["fedavg", "fedcostw", "fedpid", "fedavgm", "fedadam", "fedadagrad", "fedyogi", "fedmean"]:
+    elif  client_type_name in  ["fedavg", "fedcostw", "fedpid", "fedavgm", "fedadam", "fedadagrad", "fedyogi", "fedmean", "fedtrimmed"]:
         return ClassicClient(client_id, unet, optimizer, data_dir, model_dir)
     
     else:

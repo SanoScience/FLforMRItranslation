@@ -15,11 +15,11 @@ from configs import config_train
 import flwr as fl
 from flwr.server.criterion import ClientProxy
 from flwr.common import Scalar, FitRes, Parameters, logger, Metrics, NDArrays, parameters_to_ndarrays, \
-    ndarrays_to_parameters
+    ndarrays_to_parameters, NDArray
 from flwr.server.strategy import Strategy
 from flwr.server.strategy import FedAdam, FedAvg, FedYogi, FedProx, FedAdagrad, FedAvgM, aggregate
 
-from typing import List, Tuple, Dict, Union, Optional, Type
+from typing import List, Tuple, Dict, Union, Optional, Type, Callable
 from collections import OrderedDict
 
 
@@ -114,6 +114,154 @@ class FedMean(FedAvg):
         # as in FedAvg but without num_examples
         aggregated_results = [reduce(np.add, layer) / n_clients for layer in zip(*results)]
         return aggregated_results
+
+
+class FedTrimmedAvg(FedAvg):
+    """Federated Averaging with Trimmed Mean [Dong Yin, et al., 2021].
+
+    Paper: https://arxiv.org/abs/1803.01498
+    """
+
+    # pylint: disable=too-many-arguments,too-many-instance-attributes, line-too-long
+    def __init__(
+        self,
+        *,
+        fraction_fit: float = 1.0,
+        fraction_evaluate: float = 1.0,
+        min_fit_clients: int = 2,
+        min_evaluate_clients: int = 2,
+        min_available_clients: int = 2,
+        evaluate_fn: Optional[
+            Callable[
+                [int, NDArrays, Dict[str, Scalar]],
+                Optional[Tuple[float, Dict[str, Scalar]]],
+            ]
+        ] = None,
+        on_fit_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
+        on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
+        accept_failures: bool = True,
+        initial_parameters: Optional[Parameters] = None,
+        fit_metrics_aggregation_fn=None,
+        evaluate_metrics_aggregation_fn=None,
+        beta: float = 0.2,
+    ) -> None:
+        """Federated Averaging with Trimmed Mean [Dong Yin, et al., 2021].
+
+        Parameters
+        ----------
+        fraction_fit : float, optional
+            Fraction of clients used during training. Defaults to 0.1.
+        fraction_evaluate : float, optional
+            Fraction of clients used during validation. Defaults to 0.1.
+        min_fit_clients : int, optional
+            Minimum number of clients used during training. Defaults to 2.
+        min_evaluate_clients : int, optional
+            Minimum number of clients used during validation. Defaults to 2.
+        min_available_clients : int, optional
+            Minimum number of total clients in the system. Defaults to 2.
+        evaluate_fn : Optional[Callable[[int, NDArrays, Dict[str, Scalar]], Optional[Tuple[float, Dict[str, Scalar]]]]]
+            Optional function used for validation. Defaults to None.
+        on_fit_config_fn : Callable[[int], Dict[str, Scalar]], optional
+            Function used to configure training. Defaults to None.
+        on_evaluate_config_fn : Callable[[int], Dict[str, Scalar]], optional
+            Function used to configure validation. Defaults to None.
+        accept_failures : bool, optional
+            Whether or not accept rounds containing failures. Defaults to True.
+        initial_parameters : Parameters, optional
+            Initial global model parameters.
+        beta : float, optional
+            Fraction to cut off of both tails of the distribution. Defaults to 0.2.
+        """
+        super().__init__(
+            fraction_fit=fraction_fit,
+            fraction_evaluate=fraction_evaluate,
+            min_fit_clients=min_fit_clients,
+            min_evaluate_clients=min_evaluate_clients,
+            min_available_clients=min_available_clients,
+            evaluate_fn=evaluate_fn,
+            on_fit_config_fn=on_fit_config_fn,
+            on_evaluate_config_fn=on_evaluate_config_fn,
+            accept_failures=accept_failures,
+            initial_parameters=initial_parameters,
+            fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
+            evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,
+        )
+        self.beta = beta
+
+    def __repr__(self) -> str:
+        """Compute a string representation of the strategy."""
+        rep = f"FedTrimmedAvg(accept_failures={self.accept_failures})"
+        return rep
+
+    def aggregate_fit(
+        self,
+        server_round: int,
+        results: List[Tuple[ClientProxy, FitRes]],
+        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+        """Aggregate fit results using trimmed average."""
+        if not results:
+            return None, {}
+        # Do not aggregate if there are failures and failures are not accepted
+        if not self.accept_failures and failures:
+            return None, {}
+
+        # Convert results
+        weights_results = [
+            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
+            for _, fit_res in results
+        ]
+        parameters_aggregated = ndarrays_to_parameters(
+            aggregate_trimmed_avg(weights_results, self.beta)
+        )
+
+        # Aggregate custom metrics if aggregation fn was provided
+        metrics_aggregated = {}
+        if self.fit_metrics_aggregation_fn:
+            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+            metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
+        elif server_round == 1:  # Only log this warning once
+            logging.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
+
+        return parameters_aggregated, metrics_aggregated
+
+
+def aggregate_trimmed_avg(
+        results: List[Tuple[NDArrays, int]], proportiontocut: float
+) -> NDArrays:
+    """Compute trimmed average."""
+    # Create a list of weights and ignore the number of examples
+    weights = [weights for weights, _ in results]
+
+    trimmed_w: NDArrays = [
+        _trim_mean(np.asarray(layer), proportiontocut=proportiontocut)
+        for layer in zip(*weights)
+    ]
+
+    return trimmed_w
+
+
+def _trim_mean(array: NDArray, proportiontocut: float) -> NDArray:
+    """Compute trimmed mean along axis=0.
+
+    It is based on the scipy implementation.
+
+    https://docs.scipy.org/doc/scipy/reference/generated/
+    scipy.stats.trim_mean.html.
+    """
+    axis = 0
+    nobs = array.shape[axis]
+    lowercut = int(proportiontocut * nobs)
+    uppercut = nobs - lowercut
+    if lowercut > uppercut:
+        raise ValueError("Proportion too big.")
+
+    atmp = np.partition(array, (lowercut, uppercut - 1), axis)
+
+    slice_list = [slice(None)] * atmp.ndim
+    slice_list[axis] = slice(lowercut, uppercut)
+    result: NDArray = np.mean(atmp[tuple(slice_list)], axis=axis)
+    return result
 
 
 class FedCostWAvg(FedAvg):
@@ -353,15 +501,16 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
     }
     if strategy_name == "fedbn":
         return FedAvg(**kwargs)
-
     elif strategy_name == "fedcostw":
         return FedCostWAvg(model, model_dir, **kwargs)
     elif strategy_name == "fedpid":
         return FedPIDAvg(model, model_dir, **kwargs)
-
     elif strategy_name == "fedmean":
         return FedMean(model, model_dir, ** kwargs)
 
+
+    elif strategy_name == "fedtrimmed":
+        strategy_class = FedTrimmedAvg
     elif strategy_name == "fedprox":
         strategy_class = FedProx
         kwargs["proximal_mu"] = config_train.PROXIMAL_MU
@@ -384,6 +533,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
 
     return create_dynamic_strategy(strategy_class, model, model_dir, **kwargs)
 
+
 def strategy_from_config(model, evaluate_fn=None):
     kwargs = {
         # "evaluate_metrics_aggregation_fn": weighted_average,
@@ -405,6 +555,8 @@ def strategy_from_config(model, evaluate_fn=None):
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_MEAN:
         return FedMean(model, ** kwargs)
 
+    elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_TRIMMED:
+        strategy_class = FedTrimmedAvg
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_PROX:
         strategy_class = FedProx
         kwargs["proximal_mu"] = config_train.PROXIMAL_MU

@@ -10,7 +10,7 @@ if __name__ == "__main__":
     if config_train.LOCAL:
         data_dir = "C:\\Users\\JanFiszer\\data\\mega_small_hgg"
         client_id = "1"
-        server_node = "127.0.0.1"
+        server_address = "127.0.0.1"
         with_num_workers = False
     else:
         os.chdir("repos/FLforMRItranslation")
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 5:
         client = client_for_config(client_id, unet, optimizer, data_dir)
     else:
-        client = client_for_string(client_id, unet, optimizer, data_dir, sys.argv[4])
+        client = client_from_string(client_id, unet, optimizer, data_dir, sys.argv[4])
     # Address
     # If port not provided it is taken from the config
     if ":" not in server_address:
