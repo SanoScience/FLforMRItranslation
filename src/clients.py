@@ -53,7 +53,7 @@ class ClassicClient(fl.client.NumPyClient):
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
-                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
+                                           # plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
                                            )
 
         print(f"END OF CLIENT TRAINING\n")
@@ -79,8 +79,8 @@ class ClassicClient(fl.client.NumPyClient):
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
         metrics = self.model.evaluate(self.test_loader,
-                                      plots_path=f"{self.client_dir}/test_plots",
-                                      plot_filename=f"round-{current_round}"
+                                      # plots_path=f"{self.client_dir}/test_plots",
+                                      # plot_filename=f"round-{current_round}"
                                       )
 
         print(f"END OF CLIENT TESTING\n\n")
@@ -158,7 +158,8 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                                            epochs=num_epochs,
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
-                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots")
+                                           # plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
+                                           )
 
         print(f"END OF CLIENT TRAINING\n")
 
