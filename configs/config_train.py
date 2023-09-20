@@ -20,7 +20,7 @@ N_GROUP_NORM = 32
 
 # client parameters
 METRICS = ["loss", "ssim", "zoomed_ssim", "pnsr", "mse"]
-N_EPOCHS_CLIENT = 3
+N_EPOCHS_CLIENT = 4
 BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)
 LEARNING_RATE = 0.001
@@ -32,7 +32,7 @@ BATCH_PRINT_FREQ = 10
 PORT = "8084"
 
 # federated learning parameters
-N_ROUNDS = 20
+N_ROUNDS = 32
 SAVING_FREQUENCY = 1
 MIN_FIT_CLIENTS = 5
 FRACTION_FIT = 1.0
