@@ -33,8 +33,6 @@ if __name__ == "__main__":
     if ":" not in server_address:
         server_address = f"{server_address}:{config_train.PORT}"
 
-    print(server_address)
-
     fl.client.start_numpy_client(
         server_address=server_address,
         client=client
