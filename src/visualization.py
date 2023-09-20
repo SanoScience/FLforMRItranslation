@@ -63,9 +63,11 @@ def plot_batch(to_plot: List[List[torch.Tensor]], labels=None, show=True, filepa
         plt.show()
 
 
-def plot_pred(to_plot: List[torch.Tensor], labels, show=True, filepath: str = None, title="", cmap="gray", pad=0.5, forecolor='black'):
+def plot_pred(to_plot: List[torch.Tensor], labels, show=True, filepath: str = None, title="", cmap="gray", pad=0.5, forecolor='black', figsize=None):
     list_size = len(to_plot[0])
-    fig, axs = plt.subplots(list_size, len(to_plot), figsize=(len(to_plot) * 3, 3 * list_size))
+    if figsize is None:
+        figsize = (len(to_plot) * 3, 3 * list_size)
+    fig, axs = plt.subplots(list_size, len(to_plot), figsize=figsize)
     fig.patch.set_facecolor(forecolor)
 
     fig.tight_layout(pad=pad)
