@@ -11,7 +11,6 @@ if not config_train.LOCAL:
     os.chdir("repos/FLforMRItranslation")
 
 if __name__ == '__main__':
-    # test_dir = os.path.join(os.path.expanduser("~"), "data/hgg_transformed/validation")
     print(sys.argv)
     test_dir = sys.argv[1]
     model_path = sys.argv[2]
@@ -23,13 +22,11 @@ if __name__ == '__main__':
     # unet = models.UNet().to(config_train.DEVICE)
     criterion = loss_functions.DssimMse()
     unet = models.UNet(criterion).to(config_train.DEVICE)
-    if config_train.LOCAL:
-        unet.load_state_dict(torch.load(os.path.join(model_path), map_location=torch.device('cpu')))
-    else:
-        try:
-            unet.load_state_dict(torch.load(os.path.join(model_path)))
-        except FileNotFoundError:
-            FileNotFoundError(f"You are in {os.getcwd()} and there is no give path")
+
+    try:
+        unet.load_state_dict(torch.load(os.path.join(model_path)))
+    except FileNotFoundError:
+        FileNotFoundError(f"You are in {os.getcwd()} and there is no give path")
 
     images, targets = next(iter(testloader))
 
@@ -45,9 +42,3 @@ if __name__ == '__main__':
     with open(filepath, "wb") as file:
         pickle.dump(metrics, file)
     print(f"Saved to : {filepath}")
-    # metric_string = loss_functions.metrics_to_str(metrics, starting_symbol="")
-
-    # visualization.plot_batch([images.cpu(), targets.cpu(), predictions.cpu().detach()],
-    #                          title=representative_test_dir,
-    #                          show=False,
-    #                          filepath=filepath)
