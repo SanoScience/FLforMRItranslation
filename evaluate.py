@@ -1,6 +1,6 @@
 import os
 import sys
-
+import pickle
 import torch
 
 from configs import config_train
@@ -36,31 +36,18 @@ if __name__ == '__main__':
     images = images.to(config_train.DEVICE)
     predictions = unet(images)
 
-    # loss, ssim = unet.test(testloader, criterion)
-    # representative_test_dir = test_dir.split('/')[-2]
-    # model_dir = '/'.join(e for e in model_path.split('/')[:-1])
+    metrics = unet.evaluate(testloader)
+    representative_test_dir = test_dir.split('/')[-2]
+    model_dir = '/'.join(e for e in model_path.split('/')[:-1])
+  
+    filepath = os.path.join(model_dir, f"test_{representative_test_dir}_loss_{metrics['loss']:.2f}.pkl")
 
-    # filepath = os.path.join(model_dir, f"test_{representative_test_dir}_loss_{loss:.2f}_ssim{ssim:.2f}.jpg")
+    with open(filepath, "wb") as file:
+        pickle.dump(metrics, file)
+    print(f"Saved to : {filepath}")
+    # metric_string = loss_functions.metrics_to_str(metrics, starting_symbol="")
+
     # visualization.plot_batch([images.cpu(), targets.cpu(), predictions.cpu().detach()],
     #                          title=representative_test_dir,
     #                          show=False,
     #                          filepath=filepath)
-
-    # print("Plot saved to :", filepath)
-    # print(f"ssim {ssim} loss {loss}")
-    # print("\nEvaluation ended.\n")
-
-    metrics = unet.evaluate(testloader)
-    metric_string = loss_functions.metrics_to_str(metrics, starting_symbol="")
-    representative_test_dir = test_dir.split('/')[-2]
-    model_dir = '/'.join(e for e in model_path.split('/')[:-1])
-
-    filepath = os.path.join(model_dir, f"test_{representative_test_dir}_loss_{metrics['loss']:.2f}_ssim{metrics['ssim']:.2f}.jpg")
-    visualization.plot_batch([images.cpu(), targets.cpu(), predictions.cpu().detach()],
-                             title=representative_test_dir,
-                             show=False,
-                             filepath=filepath)
-
-    print("Plot saved to :", filepath)
-    print(metric_string)
-    print("\nEvaluation ended.\n")
