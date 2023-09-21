@@ -505,9 +505,8 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
         return FedCostWAvg(model, model_dir, **kwargs)
     elif strategy_name == "fedpid":
         return FedPIDAvg(model, model_dir, **kwargs)
-    elif strategy_name == "fedmean":
+    elif strategy_name in ["fedmean", "fedmri"]:
         return FedMean(model, model_dir, ** kwargs)
-
 
     elif strategy_name == "fedtrimmed":
         strategy_class = FedTrimmedAvg
