@@ -53,7 +53,7 @@ class ClassicClient(fl.client.NumPyClient):
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
-                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
+                                           # plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
                                            )
 
         print(f"END OF CLIENT TRAINING\n")
@@ -79,8 +79,8 @@ class ClassicClient(fl.client.NumPyClient):
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
         metrics = self.model.evaluate(self.test_loader,
-                                      plots_path=f"{self.client_dir}/test_plots",
-                                      plot_filename=f"round-{current_round}"
+                                      # plots_path=f"{self.client_dir}/test_plots",
+                                      # plot_filename=f"round-{current_round}"
                                       )
 
         print(f"END OF CLIENT TESTING\n\n")
@@ -158,7 +158,8 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                                            epochs=num_epochs,
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
-                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots")
+                                           # plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
+                                           )
 
         print(f"END OF CLIENT TRAINING\n")
 
@@ -197,6 +198,24 @@ class FedBNClient(ClassicClient):
         return f"FedBN(batch_norm={config_train.NORMALIZATION})"
 
 
+class FedMRIClient(ClassicClient):
+    def set_parameters(self, parameters: NDArrays):
+        self.model.train()
+
+        old_state_dict = self.model.state_dict()
+
+        layer_names = {index: layer_name for index, layer_name in enumerate(old_state_dict.keys())
+                       if "down" in layer_name or "inc" in layer_name}
+
+        selected_parameters = [parameters[i] for i in layer_names.keys()]
+        param_dict = zip(layer_names.values(), selected_parameters)
+        state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
+        self.model.load_state_dict(state_dict, strict=False)
+
+    def __repr__(self):
+        return f"FedMRI(batch_norm={config_train.NORMALIZATION})"
+
+
 def client_for_config(client_id, unet: models.UNet, optimizer, data_dir: str):
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
         stragglers_mat = np.transpose(
@@ -209,8 +228,12 @@ def client_for_config(client_id, unet: models.UNet, optimizer, data_dir: str):
     elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
         return FedBNClient(client_id, unet, optimizer, data_dir)
 
+    elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_MRI:
+        return FedMRIClient(client_id, unet, optimizer, data_dir)
+
     else:  # config_train.CLIENT_TYPE == config_train.ClientTypes.FED_AVG:
         return ClassicClient(client_id, unet, optimizer, data_dir)
+
 
 def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, client_type_name):
     drd = config_train.DATA_ROOT_DIR

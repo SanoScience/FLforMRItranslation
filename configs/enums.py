@@ -5,6 +5,7 @@ class ClientTypes(Enum):
     FED_AVG = 1
     FED_PROX = 2
     FED_BN = 3
+    FED_MRI = 4
 
 
 class LossFunctions(Enum):
