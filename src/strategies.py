@@ -432,7 +432,7 @@ class FedPIDAvg(FedCostWAvg):
         # Calculate the total number of examples used during training
         num_examples_total = sum([num_examples for _, num_examples in results])
 
-        Kjs = [old_loss - new_loss
+        Kjs = [abs(old_loss - new_loss)
                for old_loss, new_loss in
                zip(self.previous_loss_values[-1], loss_values)]  # in the paper k_j = c(Mj_i-1) - c(Mi_j)
         k_j_total = sum(Kjs)  # in the paper: K = sum(k_j)
