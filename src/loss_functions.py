@@ -104,41 +104,8 @@ class ZoomedSSIM(Metric):
     def compute(self):
         return torch.tensor(sum(self.ssim_list) / self.batch_size)
 
-    # def __call__(self, predicted, targets):
-    #     for image in targets:
-    #         image_np = image.detach().numpy()[0]
-    #
-    #         looking_for_first = True
-    #         first_index_row = -1
-    #         last_index_row = -1
-    #
-    #         for index, row in enumerate(image_np):
-    #             if looking_for_first and sum(row) > 0:
-    #                 first_index_row = index
-    #                 looking_for_first = False
-    #             if not looking_for_first and sum(row) == 0 :
-    #                 last_index_row = index
-    #                 looking_for_first = True
-    #                 break
-    #
-    #         first_index_col = -1
-    #         last_index_col = -1
-    #
-    #         for index, col in enumerate(image_np.transpose()):
-    #             if looking_for_first and sum(col) > 0:
-    #                 first_index_col = index
-    #                 looking_for_first = False
-    #             if not looking_for_first and sum(col) == 0:
-    #                 last_index_col = index
-    #                 break
-    #
-    #         trimmed_targets = torch.tensor(image_np[first_index_row:last_index_row, first_index_col:last_index_col])
-    #         trimmed_predicted = torch.tensor(predicted[first_index_row:last_index_row, first_index_col:last_index_col])
-    #
-    #     return self.ssim(trimmed_predicted, trimmed_targets)
 
-
-def loss_for_config():
+def loss_from_config():
     if config_train.LOSS_TYPE == config_train.LossFunctions.MSE_DSSIM:
         return DssimMse()
     elif config_train.LOSS_TYPE == config_train.LossFunctions.PROX:
