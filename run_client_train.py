@@ -13,8 +13,6 @@ if __name__ == "__main__":
         server_address = "127.0.0.1"
         with_num_workers = False
     else:
-        os.chdir("repos/FLforMRItranslation")
-
         data_dir = sys.argv[1]
         client_id = sys.argv[2]
         server_address = sys.argv[3]

@@ -6,9 +6,6 @@ from src.strategies import *
 
 import flwr as fl
 
-if not config_train.LOCAL:
-    os.chdir("repos/FLforMRItranslation")
-
 
 if __name__ == "__main__":
     unet = models.UNet().to(config_train.DEVICE)
