@@ -154,7 +154,8 @@ class UNet(nn.Module):
                       model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
                       filename=None,
                       history_filename=None,
-                      plots_dir=None):
+                      plots_dir=None,
+                      save_best_model=False):
 
         print(f"TRAINING... \n\ton device: {device} \n\twith loss: {self.criterion}\n")
 
@@ -187,6 +188,8 @@ class UNet(nn.Module):
             for metric in config_train.METRICS:
                 history[metric].append(epoch_metrics[metric])
 
+            best_loss = 1000.0
+
             print("\tVALIDATION...")
             if validationloader is not None:
                 val_metric = self.evaluate(validationloader, plots_path, f"ep{epoch}.jpg")
@@ -195,7 +198,15 @@ class UNet(nn.Module):
                     # trimming after val_ to get only the metric name since it is provided by the
                     history[metric].append(val_metric[metric[len("val_"):]])
 
+                if save_best_model:
+                    if history["loss"] < best_loss:
+                        best_loss = history
+                        best_model = self.state_dict()
+                
         print("\tAll epochs finished.\n")
+
+        if save_best_model:
+            torch.save(best_model, path.join(model_dir, "best_model.pth"))
 
         # saving
         if history_filename is not None:
