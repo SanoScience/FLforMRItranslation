@@ -199,7 +199,7 @@ class UNet(nn.Module):
                     history[metric].append(val_metric[metric[len("val_"):]])
 
                 if save_best_model:
-                    if history["loss"] < best_loss:
+                    if val_metric["loss"] < best_loss:
                         best_loss = history
                         best_model = self.state_dict()
                 
