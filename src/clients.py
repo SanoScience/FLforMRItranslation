@@ -12,7 +12,7 @@ from flwr.common.typing import NDArrays, Scalar
 from torch.utils.data import DataLoader
 
 from configs import config_train
-from src import models, files_operations as fop
+from src import models, loss_functions, files_operations as fop
 from src.datasets import MRIDatasetNumpySlices
 
 
@@ -53,7 +53,7 @@ class ClassicClient(fl.client.NumPyClient):
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
-                                           # plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
+                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
                                            )
 
         print(f"END OF CLIENT TRAINING\n")
@@ -79,8 +79,8 @@ class ClassicClient(fl.client.NumPyClient):
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
         metrics = self.model.evaluate(self.test_loader,
-                                      # plots_path=f"{self.client_dir}/test_plots",
-                                      # plot_filename=f"round-{current_round}"
+                                      plots_path=f"{self.client_dir}/test_plots",
+                                      plot_filename=f"round-{current_round}"
                                       )
 
         print(f"END OF CLIENT TESTING\n\n")
@@ -88,6 +88,9 @@ class ClassicClient(fl.client.NumPyClient):
         # adding to the history
         for metric_name, metric_value in metrics.items():
             self.history[metric_name].append(metric_value)
+
+        if current_round % config_train.CLIENT_SAVING_FREQ == 0:
+            self.model.save(self.client_dir, f"model-rd{current_round}")
 
         # saving model and history if it is the last round
         if current_round == config_train.N_ROUNDS:
@@ -158,7 +161,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                                            epochs=num_epochs,
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
-                                           # plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
+                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
                                            )
 
         print(f"END OF CLIENT TRAINING\n")
@@ -213,10 +216,10 @@ class FedMRIClient(ClassicClient):
         self.model.load_state_dict(state_dict, strict=False)
 
     def __repr__(self):
-        return f"FedMRI(batch_norm={config_train.NORMALIZATION})"
+        return f"FedMRI()"
 
 
-def client_for_config(client_id, unet: models.UNet, optimizer, data_dir: str):
+def client_from_config(client_id, unet: models.UNet, optimizer, data_dir: str):
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
         stragglers_mat = np.transpose(
             np.random.choice([0, 1], size=config_train.N_ROUNDS,
@@ -252,12 +255,16 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
             np.random.choice([0, 1], size=config_train.N_ROUNDS,
                              p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
         )
+        
+        if not isinstance(unet.criterion, loss_functions.LossWithProximalTerm):
+            raise ValueError("Wrong loss function change it in the config")
 
         return FedProxClient(client_id, unet, optimizer, data_dir, model_dir, stragglers_mat)
 
     elif client_type_name == "fedbn":
         return FedBNClient(client_id, unet, optimizer, data_dir, model_dir)
-
+    elif client_type_name == "fedmri":
+        return FedMRIClient(client_id, unet, optimizer, data_dir, model_dir)
     elif  client_type_name in  ["fedavg", "fedcostw", "fedpid", "fedavgm", "fedadam", "fedadagrad", "fedyogi", "fedmean", "fedtrimmed"]:
         return ClassicClient(client_id, unet, optimizer, data_dir, model_dir)
     

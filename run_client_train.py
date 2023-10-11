@@ -13,19 +13,17 @@ if __name__ == "__main__":
         server_address = "127.0.0.1"
         with_num_workers = False
     else:
-        os.chdir("repos/FLforMRItranslation")
-
         data_dir = sys.argv[1]
         client_id = sys.argv[2]
         server_address = sys.argv[3]
         with_num_workers = True
     # Model
-    criterion = loss_functions.loss_for_config()
+    criterion = loss_functions.loss_from_config()
     unet = models.UNet(criterion).to(config_train.DEVICE)
     optimizer = torch.optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
     
     if len(sys.argv) < 5:
-        client = client_for_config(client_id, unet, optimizer, data_dir)
+        client = client_from_config(client_id, unet, optimizer, data_dir)
     else:
         client = client_from_string(client_id, unet, optimizer, data_dir, sys.argv[4])
     # Address
