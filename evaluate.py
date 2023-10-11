@@ -7,8 +7,6 @@ from configs import config_train
 from src import datasets, models, loss_functions, visualization
 from torch.utils.data import DataLoader
 
-if not config_train.LOCAL:
-    os.chdir("repos/FLforMRItranslation")
 
 if __name__ == '__main__':
     print(sys.argv)

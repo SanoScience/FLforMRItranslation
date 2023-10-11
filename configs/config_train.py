@@ -5,12 +5,12 @@ from configs.enums import *
 
 LOCAL = False
 
-N_EPOCHS_CENTRALIZED = 50
+N_EPOCHS_CENTRALIZED = 64
 
 # training parameters
-CLIENT_TYPE = ClientTypes.FED_PROX
+CLIENT_TYPE = ClientTypes.FED_MRI
 LOSS_TYPE = LossFunctions.MSE_DSSIM
-AGGREGATION_METHOD = AggregationMethods.FED_AVG
+AGGREGATION_METHOD = AggregationMethods.FED_MEAN
 
 
 # model parameters
@@ -20,7 +20,8 @@ N_GROUP_NORM = 32
 
 # client parameters
 METRICS = ["loss", "ssim", "zoomed_ssim", "pnsr", "mse"]
-N_EPOCHS_CLIENT = 4
+N_EPOCHS_CLIENT = 5
+CLIENT_SAVING_FREQ = 10
 BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)
 LEARNING_RATE = 0.001
