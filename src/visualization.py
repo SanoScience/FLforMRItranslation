@@ -4,9 +4,32 @@ import matplotlib.pyplot as plt
 import torch
 from torch import Tensor
 
+def plot_difference(target, predictions, row_labels=None, cmap="hsv", vmin=-0.5, vmax=0.5):
 
-def plot_learning_curves(loss_histories, labels, linetypes=None, title=None, ylabel="Loss", xlabel="Rounds", ylim=None):
-    plt.figure(figsize=(10, 6))
+    fig, axs = plt.subplots(len(predictions), len(target), figsize=(3*len(target), 3*len(predictions)))
+
+    for i in range(len(target)):
+        for j, prediction in enumerate(predictions):
+            # print(target[i].shape, prediction[i].shape)
+            difference = target[i].numpy()[0][0] - prediction[i].numpy()[0][0]
+
+            if row_labels:
+                if i == 0:
+                    axs[j, i].text(10, 150, row_labels[j], rotation="vertical")
+
+            im = axs[j, i].imshow(difference, cmap, vmin=vmin, vmax=vmax)
+            axs[j, i].axis("off")
+
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.02, 0.7])
+    fig.colorbar(im, cax=cbar_ax)
+
+
+def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, title=None, ylabel="Loss", xlabel="Rounds", ylim=None, figsize=None, legend=True):
+
+    if figsize:
+        plt.figure(figsize=figsize)
+
     if ylim:
         plt.ylim(ylim)
 
@@ -14,16 +37,24 @@ def plot_learning_curves(loss_histories, labels, linetypes=None, title=None, yla
 
     for index, loss_values in enumerate(loss_histories):
         epochs = range(1, len(loss_values) + 1)
+
+        label=labels[index]
+
         if linetypes:
             linestyle = linetypes[index]
-        plt.plot(epochs, loss_values, label=labels[index], linestyle=linestyle)
+        if colors:
+            plt.plot(epochs, loss_values, label=label, linestyle=linestyle, color=colors[index])
+        else:
+            plt.plot(epochs, loss_values, label=label, linestyle=linestyle)
 
     if title is not None:
         plt.title(title)
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.legend()
+
+    if legend:
+        plt.legend()
 
     plt.show()
 
@@ -67,7 +98,7 @@ def plot_batch(to_plot: List[List[torch.Tensor]], labels=None, show=True, filepa
         plt.show()
 
 
-def plot_pred(to_plot: List[torch.Tensor], labels, show=True, filepath: str = None,
+def plot_pred(to_plot: List[torch.Tensor], col_labels, row_labels=None, show=True, filepath: str = None,
               title="", cmap="gray", pad=0.5, forecolor='black', figsize=None, vertical=True):
     list_size = len(to_plot[0])
     if figsize is None:
@@ -80,8 +111,12 @@ def plot_pred(to_plot: List[torch.Tensor], labels, show=True, filepath: str = No
         fig, axs = plt.subplots(len(to_plot), list_size, figsize=figsize)
     else:
         fig, axs = plt.subplots(list_size, len(to_plot), figsize=figsize)
-    fig.patch.set_facecolor(forecolor)
 
+    fig.patch.set_facecolor(forecolor)
+    if forecolor == "black":
+        textcolor = "white"
+    else:
+        textcolor = "black"
     fig.tight_layout(pad=pad)
     fig.suptitle(title)
 
@@ -90,17 +125,20 @@ def plot_pred(to_plot: List[torch.Tensor], labels, show=True, filepath: str = No
             if not vertical:
                 i, j = j, i
 
-            img_max = torch.max(set_to_plot[j][0])
-            img_min = torch.min(set_to_plot[j][0])
+            img = set_to_plot[j][0].numpy()[0]
 
-            axs[i, j].imshow(set_to_plot[j][0].numpy()[0], cmap=cmap, vmin=0.0, vmax=1.0)
+            axs[i, j].imshow(img, cmap=cmap, vmin=0.0, vmax=1.0)
 
-            title = f'\nmin: {img_min:.2f} max: {img_max:.2f}'
-            if i == 0:
-                title = labels[j] + title
+            if row_labels:
+                if j == 0:
+                    axs[i, j].text(10, 150, row_labels[i], color=textcolor, rotation="vertical")
 
-            axs[i, j].set_title(title, color='white')
+            axs[i, j].set_title(title, color=textcolor)
             axs[i, j].axis("off")
+            axs[i, j].autoscale_view('tight')
+
+    for index, col_label in enumerate(col_labels):
+        fig.text(index * 0.198 + 0.1, 1, col_label, color=textcolor)
 
     if filepath is not None:
         plt.savefig(filepath)
