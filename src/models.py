@@ -155,7 +155,8 @@ class UNet(nn.Module):
                       filename=None,
                       history_filename=None,
                       plots_dir=None,
-                      save_best_model=False):
+                      save_best_model=False, 
+                      save_each_epoch=False):
 
         print(f"TRAINING... \n\ton device: {device} \n\twith loss: {self.criterion}\n")
 
@@ -173,6 +174,8 @@ class UNet(nn.Module):
         history = {m_name: [] for m_name in config_train.METRICS}
         history.update({m_name: [] for m_name in val_metric_names})
 
+        if save_best_model:
+            best_loss = 1000.0
 
         if plots_dir is not None:
             plots_path = path.join(model_dir, plots_dir)
@@ -188,8 +191,6 @@ class UNet(nn.Module):
             for metric in config_train.METRICS:
                 history[metric].append(epoch_metrics[metric])
 
-            best_loss = 1000.0
-
             print("\tVALIDATION...")
             if validationloader is not None:
                 val_metric = self.evaluate(validationloader, plots_path, f"ep{epoch}.jpg")
@@ -200,8 +201,12 @@ class UNet(nn.Module):
 
                 if save_best_model:
                     if val_metric["loss"] < best_loss:
-                        best_loss = history
+                        print(f"\tModel form epoch {epoch} taken as the best one.\n\tIts loss {val_metric['loss']} is better than current best loss {best_loss}.")
+                        best_loss = val_metric["loss"]
                         best_model = self.state_dict()
+
+            if save_each_epoch:
+                self.save(model_dir, f"model-ep{epoch}.pth")
                 
         print("\tAll epochs finished.\n")
 
