@@ -89,6 +89,9 @@ class ClassicClient(fl.client.NumPyClient):
         for metric_name, metric_value in metrics.items():
             self.history[metric_name].append(metric_value)
 
+        if current_round % config_train.CLIENT_SAVING_FREQ == 0:
+            self.model.save(self.client_dir, f"model-rd{current_round}")
+
         # saving model and history if it is the last round
         if current_round == config_train.N_ROUNDS:
             self.model.save(self.client_dir)
