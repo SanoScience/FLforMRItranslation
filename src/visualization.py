@@ -2,7 +2,64 @@ from typing import List
 
 import matplotlib.pyplot as plt
 import torch
+import numpy as np
 from torch import Tensor
+
+import math
+
+def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", forecolor='black', ):
+
+    fig=plt.figure()
+
+    fig.patch.set_facecolor(forecolor)
+    if forecolor == "black":
+        textcolor = "white"
+    else:
+        textcolor = "black"
+    dim_reduced_to_plot = []
+
+    for images in to_plot:
+        dim_reduced_to_plot.append([img[0, 0] for img in images])
+
+    if img_size is None:
+        # looking for a common min shape
+        min_W = 10000
+        min_H = 10000
+        for img in dim_reduced_to_plot[0]:
+
+            img_H, img_W = img.shape
+
+            if min_W > img_W:
+                min_W = img_W
+            if min_H > img_H:
+                min_H = img_H
+    else:
+        min_W, min_H = img_size
+
+
+    def trim_image(image, min_width, min_height):
+        img_H, img_W = image.shape
+
+        to_trim_H = img_H - min_height
+        to_trim_W = img_W - min_width
+
+        result_img = image[math.ceil(to_trim_H/2): min_H + math.ceil(to_trim_H/2), math.ceil(to_trim_W/2): min_W+math.ceil(to_trim_W/2)]
+        return result_img
+
+    to_plot_trimmed = []
+    for images in dim_reduced_to_plot:
+        to_plot_trimmed.append([trim_image(img, min_W, min_H) for img in images])
+
+    all_numpy_rows = [np.concatenate(images, axis=1) for images in to_plot_trimmed]
+    total_numpy_array = np.concatenate(all_numpy_rows)
+
+    plt.imshow(total_numpy_array, cmap=cmap)
+    plt.axis("off")
+
+    if col_labels:
+        for index, col_label in enumerate(col_labels):
+            plt.text(index * 240, 0, col_label, color=textcolor)
+
 
 def plot_difference(target, predictions, row_labels=None, cmap="hsv", vmin=-0.5, vmax=0.5):
 
