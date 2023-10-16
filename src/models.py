@@ -1,6 +1,7 @@
 from os import path
 from itertools import chain
 import pickle
+import wandb
 import time
 from typing import Callable
 
@@ -11,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
 
 import src.loss_functions
-from configs import config_train
+from configs import config_train, creds
 from src import visualization, loss_functions, files_operations as fop
 
 device = config_train.DEVICE
@@ -160,6 +161,12 @@ class UNet(nn.Module):
 
         print(f"TRAINING... \n\ton device: {device} \n\twith loss: {self.criterion}\n")
 
+        wandb.login(key=creds.api_key_wandb)
+
+        wandb.init(
+            name=model_dir,
+            project=f"fl-mri")
+
         if not isinstance(self.criterion, Callable):
             raise TypeError(f"Loss function (criterion) has to be callable. It is {type(self.criterion)} which is not.")
 
@@ -204,6 +211,8 @@ class UNet(nn.Module):
                         print(f"\tModel form epoch {epoch} taken as the best one.\n\tIts loss {val_metric['loss']} is better than current best loss {best_loss}.")
                         best_loss = val_metric["loss"]
                         best_model = self.state_dict()
+
+            wandb.log(epoch_metrics)
 
             if save_each_epoch:
                 self.save(model_dir, f"model-ep{epoch}.pth")
