@@ -1,5 +1,6 @@
 import os
 import sys
+import socket
 
 from src import loss_functions, models
 from src.clients import *
@@ -29,7 +30,7 @@ if __name__ == "__main__":
     # Address
     # If port not provided it is taken from the config
     if ":" not in server_address:
-        server_address = f"{server_address}:{config_train.PORT}"
+        server_address = f"{socket.gethostname()}:{config_train.PORT}"
 
     fl.client.start_numpy_client(
         server_address=server_address,
