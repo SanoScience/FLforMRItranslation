@@ -48,12 +48,17 @@ class ClassicClient(fl.client.NumPyClient):
         current_round = config["current_round"]
         print(f"ROUND {current_round}")
 
+        if config_train.LOCAL:
+            plots_dir = None
+        else:
+            plots_dir = f"{self.client_dir}/rd-{current_round}_training_plots"
+
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
-                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
+                                           plots_dir=plots_dir
                                            )
 
         print(f"END OF CLIENT TRAINING\n")
@@ -78,9 +83,17 @@ class ClassicClient(fl.client.NumPyClient):
     def _evaluate(self, current_round: int):
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
+
+        if config_train.LOCAL:
+            plots_path = None
+            plot_filename = None
+        else:
+            plots_path = f"{self.client_dir}/test_plots"
+            plot_filename = f"round-{current_round}"
+
         metrics = self.model.evaluate(self.test_loader,
-                                      plots_path=f"{self.client_dir}/test_plots",
-                                      plot_filename=f"round-{current_round}"
+                                      plots_path=plots_path,
+                                      plot_filename=plot_filename
                                       )
 
         print(f"END OF CLIENT TESTING\n\n")
@@ -115,7 +128,6 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
         self.straggler_schedule = straggler_schedule
         self.epochs_multiplier = epochs_multiplier
-
 
     def fit(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[NDArrays, int, Dict]:
         """Implements distributed fit function for a given client."""
@@ -156,12 +168,17 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                     {"is_straggler": True},
                 )
 
+        if config_train.LOCAL:
+            plots_dir = None
+        else:
+            plots_dir = f"{self.client_dir}/rd-{current_round}_training_plots"
+
         history = self.model.perform_train(self.train_loader,
                                            self.optimizer,
                                            epochs=num_epochs,
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
-                                           plots_dir=f"{self.client_dir}/rd-{current_round}_training_plots"
+                                           plots_dir=plots_dir
                                            )
 
         print(f"END OF CLIENT TRAINING\n")
