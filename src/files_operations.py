@@ -5,6 +5,7 @@ import traceback
 from glob import glob
 from typing import Tuple, Optional
 
+import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
 
@@ -227,3 +228,17 @@ def try_create_dir(dir_name, allow_overwrite=True):
         ex = FileNotFoundError(f"The path {dir_name} to directory willing to be created doesn't exist. You are in {os.getcwd()}.")
 
         traceback.print_exception(FileNotFoundError, ex, ex.__traceback__)
+
+
+def test_mask_in(img_name, img_dir, breakpoint=10, failed_dir="failed"):
+    img = np.load(os.path.join(img_dir, img_name))
+
+    if np.sum(img[:, :breakpoint]):
+        plt.imshow(img > 0)
+        plt.savefig(os.path.join(failed_dir, img_name))
+        print("\n\nWRONG MASKS IN THE IMAGE: ", img_name)
+
+        return False
+
+    else:
+        return True
