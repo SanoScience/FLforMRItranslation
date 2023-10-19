@@ -2,10 +2,12 @@ from typing import Dict, List
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from configs import config_train
 from torch.nn import MSELoss
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.metric import Metric
+from scipy import signal
 
 
 class DssimMse:
@@ -100,9 +102,133 @@ class ZoomedSSIM(Metric):
 
         self.batch_size += preds.shape[0]
 
+    def compute(self):
+        return (sum(self.ssim_list) / self.batch_size).clone().detach()
+
+
+class QILV(Metric):
+    def __init__(self, use_mask=True, **kwargs):
+        super().__init__(**kwargs)
+        self.add_state("qilv_list", default=[], dist_reduce_fx="cat")
+        self.add_state("batch_size", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.use_mask = use_mask
+
+    def update(self, preds: torch.Tensor, targets: torch.Tensor):
+        assert preds.shape == targets.shape
+
+        for pred, target in zip(preds, targets):
+            self.qilv_list.append(self._compute_QILV(pred, target))
+
+        self.batch_size += preds.shape[0]
 
     def compute(self):
-        return torch.tensor(sum(self.ssim_list) / self.batch_size)
+        return (sum(self.qilv_list) / self.batch_size).clone().detach()
+
+
+    @staticmethod
+    def nanstd(x):
+        mask = torch.isnan(x)
+        n = torch.sum(~mask)
+        if n > 0:
+            mean = torch.sum(x[~mask]) / n
+            variance = torch.sum((x[~mask] - mean) ** 2) / n
+            return torch.sqrt(variance)
+        else:
+            return torch.tensor(float('nan'), dtype=x.dtype)
+
+    def _compute_QILV(self, pred, target, window=0):
+        if window == 0:
+            window = torch.tensor(signal.windows.gaussian(11, std=1.5), dtype=torch.float32)
+
+            # Outer product (make 2D window)
+            window = torch.outer(window, window)
+
+        # Normalize window
+        window = window / torch.sum(window)
+
+        unsqueezed_window = window.unsqueeze(0).unsqueeze(0)
+        unsqueezed_target = target.unsqueeze(0)
+        unsqueezed_pred = pred.unsqueeze(0)
+
+        # Local means
+        M1 = F.conv2d(unsqueezed_target, unsqueezed_window, padding=5)
+        M2 = F.conv2d(unsqueezed_pred, unsqueezed_window, padding=5)
+
+        # Local variances
+        V1 = F.conv2d(unsqueezed_target ** 2, unsqueezed_window, padding=5) - M1 ** 2
+        V2 = F.conv2d(unsqueezed_pred ** 2, unsqueezed_window, padding=5) - M2 ** 2
+
+        if self.use_mask:
+            mask = target == 0
+
+        else:
+            mask = torch.ones_like(target)
+
+        V1 = torch.where(mask, V1, torch.tensor(np.nan, dtype=torch.float32))
+        V2 = torch.where(mask, V2, torch.tensor(np.nan, dtype=torch.float32))
+
+        m1 = torch.nanmean(V1)
+        m2 = torch.nanmean(V2)
+        s1 = self.nanstd(V1)
+        s2 = self.nanstd(V2)
+
+        s12 = torch.nanmean((V1 - m1) * (V2 - m2))
+
+        # QILV index
+        C1 = (0.01 * 255) ** 2
+        C2 = (0.03 * 255) ** 2
+        ind1 = ((2 * m1 * m2 + C1) / (m1 ** 2 + m2 ** 2 + C1))
+        ind2 = (2 * s1 * s2 + C2) / (s1 ** 2 + s2 ** 2 + C2)
+        ind3 = (s12 + C2 / 2) / (s1 * s2 + C2 / 2)
+        ind = ind1 * ind2 * ind3
+
+        return ind
+
+def QILV_nontorch(image1, image2, mask=None, window=0):
+    if (window == 0):
+        window = signal.gaussian(11, std=1.5)
+
+        # outer product (make 2D window)
+        window = np.outer(window, window)
+
+    # normalize window
+    window = window / np.sum(window)
+
+    # local means
+    M1 = signal.convolve2d(image1, window, mode='same')
+    M2 = signal.convolve2d(image2, window, mode='same')
+
+    # local variances
+    V1 = signal.convolve2d((image1 ** 2), window, mode='same') - M1 ** 2
+    V2 = signal.convolve2d((image2 ** 2), window, mode='same') - M2 ** 2
+
+    # global statistics
+    if (mask != None).all():
+        mask = np.ones(image1.shape)
+
+    mask = np.invert(mask > 0)
+
+    V1 = np.ma.array(V1, mask=mask)
+    V2 = np.ma.array(V2, mask=mask)
+
+    m1 = V1.mean()
+    m2 = V2.mean()
+    s1 = V1.std()
+    s2 = V2.std()
+
+    print(m1, m2, s1, s2)
+
+    s12 = np.mean((V1 - m1) * (V2 - m2))
+
+    # QILV index
+    C1 = (0.01 * 255) ** 2
+    C2 = (0.03 * 255) ** 2
+    ind1 = ((2 * m1 * m2 + C1) / (m1 ** 2 + m2 ** 2 + C1))
+    ind2 = (2 * s1 * s2 + C2) / (s1 ** 2 + s2 ** 2 + C2)
+    ind3 = (s12 + C2 / 2) / (s1 * s2 + C2 / 2)
+    ind = ind1 * ind2 * ind3
+
+    return ind
 
 
 def loss_from_config():
