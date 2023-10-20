@@ -389,6 +389,10 @@ class QILV(Metric):
             return torch.tensor(float('nan'), dtype=x.dtype)
 
     def _compute_QILV(self, pred, target, window=0):
+        if config_train.DEVICE == "cuda":
+            pred = pred.cpu()
+            target = target.cpu()
+
         if window == 0:
             window = torch.tensor(signal.windows.gaussian(11, std=1.5), dtype=torch.float32)
 
@@ -434,7 +438,7 @@ class QILV(Metric):
         ind3 = (s12 + C2 / 2) / (s1 * s2 + C2 / 2)
         ind = ind1 * ind2 * ind3
 
-        return ind
+        return ind.to(config_train.DEVICE)
 
 def QILV_nontorch(image1, image2, mask=None, window=0):
     if (window == 0):
