@@ -31,7 +31,7 @@ class DssimMse:
         if self.zoomed_ssim:
             ssim = ZoomedSSIM()
         else:
-            ssim = StructuralSimilarityIndexMeasure().to(config_train.DEVICE)
+            ssim = MaskedSSIM().to(config_train.DEVICE)
 
         dssim = (1 - ssim(predicted, targets)) / 2
 
@@ -211,6 +211,7 @@ class MaskedSSIM(Metric):
 
         return similarity
 
+    @staticmethod
     def _ssim_update(
             preds: Tensor,
             target: Tensor,
