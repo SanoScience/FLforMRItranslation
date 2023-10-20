@@ -27,7 +27,7 @@ class DssimMse:
         self.sqrt = sqrt
 
     def __call__(self, predicted, targets):
-        mse = MSELoss()
+        mse = MaskedMSE()
         if self.zoomed_ssim:
             ssim = ZoomedSSIM()
         else:
@@ -486,6 +486,11 @@ def QILV_nontorch(image1, image2, mask=None, window=0):
 
     return ind
 
+
+class MaskedMSE:
+    def __call__(self, predicted, targets):
+        mask = targets > 0
+        return torch.sum(((predicted-targets)*mask)**2.0) / torch.sum(mask)
 
 def loss_from_config():
     if config_train.LOSS_TYPE == config_train.LossFunctions.MSE_DSSIM:
