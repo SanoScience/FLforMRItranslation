@@ -143,6 +143,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
         num_epochs = config_train.N_EPOCHS_CLIENT
 
         current_round = config["current_round"]
+        is_straggles = False
         print(f"ROUND {current_round}")
 
         num_samples = len(self.train_loader)
@@ -157,16 +158,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                     # inversely proportional to the number of training samples
                     # results in iterating for about the same time with different dataset size
                     num_epochs = ceil(self.epochs_multiplier * (self.NUMBER_OF_SAMPLES / num_samples))
-                    # num_epochs = np.random.randint(1, config_train.N_EPOCHS_CLIENT)
-
-                # return without doing any training.
-                # The flag in the metric will be used to tell the strategy
-                # to discard the model upon aggregation
-                return (
-                    self.get_parameters({}),
-                    len(self.train_loader),
-                    {"is_straggler": True},
-                )
+                    is_straggles = True
 
         if config_train.LOCAL:
             plots_dir = None
@@ -188,7 +180,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
             metric_name: sum([metric_value for metric_value in history[metric_name]]) / len(history[metric_name])
             for metric_name in val_metric_names}
 
-        avg_val_metrics["is_straggler"] = False
+        avg_val_metrics["is_straggler"] = is_straggles
 
         return self.get_parameters({}), num_samples, avg_val_metrics
 
