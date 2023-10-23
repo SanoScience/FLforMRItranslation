@@ -73,7 +73,7 @@ class UNet(nn.Module):
         print("Model saved to: ", filepath)
 
     def _train_one_epoch(self, trainloader, optimizer):
-        metrics = {"loss": self.criterion, "ssim": ssim, "zoomed_ssim": zoomed_ssim, "qilv": qilv, "pnsr": psnr, "mse": mse}
+        metrics = {"loss": self.criterion, "ssim": ssim, "qilv": qilv, "pnsr": psnr, "mse": mse}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -242,7 +242,7 @@ class UNet(nn.Module):
 
         n_steps = 0
 
-        metrics = {"loss": self.criterion, "zoomed_ssim": zoomed_ssim, "qilv": qilv, "ssim": ssim, "pnsr": psnr, "mse": mse}
+        metrics = {"loss": self.criterion, "qilv": qilv, "ssim": ssim, "pnsr": psnr, "mse": mse}
         metrics_values = {m_name: 0.0 for m_name in config_train.METRICS}
         with torch.no_grad():
             for images_cpu, targets_cpu in testloader:
