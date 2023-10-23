@@ -17,9 +17,9 @@ from src import visualization, loss_functions, files_operations as fop
 
 device = config_train.DEVICE
 batch_print_freq = config_train.BATCH_PRINT_FREQ
-ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
+ssim = loss_functions.MaskedSSIM().to(device)
 psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
-mse = nn.MSELoss()
+mse = loss_functions.MaskedMSE()
 zoomed_ssim = loss_functions.ZoomedSSIM()
 qilv = loss_functions.QILV(use_mask=True)
 
