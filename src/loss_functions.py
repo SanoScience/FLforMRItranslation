@@ -335,10 +335,7 @@ class MaskedSSIM(Metric):
 
         ssim_idx_full_image = ((2 * mu_pred_target + c1) * upper) / ((mu_pred_sq + mu_target_sq + c1) * lower)
 
-        if is_3d:
-            ssim_idx = ssim_idx_full_image[..., pad_h:-pad_h, pad_w:-pad_w, pad_d:-pad_d]
-        else:
-            ssim_idx = ssim_idx_full_image[..., pad_h:-pad_h, pad_w:-pad_w]
+        ssim_idx = ssim_idx_full_image[..., pad_h:-pad_h, pad_w:-pad_w]
 
         if return_contrast_sensitivity:
             contrast_sensitivity = upper / lower
@@ -350,12 +347,9 @@ class MaskedSSIM(Metric):
                 contrast_sensitivity.shape[0], -1
             ).mean(-1)
 
-        if return_full_image:
-            return ssim_idx.reshape(ssim_idx.shape[0], -1).mean(-1), ssim_idx_full_image
-
         ssim_idx_masked = ssim_idx * mask[..., pad_h:-pad_h, pad_w:-pad_w]
 
-        return ssim_idx_masked.reshape(ssim_idx.shape[0], -1).mean(-1)
+        return ssim_idx.reshape(ssim_idx.shape[0], -1).mean(-1)
 
 
 class QILV(Metric):
@@ -490,7 +484,7 @@ def QILV_nontorch(image1, image2, mask=None, window=0):
 class MaskedMSE:
     def __call__(self, predicted, targets):
         mask = targets > 0
-        return torch.sum(((predicted-targets)*mask)**2.0) / torch.sum(mask)
+        return torch.sum(((predicted-targets))**2.0) / torch.sum(mask)
 
 def loss_from_config():
     if config_train.LOSS_TYPE == config_train.LossFunctions.MSE_DSSIM:

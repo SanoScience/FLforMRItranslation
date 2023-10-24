@@ -113,7 +113,7 @@ class UNet(nn.Module):
             optimizer.step()
 
             for metric_name, metric_object in metrics.items():
-                if metric_name == "loss":
+                if metric_name == "val_loss":
                     metric_value = loss
                 else:
                     metric_value = metric_object(predictions, targets)
@@ -195,6 +195,10 @@ class UNet(nn.Module):
 
             epoch_metrics = self._train_one_epoch(trainloader, optimizer)
 
+            print(config_train.METRICS)
+            print(epoch_metrics)
+            print(val_metric_names)
+
             for metric in config_train.METRICS:
                 history[metric].append(epoch_metrics[metric])
 
@@ -204,12 +208,12 @@ class UNet(nn.Module):
 
                 for metric in val_metric_names:
                     # trimming after val_ to get only the metric name since it is provided by the
-                    history[metric].append(val_metric[metric[len("val_"):]])
+                    history[metric].append(val_metric[metric])
 
                 if save_best_model:
-                    if val_metric["loss"] < best_loss:
-                        print(f"\tModel form epoch {epoch} taken as the best one.\n\tIts loss {val_metric['loss']} is better than current best loss {best_loss}.")
-                        best_loss = val_metric["loss"]
+                    if val_metric["val_loss"] < best_loss:
+                        print(f"\tModel form epoch {epoch} taken as the best one.\n\tIts loss {val_metric['val_loss']} is better than current best loss {best_loss}.")
+                        best_loss = val_metric["val_loss"]
                         best_model = self.state_dict()
 
                 wandb.log(val_metric)
@@ -234,7 +238,7 @@ class UNet(nn.Module):
 
         return history
 
-    def evaluate(self, testloader, plots_path=None, plot_filename=None):
+    def evaluate(self, testloader, plots_path=None, plot_filename=None, evaluate=True):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
@@ -243,7 +247,11 @@ class UNet(nn.Module):
         n_steps = 0
 
         metrics = {"loss": self.criterion, "qilv": qilv, "ssim": ssim, "pnsr": psnr, "mse": mse}
-        metrics_values = {m_name: 0.0 for m_name in config_train.METRICS}
+
+        if evaluate:
+            metrics = {f"val_{name}": metric for name, metric in metrics.items()}
+
+        metrics_values = {m_name: 0.0 for m_name in metrics.keys()}
         with torch.no_grad():
             for images_cpu, targets_cpu in testloader:
                 images = images_cpu.to(config_train.DEVICE)
