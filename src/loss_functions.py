@@ -349,7 +349,7 @@ class MaskedSSIM(Metric):
 
         ssim_idx_masked = ssim_idx * mask[..., pad_h:-pad_h, pad_w:-pad_w]
 
-        return ssim_idx.reshape(ssim_idx.shape[0], -1).mean(-1)
+        return ssim_idx_masked.sum(-1) / torch.sum(mask)
 
 
 class QILV(Metric):
