@@ -349,7 +349,7 @@ class MaskedSSIM(Metric):
 
         ssim_idx_masked = ssim_idx * mask[..., pad_h:-pad_h, pad_w:-pad_w]
 
-        return ssim_idx_masked.sum(-1) / torch.sum(mask)
+        return ssim_idx_masked.reshape(ssim_idx_masked.shape[0], -1).sum(-1) / mask.reshape(ssim_idx_masked.shape[0], -1).sum(-1)
 
 
 class QILV(Metric):
@@ -484,7 +484,7 @@ def QILV_nontorch(image1, image2, mask=None, window=0):
 class MaskedMSE:
     def __call__(self, predicted, targets):
         mask = targets > 0
-        return torch.sum(((predicted-targets))**2.0) / torch.sum(mask)
+        return torch.sum(((predicted-targets)*mask)**2.0) / torch.sum(mask)
 
 def loss_from_config():
     if config_train.LOSS_TYPE == config_train.LossFunctions.MSE_DSSIM:

@@ -195,10 +195,6 @@ class UNet(nn.Module):
 
             epoch_metrics = self._train_one_epoch(trainloader, optimizer)
 
-            print(config_train.METRICS)
-            print(epoch_metrics)
-            print(val_metric_names)
-
             for metric in config_train.METRICS:
                 history[metric].append(epoch_metrics[metric])
 
