@@ -581,7 +581,7 @@ def strategy_from_config(model, evaluate_fn=None):
 # used by the strategy to during fit and evaluate
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     # val_metric_names = [f"val_{metric}" for metric in config_train.METRICS]
-    results = {metric_name: 0.0 for metric_name in config_train.METRICS}
+    results = {f"val_metric_name": 0.0 for metric_name in config_train.METRICS}
 
     for num_examples, m in metrics:
         for metric_name in results.keys():

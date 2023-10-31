@@ -217,17 +217,17 @@ class UNet(nn.Module):
             wandb.log(epoch_metrics)
 
             if save_each_epoch:
-                self.save(model_dir, f"model-ep{epoch}.pth")
-                
+                self.save(model_dir, f"model-ep{epoch}.pth")       
+
+            # saving
+            if save_best_model:
+                torch.save(best_model, path.join(model_dir, "best_model.pth"))
+
+            if history_filename is not None:
+                with open(path.join(model_dir, history_filename), 'wb') as file:
+                    pickle.dump(history, file)
+
         print("\tAll epochs finished.\n")
-
-        if save_best_model:
-            torch.save(best_model, path.join(model_dir, "best_model.pth"))
-
-        # saving
-        if history_filename is not None:
-            with open(path.join(model_dir, history_filename), 'wb') as file:
-                pickle.dump(history, file)
 
         if filename is not None:
             self.save(model_dir, filename)

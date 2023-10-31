@@ -26,7 +26,7 @@ class ClassicClient(fl.client.NumPyClient):
 
         self.optimizer = optimizer
 
-        self.history = {metric_name: [] for metric_name in config_train.METRICS}
+        self.history = {f"val_{metric_name}": [] for metric_name in config_train.METRICS}
 
         self.client_dir = os.path.join(model_dir,
                                        f"{self.__repr__()}_client_{self.client_id}")
@@ -76,9 +76,9 @@ class ClassicClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
 
         metrics = self._evaluate(current_round=config["current_round"])
-        metric_without_loss = {k: v for k, v in metrics.items() if k != "loss"}
+        metric_without_loss = {k: v for k, v in metrics.items() if k != "val_loss"}
 
-        return metrics["loss"], len(self.test_loader.dataset), metric_without_loss
+        return metrics["val_loss"], len(self.test_loader.dataset), metric_without_loss
 
     def _evaluate(self, current_round: int):
 
