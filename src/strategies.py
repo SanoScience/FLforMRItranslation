@@ -1,5 +1,6 @@
 import time
 import pickle
+import os
 from shutil import copy2
 
 import torch
@@ -24,6 +25,8 @@ from collections import OrderedDict
 
 
 def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, *args, **kwargs):
+    """ A function that returns a strategy class instance that will return  
+    """
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
@@ -63,61 +66,9 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
     return SavingModelStrategy()
 
 
-class FedMean(FedAvg):
-    def __init__(self, model, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model = model
-        self.model_dir = model_dir
-        self.aggregation_times = []
-
-    def aggregate_fit(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-        weights = [parameters_to_ndarrays(fit_res.parameters) for _, fit_res in results]
-
-        aggregated_parameters = ndarrays_to_parameters((self._aggregate(weights)))
-
-        # AGGREGATING METRICS
-        start = time.time()
-
-        metrics_aggregated = {}
-        if self.fit_metrics_aggregation_fn:
-            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
-            metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
-        elif server_round == 1:  # Only log this warning once
-            logger.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
-
-        aggregation_time = time.time() - start
-        self.aggregation_times.append(aggregation_time)
-
-        # SAVING MODEL
-        if aggregated_parameters is not None:
-            # saving in intervals
-            if server_round % config_train.SAVING_FREQUENCY == 1:
-                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-
-            # saving in the last round
-            if server_round == config_train.N_ROUNDS:
-                # model
-                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-                # aggregation times
-                with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
-                    pickle.dump(self.aggregation_times, file)
-
-        return aggregated_parameters, metrics_aggregated
-
-    def _aggregate(self, results: List[NDArrays]):
-        n_clients = len(results)
-        # as in FedAvg but without num_examples
-        aggregated_results = [reduce(np.add, layer) / n_clients for layer in zip(*results)]
-        return aggregated_results
-
-
 class FedTrimmedAvg(FedAvg):
-    """Federated Averaging with Trimmed Mean [Dong Yin, et al., 2021].
+    """ COPIED FROM FLOWER UPDATED SOURCE CODE
+    Federated Averaging with Trimmed Mean [Dong Yin, et al., 2021].
 
     Paper: https://arxiv.org/abs/1803.01498
     """
@@ -263,6 +214,57 @@ def _trim_mean(array: NDArray, proportiontocut: float) -> NDArray:
     result: NDArray = np.mean(atmp[tuple(slice_list)], axis=axis)
     return result
 
+class FedMean(FedAvg):
+    def __init__(self, model, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model = model
+        self.model_dir = model_dir
+        self.aggregation_times = []
+
+    def aggregate_fit(
+        self,
+        server_round: int,
+        results: List[Tuple[ClientProxy, FitRes]],
+        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+        weights = [parameters_to_ndarrays(fit_res.parameters) for _, fit_res in results]
+
+        aggregated_parameters = ndarrays_to_parameters((self._aggregate(weights)))
+
+        # AGGREGATING METRICS
+        start = time.time()
+
+        metrics_aggregated = {}
+        if self.fit_metrics_aggregation_fn:
+            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+            metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
+        elif server_round == 1:  # Only log this warning once
+            logger.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
+
+        aggregation_time = time.time() - start
+        self.aggregation_times.append(aggregation_time)
+
+        # SAVING MODEL
+        if aggregated_parameters is not None:
+            # saving in intervals
+            if server_round % config_train.SAVING_FREQUENCY == 1:
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
+
+            # saving in the last round
+            if server_round == config_train.N_ROUNDS:
+                # model
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
+                # aggregation times
+                with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
+                    pickle.dump(self.aggregation_times, file)
+
+        return aggregated_parameters, metrics_aggregated
+
+    def _aggregate(self, results: List[NDArrays]):
+        n_clients = len(results)
+        # as in FedAvg but without num_examples
+        aggregated_results = [reduce(np.add, layer) / n_clients for layer in zip(*results)]
+        return aggregated_results
 
 class FedCostWAvg(FedAvg):
     def __init__(self, model: models.UNet, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, alpha=0.5, *args, **kwargs):
@@ -463,18 +465,28 @@ class FedPIDAvg(FedCostWAvg):
         return f"FedPIDAvg(alpha={self.alpha}, beta{self.beta}, gamma={self.gamma})"
 
 
-def save_aggregated_model(net: models.UNet, aggregated_parameters, model_dir, server_round: int, ):
+def save_aggregated_model(model: models.UNet, aggregated_parameters, model_dir, server_round: int):
+    """
+        Takes aggregated parameters and saves them to the model_dir with name describing the current round.
+    """
     aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
 
-    params_dict = zip(net.state_dict().keys(), aggregated_ndarrays)
+    params_dict = zip(model.state_dict().keys(), aggregated_ndarrays)
     state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-    net.load_state_dict(state_dict)
+    # it could have been done using 
+    # model.load_state_dict(state_dict)
+    # model.save(model_dir, filename=f"round{server_round}.pth")
 
-    net.save(model_dir, filename=f"round{server_round}.pth")
+    torch.save(state_dict, os.path.join(model_dir, f"rounf{server_round}.pth"))
     logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {model_dir}")
 
 
 def strategy_from_string(model, strategy_name, evaluate_fn=None):
+    """
+        Returns client object. Basing on the strategy name different aggregation methods are chosen. 
+        Asignes appropriate parameters from config if they are needed by the aggreagation method.
+        model_dir is constructed basing on the config_train.
+    """
     drd = config_train.DATA_ROOT_DIR
     lt = config_train.LOSS_TYPE.name
     lr = config_train.LEARNING_RATE
@@ -484,7 +496,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
     d = config_train.now.date()
     h = config_train.now.hour
 
-    model_dir = f"{drd}/trained_models/model-{strategy_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}-{h}h"
+    model_dir = f"{drd}/trained_models/model-{strategy_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}"
 
     files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
     copy2("./configs/config_train.py", f"{model_dir}/config.py") 
@@ -623,7 +635,7 @@ def get_evaluate_fn(model: models.UNet,
     It is just for measurement/evaluation purposes
     """
 
-    raise NotImplementedError("New metrics: PNSR and MSE not include here!!")
+    raise NotImplementedError("New metrics are not include here!!")
 
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
         return None
@@ -678,45 +690,3 @@ def client_names_from_eval_dirs():
         sep = "/"
 
     return [eval_dir.split(sep)[-2] for eval_dir in config_train.EVAL_DATA_DIRS]
-
-# class SaveModelStrategy:
-#     def __init__(self, model, aggregation_class: Type[Strategy], saving_frequency=1, *args, **kwargs):
-#         self.model = model
-#         self.saving_frequency = saving_frequency
-#         self.aggregation_class = aggregation_class.__init__(*args, **kwargs)
-#
-#     def aggregate_fit(
-#             self,
-#             server_round: int,
-#             results: List[Tuple[ClientProxy, FitRes]],
-#             failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-#     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-#         print(results)
-#         print(failures)
-#
-#         aggregated_parameters, aggregated_metrics = self.aggregation_class.aggregate_fit(server_round, results,
-#                                                                                          failures)
-#
-#         if aggregated_parameters is not None:
-#             if server_round % self.saving_frequency == 0:
-#                 aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
-#
-#                 params_dict = zip(self.model.state_dict().keys(), aggregated_ndarrays)
-#                 state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-#                 self.model.load_state_dict(state_dict)
-#
-#                 directory = config_train.TRAINED_MODEL_SERVER_DIR
-#
-#                 files_operations.try_create_dir(directory)  # creating directory before to don't get warnings
-#                 self.model.save(directory, filename=f"round{server_round}.pth", create_dir=False)
-#
-#                 # logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {directory}")
-#
-#         if aggregated_metrics is not None:
-#             logger.log("Aggregated metrics: ", aggregated_metrics)
-#             logger.log("Aggregated metrics type: ", type(aggregated_metrics))
-#
-#         return aggregated_parameters, aggregated_metrics
-#
-#     def __getattr__(self, arg):
-#         return getattr(self.aggregation_class, arg)

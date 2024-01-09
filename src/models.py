@@ -11,19 +11,27 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
 
-import src.loss_functions
 from configs import config_train, creds
 from src import visualization, loss_functions, files_operations as fop
 
 device = config_train.DEVICE
 batch_print_freq = config_train.BATCH_PRINT_FREQ
-ssim = loss_functions.MaskedSSIM().to(device)
+ssim = StructuralSimilarityIndexMeasure().to(device)
 psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
-mse = loss_functions.MaskedMSE()
-zoomed_ssim = loss_functions.ZoomedSSIM()
-qilv = loss_functions.QILV(use_mask=True)
+mse = nn.MSELoss()
+masked_mse = loss_functions.MaskedMSE()
+relative_error = loss_functions.RelativeError()
+# zoomed_ssim = loss_functions.ZoomedSSIM()
+# qilv = loss_functions.QILV(use_mask=False)
 
 class UNet(nn.Module):
+    """
+        UNet model class used for federated learning.
+        Consists the methods to train and evaluate.
+        Allows two different normalizations: 
+            - standard BatchNormalization
+            - GroupNorm (the number of groups specified in the config)
+    """
     def __init__(self, criterion=None, bilinear=False, normalization=config_train.NORMALIZATION):
         super(UNet, self).__init__()
 
@@ -56,6 +64,9 @@ class UNet(nn.Module):
         return logits
 
     def save(self, dir_name: str, filename=None):
+        """
+        Saves the model to a given directory. Allows to change the name of the file, by default it is "model".
+        """
         if filename is None:
             filename = "model"
 
@@ -73,7 +84,10 @@ class UNet(nn.Module):
         print("Model saved to: ", filepath)
 
     def _train_one_epoch(self, trainloader, optimizer):
-        metrics = {"loss": self.criterion, "ssim": ssim, "qilv": qilv, "pnsr": psnr, "mse": mse}
+        """
+        Method used by perform_train(). Does one iteration of training.
+        """
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -86,7 +100,8 @@ class UNet(nn.Module):
         # running_loss, total_ssim = 0.0, 0.0
         # epoch_loss, epoch_ssim = 0.0, 0.0
 
-        use_prox_loss = config_train.LOSS_TYPE == config_train.LossFunctions.PROX
+        use_prox_loss = isinstance(self.criterion, loss_functions.LossWithProximalTerm)
+        
         if n_batches < config_train.BATCH_PRINT_FREQ:
             batch_print_frequency = n_batches - 2  # tbh not sure if this -2 is needed
         else:
@@ -120,14 +135,6 @@ class UNet(nn.Module):
                 total_metrics[metric_name] += metric_value.item()
                 epoch_metrics[metric_name] += metric_value.item()
 
-            # ssim_value = ssim(predictions, targets)
-            #
-            # running_loss += loss.item()
-            # total_ssim += ssim_value.item()
-            #
-            # epoch_loss += loss.item()
-            # epoch_ssim += ssim_value.item()
-
             n_train_steps += 1
 
             if index % batch_print_frequency == batch_print_frequency - 1:
@@ -136,8 +143,6 @@ class UNet(nn.Module):
                 print(f'\tbatch {(index + 1)} out of {n_batches}\t\t{metrics_str}')
 
                 total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
-                # running_loss = 0.0
-                # total_ssim = 0.0
 
         averaged_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in epoch_metrics.items()}
         metrics_epoch_str = loss_functions.metrics_to_str(averaged_epoch_metrics, starting_symbol="")
@@ -158,7 +163,9 @@ class UNet(nn.Module):
                       plots_dir=None,
                       save_best_model=False, 
                       save_each_epoch=False):
-
+        """
+            Performs the train for a given number of epochs.
+        """
         print(f"TRAINING... \n\ton device: {device} \n\twith loss: {self.criterion}\n")
 
         wandb.login(key=creds.api_key_wandb)
@@ -242,7 +249,7 @@ class UNet(nn.Module):
 
         n_steps = 0
 
-        metrics = {"loss": self.criterion, "qilv": qilv, "ssim": ssim, "pnsr": psnr, "mse": mse}
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error}
 
         if evaluate:
             metrics = {f"val_{name}": metric for name, metric in metrics.items()}
@@ -350,9 +357,7 @@ class Up(nn.Module):
 
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
-        # if you have padding issues, see
-        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
-        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
+
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 

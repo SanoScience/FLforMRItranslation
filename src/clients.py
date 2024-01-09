@@ -119,7 +119,6 @@ class ClassicClient(fl.client.NumPyClient):
 
 
 class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attributes
-    """Standard Flower client for CNN training."""
     NUMBER_OF_SAMPLES = 1000 
 
     def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str, model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
@@ -229,6 +228,11 @@ class FedMRIClient(ClassicClient):
 
 
 def client_from_config(client_id, unet: models.UNet, optimizer, data_dir: str):
+    """
+        Returns a client basing on the config variables.
+        Not used in the starting server and clients from the same file.
+    """
+
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
         stragglers_mat = np.transpose(
             np.random.choice([0, 1], size=config_train.N_ROUNDS,
@@ -248,6 +252,10 @@ def client_from_config(client_id, unet: models.UNet, optimizer, data_dir: str):
 
 
 def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, client_type_name):
+    """
+        Returns a instance of a class basing on the given string. Requires the model (Pytorch net) and optimizer. 
+        Client ID is a string.
+    """
     drd = config_train.DATA_ROOT_DIR
     lt = config_train.LOSS_TYPE.name
     lr = config_train.LEARNING_RATE
@@ -257,7 +265,7 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
     d = config_train.now.date()
     h = config_train.now.hour
 
-    model_dir = f"{drd}/trained_models/model-{client_type_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}-{h}h"
+    model_dir = f"{drd}/trained_models/model-{client_type_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}"
     
     if client_type_name == "fedprox":
         stragglers_mat = np.transpose(
@@ -266,7 +274,8 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
         )
         
         if not isinstance(unet.criterion, loss_functions.LossWithProximalTerm):
-            raise ValueError("Wrong loss function change it in the config")
+            # raise ValueError("Wrong loss function change it in the config")
+            unet.criterion = loss_functions.LossWithProximalTerm(proximal_mu=config_train.PROXIMAL_MU, base_loss_fn=loss_functions.DssimMse())
 
         return FedProxClient(client_id, unet, optimizer, data_dir, model_dir, stragglers_mat)
 
@@ -282,13 +291,16 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
 
 
 def load_data(data_dir, batch_size, with_num_workers=True):
+    """
+        Function returning training, test and validation loader based on samely named directories in the given directory (data_dir)
+    """
     train_dir = os.path.join(data_dir, "train")
     test_dir = os.path.join(data_dir, "test")
     val_dir = os.path.join(data_dir, "validation")
 
-    trainset = MRIDatasetNumpySlices([train_dir])
-    testset = MRIDatasetNumpySlices([test_dir])
-    validationset = MRIDatasetNumpySlices([val_dir])
+    trainset = MRIDatasetNumpySlices([train_dir], t1_to_t2=config_train.T1_TO_T2)
+    testset = MRIDatasetNumpySlices([test_dir], t1_to_t2=config_train.T1_TO_T2)
+    validationset = MRIDatasetNumpySlices([val_dir], t1_to_t2=config_train.T1_TO_T2)
 
     if with_num_workers:
         # TODO: consider persistent_workers=True
