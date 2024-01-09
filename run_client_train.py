@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # Address
     # If port not provided it is taken from the config
     if ":" not in server_address:
-        server_address = f"{socket.gethostname()}:{config_train.PORT}"
+        server_address = f"{socket.gethostname()}:{server_address}"
 
     fl.client.start_numpy_client(
         server_address=server_address,
