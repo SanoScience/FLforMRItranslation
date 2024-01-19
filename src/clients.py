@@ -17,7 +17,30 @@ from src.datasets import MRIDatasetNumpySlices
 
 
 class ClassicClient(fl.client.NumPyClient):
+    """
+        Overriding all the methods that NumPyClient requires.
+    """
     def __init__(self, client_id, model: models.UNet, optimizer, data_dir, model_dir=config_train.TRAINED_MODEL_SERVER_DIR):
+        """
+            Constructor
+
+            Parameters
+            ----------
+            client_id : 
+                Client representative, string. Usually set to the name of the dataset.
+            model : 
+                Client model which he will update during local training
+            optimizer : 
+                Model's optimizer, used as the loss function
+            data_dir:
+                Full path to the data directory, which client trains on. Requires to have inside (named exactly):
+                    - train
+                    - test 
+                    - validation
+            model_dir:
+                A directory, inside which a directory based on client_id and client type is created. 
+                There the client saves its model and its potential test plot, 
+        """
         self.client_id = client_id
         self.model = model
         self.train_loader, self.test_loader, self.val_loader = load_data(data_dir,
@@ -119,17 +142,24 @@ class ClassicClient(fl.client.NumPyClient):
 
 
 class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attributes
+    """
+        Inherits from the ClassicClient.
+    """
     NUMBER_OF_SAMPLES = 1000 
-
     def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str, model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
                  straggler_schedule=None, epochs_multiplier: int = 1):  # pylint: disable=too-many-arguments
-        super().__init__(client_id, model, optimizer, data_dir, model_dir)
 
+        super().__init__(client_id, model, optimizer, data_dir, model_dir)
+        """
+            Requires all the same parameters as ClassicClient with extra parameters for FedProx specific function. 
+        """
         self.straggler_schedule = straggler_schedule
         self.epochs_multiplier = epochs_multiplier
 
     def fit(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[NDArrays, int, Dict]:
-        """Implements distributed fit function for a given client."""
+        """FROM THE FLOWER REPOSITORY: https://github.com/adap/flower/tree/main/baselines/fedprox
+          Implements distributed fit function for a given client.
+        """
         self.set_parameters(parameters)
         # At each round check if the client is a straggler,
         # if so, train less epochs (to simulate partial work)
@@ -188,6 +218,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
 
 class FedBNClient(ClassicClient):
+    "Changes only the parameters operation (set and get) skipping the normalization layers"
     def get_parameters(self, config) -> NDArrays:
         # Excluding parameters of BN layers when using FedBN
         return [val.cpu().numpy() for name, val in self.model.state_dict().items()]
@@ -210,6 +241,7 @@ class FedBNClient(ClassicClient):
 
 
 class FedMRIClient(ClassicClient):
+    "Changes only the parameters operation (set and get) skipping the decoder part. Only encoder in global"
     def set_parameters(self, parameters: NDArrays):
         self.model.train()
 
