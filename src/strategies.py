@@ -34,6 +34,9 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
             self.model = model
             self.aggregation_times = []
 
+            files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
+            copy2("./configs/config_train.py", f"{model_dir}/config.py")
+
         def aggregate_fit(
                 self,
                 server_round: int,
@@ -76,6 +79,8 @@ class FedTrimmedAvg(FedAvg):
     # pylint: disable=too-many-arguments,too-many-instance-attributes, line-too-long
     def __init__(
         self,
+        model,
+        model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
         *,
         fraction_fit: float = 1.0,
         fraction_evaluate: float = 1.0,
@@ -97,31 +102,6 @@ class FedTrimmedAvg(FedAvg):
         beta: float = 0.2,
     ) -> None:
         """Federated Averaging with Trimmed Mean [Dong Yin, et al., 2021].
-
-        Parameters
-        ----------
-        fraction_fit : float, optional
-            Fraction of clients used during training. Defaults to 0.1.
-        fraction_evaluate : float, optional
-            Fraction of clients used during validation. Defaults to 0.1.
-        min_fit_clients : int, optional
-            Minimum number of clients used during training. Defaults to 2.
-        min_evaluate_clients : int, optional
-            Minimum number of clients used during validation. Defaults to 2.
-        min_available_clients : int, optional
-            Minimum number of total clients in the system. Defaults to 2.
-        evaluate_fn : Optional[Callable[[int, NDArrays, Dict[str, Scalar]], Optional[Tuple[float, Dict[str, Scalar]]]]]
-            Optional function used for validation. Defaults to None.
-        on_fit_config_fn : Callable[[int], Dict[str, Scalar]], optional
-            Function used to configure training. Defaults to None.
-        on_evaluate_config_fn : Callable[[int], Dict[str, Scalar]], optional
-            Function used to configure validation. Defaults to None.
-        accept_failures : bool, optional
-            Whether or not accept rounds containing failures. Defaults to True.
-        initial_parameters : Parameters, optional
-            Initial global model parameters.
-        beta : float, optional
-            Fraction to cut off of both tails of the distribution. Defaults to 0.2.
         """
         super().__init__(
             fraction_fit=fraction_fit,
@@ -138,6 +118,11 @@ class FedTrimmedAvg(FedAvg):
             evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,
         )
         self.beta = beta
+        self.model_dir = model_dir
+        self.model = model
+
+        files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
+        copy2("./configs/config_train.py", f"{model_dir}/config.py")
 
     def __repr__(self) -> str:
         """Compute a string representation of the strategy."""
@@ -162,7 +147,7 @@ class FedTrimmedAvg(FedAvg):
             (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
             for _, fit_res in results
         ]
-        parameters_aggregated = ndarrays_to_parameters(
+        aggregated_parameters = ndarrays_to_parameters(
             aggregate_trimmed_avg(weights_results, self.beta)
         )
 
@@ -174,7 +159,18 @@ class FedTrimmedAvg(FedAvg):
         elif server_round == 1:  # Only log this warning once
             logging.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
 
-        return parameters_aggregated, metrics_aggregated
+        # saving in intervals
+        if server_round % config_train.SAVING_FREQUENCY == 1:
+            save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
+
+        # saving in the last round
+        if server_round == config_train.N_ROUNDS:
+            # model
+            save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
+            # aggregation times
+
+
+        return aggregated_parameters, metrics_aggregated
 
 
 def aggregate_trimmed_avg(
@@ -220,6 +216,9 @@ class FedMean(FedAvg):
         self.model = model
         self.model_dir = model_dir
         self.aggregation_times = []
+
+        files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
+        copy2("./configs/config_train.py", f"{model_dir}/config.py")
 
     def aggregate_fit(
         self,
@@ -274,6 +273,9 @@ class FedCostWAvg(FedAvg):
         self.previous_loss_values = None
         self.aggregation_times = []
         self.model_dir = model_dir
+
+        files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
+        copy2("./configs/config_train.py", f"{model_dir}/config.py")
 
     def aggregate_fit(
             self,
@@ -487,7 +489,11 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
         Asignes appropriate parameters from config if they are needed by the aggreagation method.
         model_dir is constructed basing on the config_train.
     """
-    drd = config_train.DATA_ROOT_DIR
+
+    # the directory includes the strategy name
+    # so when it is initialized by the string it is created here
+    # by default it takes the name TRAINED_MODEL_SERVER_DIR
+    drd = config_train.DATA_ROOT_DIRgit
     lt = config_train.LOSS_TYPE.name
     lr = config_train.LEARNING_RATE
     rd = config_train.N_ROUNDS
@@ -498,8 +504,10 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
 
     model_dir = f"{drd}/trained_models/model-{strategy_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}"
 
-    files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
-    copy2("./configs/config_train.py", f"{model_dir}/config.py") 
+    ## FOR NOW CREATION IN THE STRATEGY CONSTRUCTOR
+    # for optimal from_config usage created in the strategy constructor
+    # files_operations.try_create_dir(model_dir)
+    # copy2("./configs/config_train.py", f"{model_dir}/config.py")
 
     kwargs = {
         # "evaluate_metrics_aggregation_fn": weighted_average,
@@ -511,9 +519,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
         "evaluate_fn": evaluate_fn,
         "on_evaluate_config_fn": get_on_eval_config()
     }
-    if strategy_name == "fedbn":
-        return FedAvg(**kwargs)
-    elif strategy_name == "fedcostw":
+    if strategy_name == "fedcostw":
         return FedCostWAvg(model, model_dir, **kwargs)
     elif strategy_name == "fedpid":
         return FedPIDAvg(model, model_dir, **kwargs)
@@ -537,7 +543,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
     elif strategy_name == "fedavgm":
         strategy_class = FedAvgM
         kwargs["server_momentum"] = config_train.MOMENTUM
-    elif strategy_name == "fedavg":
+    elif strategy_name in ["fedavg", "fedbn"]:
         strategy_class = FedAvg
     else:
         raise ValueError(f"Wrong starategy name: {strategy_name}")
@@ -561,8 +567,8 @@ def strategy_from_config(model, evaluate_fn=None):
         return FedCostWAvg(model, **kwargs)
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_PID:
         return FedPIDAvg(model, **kwargs)
-    elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
-        return FedAvg(**kwargs)
+    # elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
+    #     return FedAvg(**kwargs)
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_MEAN:
         return FedMean(model, ** kwargs)
 
@@ -583,7 +589,7 @@ def strategy_from_config(model, evaluate_fn=None):
     elif config_train.AGGREGATION_METHOD == config_train.AggregationMethods.FED_AVGM:
         strategy_class = FedAvgM
         kwargs["server_momentum"] = config_train.MOMENTUM
-    else:  # FedAvg
+    else:  # FedAvg or FedBN
         strategy_class = FedAvg
 
     return create_dynamic_strategy(strategy_class, model, **kwargs)
