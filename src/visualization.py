@@ -7,9 +7,11 @@ from torch import Tensor
 
 import math
 
-def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", forecolor='black', ):
+def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", forecolor='black', figsize=(10, 6), rotation_list=None, savepath=None):
+    if rotation_list is None:
+        rotation_list = [0, 0 , 0, 0, 0]
 
-    fig=plt.figure()
+    fig=plt.figure(figsize=figsize)
 
     fig.patch.set_facecolor(forecolor)
     if forecolor == "black":
@@ -48,7 +50,7 @@ def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", foreco
 
     to_plot_trimmed = []
     for images in dim_reduced_to_plot:
-        to_plot_trimmed.append([trim_image(img, min_W, min_H) for img in images])
+        to_plot_trimmed.append([np.rot90(trim_image(img, min_W, min_H), k=rotation_direction) for img, rotation_direction in zip(images, rotation_list)])
 
     all_numpy_rows = [np.concatenate(images, axis=1) for images in to_plot_trimmed]
     total_numpy_array = np.concatenate(all_numpy_rows)
@@ -59,6 +61,82 @@ def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", foreco
     if col_labels:
         for index, col_label in enumerate(col_labels):
             plt.text(index * 240, 0, col_label, color=textcolor)
+
+    if savepath:
+        plt.savefig(savepath)
+        plt.close()
+
+
+def plot_diff_tight(targets, preds, col_labels=None, img_size=None, cmap="bwr", forecolor='white', figsize=(10, 6), vmin=-0.8, vmax=0.8, rotation_list=None, colorbar_shrink=0.7, savepath=None):
+    if rotation_list is None:
+        rotation_list = [0, 0 , 0, 0, 0]
+
+    fig=plt.figure(figsize=figsize)
+
+    fig.patch.set_facecolor(forecolor)
+    if forecolor == "black":
+        textcolor = "white"
+    else:
+        textcolor = "black"
+
+    difference_images = []
+
+    for images in preds:
+        row = []
+        for img, target in zip(images, targets):
+            row.append(img-target)
+        difference_images.append(row)
+
+
+    dim_reduced_to_plot = []
+    for images in difference_images:
+        dim_reduced_to_plot.append([img[0, 0] for img in images])
+
+    if img_size is None:
+        # looking for a common min shape
+        min_W = 10000
+        min_H = 10000
+        for img in dim_reduced_to_plot[0]:
+
+            img_H, img_W = img.shape
+
+            if min_W > img_W:
+                min_W = img_W
+            if min_H > img_H:
+                min_H = img_H
+    else:
+        min_W, min_H = img_size
+
+
+    def trim_image(image, min_width, min_height):
+        img_H, img_W = image.shape
+
+        to_trim_H = img_H - min_height
+        to_trim_W = img_W - min_width
+
+        result_img = image[math.ceil(to_trim_H/2): min_H + math.ceil(to_trim_H/2), math.ceil(to_trim_W/2): min_W+math.ceil(to_trim_W/2)]
+        return result_img
+
+    to_plot_trimmed = []
+    for images in dim_reduced_to_plot:
+        print(images[0].shape)
+        to_plot_trimmed.append([np.rot90(trim_image(img, min_W, min_H), k=rotation_direction) for img, rotation_direction in zip(images, rotation_list)])
+
+    all_numpy_rows = [np.concatenate(images, axis=1) for images in to_plot_trimmed]
+    total_numpy_array = np.concatenate(all_numpy_rows)
+
+    plt.imshow(total_numpy_array, cmap=cmap, vmin=vmin, vmax=vmax)
+    plt.axis("off")
+
+    if col_labels:
+        for index, col_label in enumerate(col_labels):
+            plt.text(index * 240, 0, col_label, color=textcolor)
+
+    plt.colorbar(shrink=colorbar_shrink)
+
+    if savepath:
+        plt.savefig(savepath)
+        plt.close()
 
 
 def plot_difference(target, predictions, row_labels=None, cmap="hsv", vmin=-0.5, vmax=0.5):
@@ -82,7 +160,7 @@ def plot_difference(target, predictions, row_labels=None, cmap="hsv", vmin=-0.5,
     fig.colorbar(im, cax=cbar_ax)
 
 
-def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, title=None, ylabel="Loss", xlabel="Rounds", ylim=None, figsize=None, legend=True):
+def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, title=None, ylabel="Loss", xlabel="Rounds", ylim=None, figsize=None, legend=True, savepath=None, gridstyle=None):
 
     if figsize:
         plt.figure(figsize=figsize)
@@ -113,7 +191,12 @@ def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, ti
     if legend:
         plt.legend()
 
-    plt.show()
+    if gridstyle:
+        plt.grid(linestyle=gridstyle)
+
+    if savepath:
+        plt.savefig(savepath)
+        plt.close()
 
 
 # visualization
