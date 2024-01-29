@@ -26,11 +26,11 @@ class ClassicClient(fl.client.NumPyClient):
 
             Parameters
             ----------
-            client_id : 
+            client_id:
                 Client representative, string. Usually set to the name of the dataset.
-            model : 
+            model:
                 Client model which he will update during local training
-            optimizer : 
+            optimizer:
                 Model's optimizer, used as the loss function
             data_dir:
                 Full path to the data directory, which client trains on. Requires to have inside (named exactly):
@@ -218,16 +218,20 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
 
 class FedBNClient(ClassicClient):
-    "Changes only the parameters operation (set and get) skipping the normalization layers"
-    def get_parameters(self, config) -> NDArrays:
-        # Excluding parameters of BN layers when using FedBN
-        return [val.cpu().numpy() for name, val in self.model.state_dict().items()]
+    """Changes only the parameters operation (set and get) skipping the normalization layers"""
+
+    # NOT NEEDED (SAME US FEDMRI) 
+    # def get_parameters(self, config) -> NDArrays:
+    #     return [val.cpu().numpy() for name, val in self.model.state_dict().items()]
+    #     # return [val.cpu().numpy() for layer_name, val in self.model.state_dict().items()
+    #             # if "norm" not in layer_name]
 
     def set_parameters(self, parameters):
         self.model.train()
 
         old_state_dict = self.model.state_dict()
 
+        # Excluding parameters of BN layers when using FedBN
         layer_names = {index: layer_name for index, layer_name in enumerate(old_state_dict.keys())
                        if "norm" not in layer_name}
 
