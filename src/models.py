@@ -168,11 +168,11 @@ class UNet(nn.Module):
         """
         print(f"TRAINING... \n\ton device: {device} \n\twith loss: {self.criterion}\n")
 
-        wandb.login(key=creds.api_key_wandb)
-
-        wandb.init(
-            name=model_dir,
-            project=f"fl-mri")
+        if config_train.USE_WANDB:
+            wandb.login(key=creds.api_key_wandb)
+            wandb.init(
+                name=model_dir,
+                project=f"fl-mri")
 
         if not isinstance(self.criterion, Callable):
             raise TypeError(f"Loss function (criterion) has to be callable. It is {type(self.criterion)} which is not.")
@@ -219,9 +219,11 @@ class UNet(nn.Module):
                         best_loss = val_metric["val_loss"]
                         best_model = self.state_dict()
 
-                wandb.log(val_metric)
+                if config_train.USE_WANDB:
+                    wandb.log(val_metric)
 
-            wandb.log(epoch_metrics)
+            if config_train.USE_WANDB:
+                wandb.log(epoch_metrics)
 
             if save_each_epoch:
                 self.save(model_dir, f"model-ep{epoch}.pth")       
