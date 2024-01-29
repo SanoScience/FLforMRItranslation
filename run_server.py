@@ -18,7 +18,7 @@ if __name__ == "__main__":
         print(f"Strategy taken from given string: {sys.argv[2]}")
 
     if config_train.LOCAL:
-        server_address = f"0.0.0.0:{config_train.PORT}"
+        server_address = f"0.0.0.0:8088"
     else:
         if len(sys.argv) > 1:
             port_number = sys.argv[1]
@@ -28,7 +28,12 @@ if __name__ == "__main__":
         server_address = f"{socket.gethostname()}:{port_number}"
 
     print("\n\nSERVER STARTING...")
-    print("Strategy utilized: {}\n".format(strategy))
+    print("Strategy utilized: {}".format(strategy))
+    print("Server address: {}\n".format(server_address))
+
+    if not config_train.LOCAL:
+        with open(config_train.NODE_FILENAME, 'w') as file:
+            file.write(socket.gethostname())
 
     fl.server.start_server(
         server_address=server_address,
