@@ -34,3 +34,8 @@ class NormalizationType(Enum):
     GN = 2
     NONE = 3
 
+
+class ImageModality(Enum):
+    T1 = 1
+    T2 = 2
+    FLAIR = 3
