@@ -1,8 +1,9 @@
 import sys
-
-from os import path
+import numpy as np
+from os import path, listdir
 import torch
 
+from configs import config_train
 from src.visualization import plot_batch
 from src.datasets import MRIDatasetNumpySlices
 
@@ -15,7 +16,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         data_dir_ares = sys.argv[1]
 
-    dataset = MRIDatasetNumpySlices([data_dir_ares])
+    dataset = MRIDatasetNumpySlices([data_dir_ares], translation_direction=config_train.TRANSLATION)
 
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True)
 
