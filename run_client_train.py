@@ -9,7 +9,7 @@ from src.clients import *
 if __name__ == "__main__":
     # moving on ares/athena to the repo directory
     if config_train.LOCAL:
-        data_dir = "C:\\Users\\JanFiszer\\data\\mri\\mega_small_hgg"
+        data_dir = "C:\\Users\\JanFiszer\\data\\mri\\mega_small_wu_minn"
         client_id = "1"
         server_address = "127.0.0.1:8088"
         with_num_workers = False
