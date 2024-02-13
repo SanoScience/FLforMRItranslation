@@ -493,7 +493,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
     # the directory includes the strategy name
     # so when it is initialized by the string it is created here
     # by default it takes the name TRAINED_MODEL_SERVER_DIR
-    drd = config_train.DATA_ROOT_DIRgit
+    drd = config_train.DATA_ROOT_DIR
     lt = config_train.LOSS_TYPE.name
     lr = config_train.LEARNING_RATE
     rd = config_train.N_ROUNDS
