@@ -334,9 +334,9 @@ def load_data(data_dir, batch_size, with_num_workers=True):
     test_dir = os.path.join(data_dir, "test")
     val_dir = os.path.join(data_dir, "validation")
 
-    trainset = MRIDatasetNumpySlices([train_dir], t1_to_t2=config_train.T1_TO_T2)
-    testset = MRIDatasetNumpySlices([test_dir], t1_to_t2=config_train.T1_TO_T2)
-    validationset = MRIDatasetNumpySlices([val_dir], t1_to_t2=config_train.T1_TO_T2)
+    trainset = MRIDatasetNumpySlices([train_dir], translation_direction=config_train.TRANSLATION)
+    testset = MRIDatasetNumpySlices([test_dir], translation_direction=config_train.TRANSLATION)
+    validationset = MRIDatasetNumpySlices([val_dir], translation_direction=config_train.TRANSLATION)
 
     if with_num_workers:
         # TODO: consider persistent_workers=True
