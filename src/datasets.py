@@ -31,8 +31,8 @@ class MRIDatasetNumpySlices(Dataset):
                 # stands for T1 -> T2 translation
                 # it is directly transferred to the predefined file structure
                 # see files_operations.TransformNIIDataToNumpySlices
-                image_type = translation_direction[0].name
-                target_type = translation_direction[1].name
+                image_type = translation_direction[0].name.lower()
+                target_type = translation_direction[1].name.lower()
             else:
                 raise ValueError(
                     "The 'translation_direction' should be a 2-element tuple, with the first element with input "
