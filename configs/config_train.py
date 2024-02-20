@@ -13,14 +13,14 @@ from configs.enums import *
 # Variable set to true for testing locally
 # It affects i.a. filepaths construction, server address.
 # Also determines if multiple workers are used by DataLoader (see PyTorch dataloader)
-LOCAL = True
+LOCAL = False
 NODE_FILENAME = "SERVERNODE.txt"
 
 # saving and logging
-USE_WANDB = False
+USE_WANDB = True
 BATCH_PRINT_FREQ = 10  # number of batch after each the training parameters (metrics, loss) is printed
-SAVING_FREQUENCY = 1  # how often (round-wise) the model is saved
-CLIENT_SAVING_FREQ = 1  # how often (round-wise) the model is saved for client
+SAVING_FREQUENCY = 10  # how often (round-wise) the model is saved
+CLIENT_SAVING_FREQ = 10  # how often (round-wise) the model is saved for client
 
 # model parameters
 NORMALIZATION = NormalizationType.BN
@@ -29,9 +29,9 @@ N_GROUP_NORM = 32
 
 # client parameters
 METRICS = ["loss", "ssim", "pnsr", "mse", "masked_mse", "relative_error"]
-N_EPOCHS_CLIENT = 2
+N_EPOCHS_CLIENT = 4
 
-T1_TO_T2 = True  # False means the translation will be done from T2 to T1
+TRANSLATION = (ImageModality.T1, ImageModality.FLAIR)
 LOSS_TYPE = LossFunctions.MSE_DSSIM
 BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)
@@ -48,8 +48,8 @@ AGGREGATION_METHOD = AggregationMethods.FED_AVG
 
 
 # federated learning parameters
-N_ROUNDS = 2
-MIN_FIT_CLIENTS = MIN_AVAILABLE_CLIENTS = 2
+N_ROUNDS = 32
+MIN_FIT_CLIENTS = MIN_AVAILABLE_CLIENTS = 5
 FRACTION_FIT = 1.0
 
 # SPECIALIZED METHOD
@@ -77,6 +77,6 @@ EVAL_DATA_DIRS = [path.join(DATA_ROOT_DIR, "lgg_26", "test"),
                   path.join(DATA_ROOT_DIR, "oasis_26", "test")]
 
 now = datetime.datetime.now()
-CENTRALIZED_DIR = f"{DATA_ROOT_DIR}/trained_models/model-mgh-centralized-{LOSS_TYPE.name}-ep{N_EPOCHS_CENTRALIZED}-lr{LEARNING_RATE}-{NORMALIZATION.name}-{now.date()}-{now.hour}h"
+# CENTRALIZED_DIR = f"{DATA_ROOT_DIR}/trained_models/model-mgh-centralized-{LOSS_TYPE.name}-ep{N_EPOCHS_CENTRALIZED}-{TRANSLATION[0].name}{TRANSLATION[1].name}-lr{LEARNING_RATE}-{now.date()}-{now.hour}h"
 _REPRESENTATIVE_WORD = CLIENT_TYPE if CLIENT_TYPE == ClientTypes.FED_BN or CLIENT_TYPE == ClientTypes.FED_MRI else AGGREGATION_METHOD
-TRAINED_MODEL_SERVER_DIR = f"{DATA_ROOT_DIR}/trained_models/model-{_REPRESENTATIVE_WORD.name}-{LOSS_TYPE.name}-lr{LEARNING_RATE}-rd{N_ROUNDS}-ep{N_EPOCHS_CLIENT}-{NORMALIZATION.name}-{now.date()}"
+TRAINED_MODEL_SERVER_DIR = f"{DATA_ROOT_DIR}/trained_models/model-{_REPRESENTATIVE_WORD.name}-{LOSS_TYPE.name}-{TRANSLATION[0].name}{TRANSLATION[1].name}-lr{LEARNING_RATE}-rd{N_ROUNDS}-ep{N_EPOCHS_CLIENT}-{now.date()}"

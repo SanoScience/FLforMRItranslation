@@ -22,17 +22,17 @@ def import_from_filepath(filepath):
 
 
 if __name__ == '__main__':
-    # verifying if the translation is the same direction as the trained model 
-    config_path = "C:\\Users\\JanFiszer\\repos\\FLforMRItranslation\\model-fedpid-MSE_DSSIM-lr0.001-rd32-ep4-BN-2023-09-19-10h\\config.py"
-    imported_config = import_from_filepath(config_path)
-
-    if imported_config.TRANSLATION != config_train.TRANSLATION:
-        raise DifferentConfigs(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
-
     # model and testset path from the command line    
     test_dir = sys.argv[1]
     model_path = sys.argv[2]
     BATCH_SIZE = int(sys.argv[3])
+
+    # verifying if the translation is the same direction as the trained model 
+    config_path = os.path.join(model_path, "config.py")
+    imported_config = import_from_filepath(config_path)
+
+    if imported_config.TRANSLATION != config_train.TRANSLATION:
+        raise DifferentConfigs(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
 
     testset = datasets.MRIDatasetNumpySlices([test_dir], translation_direction=config_train.TRANSLATION)
     testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)

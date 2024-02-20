@@ -1,5 +1,7 @@
 import os
 import sys
+from shutil import copy2
+
 import torch.optim as optim
 from torch.nn import MSELoss
 
@@ -22,7 +24,7 @@ if __name__ == '__main__':
             train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/oasis_125/train"]
             validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/oasis_125/validation"]
 
-    translation_direction = (enums.ImageModality.T1, enums.ImageModality.T2)  # T1->T2
+    translation_direction = config_train.TRANSLATION  # T1->T2
     train_dataset = MRIDatasetNumpySlices(train_directories, translation_direction=translation_direction)
     validation_dataset = MRIDatasetNumpySlices(validation_directories, translation_direction=translation_direction)
 
@@ -46,12 +48,18 @@ if __name__ == '__main__':
                                  pin_memory=True)
         valloader = DataLoader(validation_dataset,
                                batch_size=config_train.BATCH_SIZE,
+                               shuffle=True,
                                num_workers=config_train.NUM_WORKERS,
                                pin_memory=True)
 
     criterion = loss_functions.DssimMse()
     unet = UNet(criterion).to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
+
+    representative_test_dir = train_directories[0].split('/')[-2]
+    model_dir=f"{config_train.DATA_ROOT_DIR}/trained_models/model-{representative_test_dir}-{config_train.LOSS_TYPE.name}-ep{config_train.N_EPOCHS_CENTRALIZED}-{config_train.TRANSLATION[0].name}{config_train.TRANSLATION[1].name}-lr{config_train.LEARNING_RATE}-{config_train.now.date()}-{config_train.now.hour}h"
+    fop.try_create_dir(model_dir)
+    copy2("./configs/config_train.py", f"{model_dir}/config.py")
 
     if config_train.LOCAL:
         unet.perform_train(trainloader, optimizer,
@@ -61,12 +69,11 @@ if __name__ == '__main__':
                            # model_dir=f"{config_train.DATA_ROOT_DIR}/trained_models/model-{representative_test_dir}-{config_train.LOSS_TYPE.name}-ep{config_train.N_EPOCHS_CENTRALIZED}-lr{config_train.LEARNING_RATE}-{config_train.NORMALIZATION.name}-{config_train.now.date()}-{config_train.now.hour}h",
                            history_filename="history.pkl")
     else:
-        representative_test_dir = train_directories[0].split('/')[-2]
         unet.perform_train(trainloader, optimizer,
                            validationloader=valloader,
                            epochs=config_train.N_EPOCHS_CENTRALIZED,
                            filename="model.pth",
-                           model_dir=f"{config_train.DATA_ROOT_DIR}/trained_models/model-{representative_test_dir}-{config_train.LOSS_TYPE.name}-ep{config_train.N_EPOCHS_CENTRALIZED}-lr{config_train.LEARNING_RATE}-{config_train.NORMALIZATION.name}-{config_train.now.date()}-{config_train.now.hour}h",
+                           model_dir=model_dir,
                            history_filename="history.pkl",
                            plots_dir="predictions",
                            save_best_model=True)

@@ -294,6 +294,7 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
     """
     drd = config_train.DATA_ROOT_DIR
     lt = config_train.LOSS_TYPE.name
+    t = f"{config_train.TRANSLATION[0]}{config_train.TRANSLATION[1]}"
     lr = config_train.LEARNING_RATE
     rd = config_train.N_ROUNDS
     ec = config_train.N_EPOCHS_CLIENT
@@ -301,7 +302,7 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
     d = config_train.now.date()
     h = config_train.now.hour
 
-    model_dir = f"{drd}/trained_models/model-{client_type_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}"
+    model_dir = f"{drd}/trained_models/model-{client_type_name}-{lt}-{t}-lr{lr}-rd{rd}-ep{ec}-{d}"
     
     if client_type_name == "fedprox":
         stragglers_mat = np.transpose(
