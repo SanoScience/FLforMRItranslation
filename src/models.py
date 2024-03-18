@@ -21,6 +21,7 @@ psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
 mse = nn.MSELoss()
 masked_mse = loss_functions.MaskedMSE()
 relative_error = loss_functions.RelativeError()
+masked_ssim = loss_functions.MaskedSSIM().to(device)
 # zoomed_ssim = loss_functions.ZoomedSSIM()
 # qilv = loss_functions.QILV(use_mask=False)
 
@@ -128,7 +129,7 @@ class UNet(nn.Module):
             optimizer.step()
 
             for metric_name, metric_object in metrics.items():
-                if metric_name == "val_loss":
+                if metric_name == "loss":
                     metric_value = loss
                 else:
                     metric_value = metric_object(predictions, targets)
@@ -171,7 +172,7 @@ class UNet(nn.Module):
         if config_train.USE_WANDB:
             wandb.login(key=creds.api_key_wandb)
             wandb.init(
-                name=model_dir,
+                name=model_dir.split(path.sep)[-1],  # keeping only the last part of the model_dir (it stores all the viable information)
                 project=f"fl-mri")
 
         if not isinstance(self.criterion, Callable):
@@ -243,7 +244,7 @@ class UNet(nn.Module):
 
         return history
 
-    def evaluate(self, testloader, plots_path=None, plot_filename=None, evaluate=True):
+    def evaluate(self, testloader, plots_path=None, plot_filename=None, evaluate=True, with_masked_ssim=False):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
@@ -251,7 +252,10 @@ class UNet(nn.Module):
 
         n_steps = 0
 
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error}
+        metrics = {"loss": self.criterion, "ssim": ssim,  "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error}
+
+        if with_masked_ssim:
+            metrics["masked_ssim"] = masked_ssim
 
         if evaluate:
             metrics = {f"val_{name}": metric for name, metric in metrics.items()}
@@ -273,7 +277,7 @@ class UNet(nn.Module):
                 n_steps += 1
 
         if plots_path:
-            fop.try_create_dir(plots_path)
+            fop.try_create_dir(plots_path)  # pretty sure this is not needed (only makes warnings)
             filepath = path.join(plots_path, plot_filename)
             # maybe cast to cpu ?? still dunno if needed
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
