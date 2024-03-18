@@ -479,7 +479,7 @@ def save_aggregated_model(model: models.UNet, aggregated_parameters, model_dir, 
     # model.load_state_dict(state_dict)
     # model.save(model_dir, filename=f"round{server_round}.pth")
 
-    torch.save(state_dict, os.path.join(model_dir, f"rounf{server_round}.pth"))
+    torch.save(state_dict, os.path.join(model_dir, f"round{server_round}.pth"))
     logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {model_dir}")
 
 
@@ -495,6 +495,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
     # by default it takes the name TRAINED_MODEL_SERVER_DIR
     drd = config_train.DATA_ROOT_DIR
     lt = config_train.LOSS_TYPE.name
+    t = f"{config_train.TRANSLATION[0].name}{config_train.TRANSLATION[1].name}"
     lr = config_train.LEARNING_RATE
     rd = config_train.N_ROUNDS
     ec = config_train.N_EPOCHS_CLIENT
@@ -502,7 +503,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
     d = config_train.now.date()
     h = config_train.now.hour
 
-    model_dir = f"{drd}/trained_models/model-{strategy_name}-{lt}-lr{lr}-rd{rd}-ep{ec}-{n}-{d}"
+    model_dir = f"{drd}/trained_models/model-{strategy_name}-{lt}-{t}-lr{lr}-rd{rd}-ep{ec}-{d}"
 
     ## FOR NOW CREATION IN THE STRATEGY CONSTRUCTOR
     # for optimal from_config usage created in the strategy constructor
