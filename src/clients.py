@@ -11,7 +11,7 @@ import torch
 from flwr.common.typing import NDArrays, Scalar
 from torch.utils.data import DataLoader
 
-from configs import config_train
+from configs import config_train, enums
 from src import models, loss_functions, files_operations as fop
 from src.datasets import MRIDatasetNumpySlices
 
@@ -81,7 +81,8 @@ class ClassicClient(fl.client.NumPyClient):
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
-                                           plots_dir=plots_dir
+                                           plots_dir=plots_dir,
+                                           save_best_model=True
                                            )
 
         print(f"END OF CLIENT TRAINING\n")
@@ -145,9 +146,9 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
     """
         Inherits from the ClassicClient.
     """
-    NUMBER_OF_SAMPLES = 1000 
+    NUMBER_OF_SAMPLES = 8000  
     def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str, model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
-                 straggler_schedule=None, epochs_multiplier: int = 1):  # pylint: disable=too-many-arguments
+                 straggler_schedule=None, epochs_multiplier: int = 2):  # pylint: disable=too-many-arguments
 
         super().__init__(client_id, model, optimizer, data_dir, model_dir)
         """
@@ -175,7 +176,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
         is_straggles = False
         print(f"ROUND {current_round}")
 
-        num_samples = len(self.train_loader)
+        num_samples = len(self.train_loader.dataset)
 
         # TODO: maybe not a straggler but always like this?
         if self.straggler_schedule is not None:
@@ -199,7 +200,8 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
                                            epochs=num_epochs,
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
-                                           plots_dir=plots_dir
+                                           plots_dir=plots_dir,
+                                           save_best_model=True
                                            )
 
         print(f"END OF CLIENT TRAINING\n")
@@ -275,7 +277,7 @@ def client_from_config(client_id, unet: models.UNet, optimizer, data_dir: str):
                              p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
         )
 
-        return FedProxClient(client_id, unet, optimizer, data_dir, stragglers_mat)
+        return FedProxClient(client_id, unet, enums.LossFunctions.PROX, data_dir, stragglers_mat)
 
     elif config_train.CLIENT_TYPE == config_train.ClientTypes.FED_BN:
         return FedBNClient(client_id, unet, optimizer, data_dir)
@@ -294,7 +296,7 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
     """
     drd = config_train.DATA_ROOT_DIR
     lt = config_train.LOSS_TYPE.name
-    t = f"{config_train.TRANSLATION[0]}{config_train.TRANSLATION[1]}"
+    t = f"{config_train.TRANSLATION[0].name}{config_train.TRANSLATION[1].name}"
     lr = config_train.LEARNING_RATE
     rd = config_train.N_ROUNDS
     ec = config_train.N_EPOCHS_CLIENT
@@ -304,6 +306,8 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
 
     model_dir = f"{drd}/trained_models/model-{client_type_name}-{lt}-{t}-lr{lr}-rd{rd}-ep{ec}-{d}"
     
+    print(f"Client {client_id} has directory: {model_dir}")
+
     if client_type_name == "fedprox":
         stragglers_mat = np.transpose(
             np.random.choice([0, 1], size=config_train.N_ROUNDS,
