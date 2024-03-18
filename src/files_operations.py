@@ -19,13 +19,18 @@ class TransformNIIDataToNumpySlices:
     SLICES_FILE_FORMAT = ".npy"
     DIVISION_SETS = ["train", "test", "validation"]
 
-    def __init__(self, target_root_dir: str, origin_data_dir: str, transpose_order: Tuple, target_zero_ratio=0.9,
-                 image_size=None):
+    def __init__(self, target_root_dir: str,
+                 origin_data_dir: str,
+                 transpose_order: Tuple,
+                 target_zero_ratio=0.9,
+                 image_size=None,
+                 leave_patient_name=True):
         self.target_root_dir = target_root_dir
         self.origin_data_dir = origin_data_dir
         self.transpose_order = transpose_order
         self.target_zero_ratio = target_zero_ratio
         self.image_size = image_size
+        self.leave_patient_name = leave_patient_name
 
     def create_empty_dirs(self, flair=False):
         # creating utilized directories
@@ -173,7 +178,11 @@ class TransformNIIDataToNumpySlices:
 
                 for slice_index in range(len(t1_slices)):
                     filepath_dirs = t1_paths[index].split(os.path.sep)
-                    filename = f"patient-{filepath_dirs[-1][:-7]}-slice{min_slice_index+slice_index}{self.SLICES_FILE_FORMAT}"
+                    if self.leave_patient_name:
+                        filename = f"patient-{filepath_dirs[-1][:-7]}-slice{min_slice_index + slice_index}{self.SLICES_FILE_FORMAT}"
+                    else:
+                        filename = f"patient-{index}-slice{min_slice_index + slice_index}{self.SLICES_FILE_FORMAT}"
+
                     # saving a t1 slice
                     t1_slice_path = os.path.join(main_dir, "t1", filename)
                     np.save(t1_slice_path, t1_slices[slice_index])
@@ -188,7 +197,8 @@ class TransformNIIDataToNumpySlices:
                         np.save(flair_slice_path, flair_slices[slice_index])
 
                     if flair:
-                        print("Created pair of t1, t2 and flair slices: ", t1_slice_path, t2_slice_path, flair_slice_path)
+                        print("Created pair of t1, t2 and flair slices: ", t1_slice_path, t2_slice_path,
+                              flair_slice_path)
                     else:
                         print("Created pair of t1 and t2 slices: ", t1_slice_path, t2_slice_path)
 
@@ -237,9 +247,9 @@ def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[i
         img = np.transpose(img, transpose_order)
 
     # an ugly way to deal with oasis different shape in the dataset
-    # if img.shape[2] != 256:
-    #     print(f"Wrong image shape {img.shape}")
-    #     return None, None, None
+    if img.shape[2] != 256:
+        print(f"Wrong image shape {img.shape}")
+        return None, None, None
 
     if image_size is not None:
         img = [trim_image(brain_slice, image_size) for brain_slice in img]
@@ -266,29 +276,64 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
     if n_patients == -1:
         n_patients = len(local_dirs)
 
-    for i in range(n_patients):
+    i = 0
+    for local_dir in local_dirs:
+        if i >= n_patients:
+            # loop runs until
+            # all directories are visited (for ends)
+            # the number of patients is fulfilled (i >= n_patients)
+            break
         # just for one dataset purposes
         # inside_dir = local_dirs[i].split('_')[0]
+        if flair_filepath_from_data_dir is not None:  # if the path is specified we look for flair filepaths
+            flair_like_path = os.path.join(data_dir, local_dir, flair_filepath_from_data_dir)
+            flair_filepath = sorted(glob(flair_like_path))
+            if len(flair_filepath) == 0:  # if not any found the directory is skipped (T1 and T2 also omitted)
+                continue
+            # for some dataset (e.g. oasis) we have multiple flair images for one patient
+            # then we take just the last one `[-1]`
+            # assumption: it doesn't matter which one we take (so we can take the last one)
+            flair_filepaths.append(sorted(glob(flair_like_path))[-1])
 
-        t1_like_path = os.path.join(data_dir, local_dirs[i], t1_filepath_from_data_dir)
-        t2_like_path = os.path.join(data_dir, local_dirs[i], t2_filepath_from_data_dir)
+        t1_like_path = os.path.join(data_dir, local_dir, t1_filepath_from_data_dir)
+        t2_like_path = os.path.join(data_dir, local_dir, t2_filepath_from_data_dir)
 
         t1_filepaths.extend(sorted(glob(t1_like_path)))
         t2_filepaths.extend(sorted(glob(t2_like_path)))
 
-        if flair_filepath_from_data_dir is not None:
-            flair_like_path = os.path.join(data_dir, local_dirs[i], flair_filepath_from_data_dir)
-            flair_filepaths.extend(sorted(glob(flair_like_path)))
+        i += 1
 
     local_dirs_string = '\n'.join([loc_dir for loc_dir in local_dirs])
 
     # if flair:
-    print(f"Found {len(t1_filepaths)} t1 files {len(t2_filepaths)} t2 files and {len(flair_filepaths)}. In files: "
+    print(f"Found {len(t1_filepaths)} t1 {len(t2_filepaths)} t2 and {len(flair_filepaths)} flair files. In files: "
           f"{local_dirs_string}")
     # else:
     #     print(f"Found {len(t1_filepaths)} t1 files and {len(t2_filepaths)} t2 files. In files: "
     #           f"{local_dirs_string}")
-
+    # local_dirs = os.listdir(data_dir)
+    # flair = flair_filepath_from_data_dir is not None
+    #
+    # # if not specified taking all patients
+    # if n_patients == -1:
+    #     n_patients = len(local_dirs)
+    #
+    # if flair:
+    #     flair_like_path = os.path.join(data_dir, "*", flair_filepath_from_data_dir)
+    #     # getting all files matching given filepath_from_data_dir
+    #     flair_filepaths = sorted(glob(flair_like_path))
+    # else:
+    #     flair_filepaths = []
+    #
+    # t1_like_path = os.path.join(data_dir, "*", t1_filepath_from_data_dir)
+    # t2_like_path = os.path.join(data_dir, "*", t2_filepath_from_data_dir)
+    #
+    # t1_filepaths = sorted(glob(t1_like_path))
+    # t2_filepaths = sorted(glob(t2_like_path))
+    #
+    # if flair:
+    #     for flair_filepath in flair_filepaths:
+    #         subpath = flair_filepath[:flair_filepaths.index(flair_filepath_from_data_dir)]  # getting the path until
     return t1_filepaths, t2_filepaths, flair_filepaths
 
 
