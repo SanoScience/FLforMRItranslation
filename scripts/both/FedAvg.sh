@@ -1,43 +1,44 @@
 #!/bin/bash -l
 
 ## Nazwa zlecenia
-#SBATCH -J Mem
+#SBATCH -J FedAvg
 # Liczba alokowanych węzłów
-#SBATCH -N 1
+#SBATCH -n 7
 ## Liczba zadań per węzeł (domyślnie jest to liczba alokowanych rdzeni na węźle)
-#SBATCH --ntasks-per-node=6
+#SBATCH --ntasks-per-node=1
 ## Ilość pamięci przypadającej na jeden rdzeń obliczeniowy (domyślnie 5GB na rdzeń)
-#SBATCH --mem=100GB
+##SBATCH --mem=100GB
+#SBATCH --mem-per-cpu=10GB
 ## Maksymalny czas trwania zlecenia (format HH:MM:SS)
-#SBATCH --time=01:00:00
+#SBATCH --time=04:00:00
 ## Nazwa grantu do rozliczenia zużycia zasobów
-#SBATCH -A plgplgflmri-gpu-a100
+#SBATCH -A plgfmri2-gpu-a100
 ## Specyfikacja partycji
 #SBATCH --partition=plgrid-gpu-a100
-#SBATCH --gres=gpu:6
+#SBATCH --gpus-per-task=1
 ## Plik ze standardowym wyjściem
-#SBATCH --output="logs/t1_to_t2/FedAvg/global.out"
-#SBATCH --error="logs/t1_to_t2/FedAvg/global.out"
+#SBATCH --output="logs/training/t2_to_t1/FL/FedAvg/global.out"
+#SBATCH --error="logs/training/t2_to_t1/FL/FedAvg/global.out"
 
-DIR_NAME=logs/t1_to_t2/FedAvg
+DIR_NAME=logs/training/t2_to_t1/FL/FedAvg
 echo $DIR_NAME
 
-clients=("hgg_50" "oasis_125" "lgg" "hcp_mgh_masks" "hcp_wu_minn")
+clients=("hgg_125" "oasis" "lgg" "ucsf_150" "hcp_mgh_masks" "hcp_wu_minn")
 
-PORT=8087
+PORT=8082
 
 ## All the sruns are launched on the same node.
 ## --exclusive ensures that when the server starts there is room for the clients 
-srun --ntasks=1 --gpus-per-task=1 --exclusive --mem-per-cpu=15GB \
+srun --ntasks=1 --cpus-per-task=1\
     --output="./$DIR_NAME/server.out" --error="./$DIR_NAME/server_logs.out" \
     $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python \
     $HOME/repos/FLforMRItranslation/run_server.py $PORT fedavg &
 
 
-sleep 700
+sleep 300
 
 for client in "${clients[@]}"; do
-    srun --ntasks=1 --exclusive --gpus-per-task=1 \
+    srun --ntasks=1 --cpus-per-task=1\
     --output="./$DIR_NAME/$client.out" --error="./$DIR_NAME/error_$client.out" \
     $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python $HOME/repos/FLforMRItranslation/run_client_train.py \
     /net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/$client $client $PORT fedavg &
