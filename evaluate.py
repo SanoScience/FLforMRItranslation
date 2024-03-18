@@ -28,11 +28,14 @@ if __name__ == '__main__':
     BATCH_SIZE = int(sys.argv[3])
 
     # verifying if the translation is the same direction as the trained model 
-    config_path = os.path.join(model_path, "config.py")
-    imported_config = import_from_filepath(config_path)
-
-    if imported_config.TRANSLATION != config_train.TRANSLATION:
-        raise DifferentConfigs(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
+    config_path = os.path.join(os.path.dirname(model_path), "config.py")
+    try:
+        imported_config = import_from_filepath(config_path)
+    
+        if imported_config.TRANSLATION != config_train.TRANSLATION:
+            raise DifferentConfigs(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
+    except FileNotFoundError:
+        print(f"WARNING: The config file not found at {config_path}. The direction of the translation not verified!")
 
     testset = datasets.MRIDatasetNumpySlices([test_dir], translation_direction=config_train.TRANSLATION)
     testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)
@@ -43,14 +46,15 @@ if __name__ == '__main__':
     try:
         unet.load_state_dict(torch.load(os.path.join(model_path)))
     except FileNotFoundError:
-        FileNotFoundError(f"You are in {os.getcwd()} and there is no give path")
+        FileNotFoundError(f"You are in {os.getcwd()} and there is no given path")
+        exit()
 
     images, targets = next(iter(testloader))
 
     images = images.to(config_train.DEVICE)
     predictions = unet(images)
 
-    metrics = unet.evaluate(testloader)
+    metrics = unet.evaluate(testloader, with_masked_ssim=True)
     representative_test_dir = test_dir.split('/')[-2]
     model_dir = '/'.join(e for e in model_path.split('/')[:-1])
   
