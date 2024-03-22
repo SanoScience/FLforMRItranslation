@@ -81,9 +81,7 @@ class ClassicClient(fl.client.NumPyClient):
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
-                                           plots_dir=plots_dir,
-                                           save_best_model=True
-                                           )
+                                           plots_dir=plots_dir)
 
         print(f"END OF CLIENT TRAINING\n")
 

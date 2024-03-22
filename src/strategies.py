@@ -33,6 +33,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
             super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
             self.model = model
             self.aggregation_times = []
+            self.best_loss = 10000
 
             files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
             copy2("./configs/config_train.py", f"{model_dir}/config.py")
@@ -46,7 +47,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
             start = time.time()
 
             aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
-
+                        
             # printing and saving aggregation times
             aggregation_time = time.time() - start
             self.aggregation_times.append(aggregation_time)
@@ -54,6 +55,12 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
 
             # saving in intervals
             if server_round % config_train.SAVING_FREQUENCY == 1:
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+
+            # saving the best model
+            loss_values = [fit_res.metrics["val_loss"] for _, fit_res in results]
+            current_avg_loss = sum(loss_values)/len(loss_values)
+            if current_avg_loss < self.best_loss:
                 save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
 
             # saving in the last round
@@ -256,6 +263,13 @@ class FedMean(FedAvg):
                 # aggregation times
                 with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
                     pickle.dump(self.aggregation_times, file)
+            
+            # saving the best model
+            loss_values = [fit_res.metrics["val_loss"] for _, fit_res in results]
+            current_avg_loss = sum(loss_values)/len(loss_values)
+            if current_avg_loss < self.best_loss:
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
+
 
         return aggregated_parameters, metrics_aggregated
 
@@ -325,6 +339,13 @@ class FedCostWAvg(FedAvg):
                 # aggregation times
                 with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
                     pickle.dump(self.aggregation_times, file)
+
+            # saving the best model
+            loss_values = list(loss_values.values())
+            current_avg_loss = sum(loss_values)/len(loss_values)
+            if current_avg_loss < self.best_loss:
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
+
 
         return aggregated_parameters, metrics_aggregated
 
@@ -424,6 +445,12 @@ class FedPIDAvg(FedCostWAvg):
                 with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
                     pickle.dump(self.aggregation_times, file)
 
+            # saving the best model
+            loss_values = list(loss_values.values())
+            current_avg_loss = sum(loss_values)/len(loss_values)
+            if current_avg_loss < self.best_loss:
+                save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
+
         return aggregated_parameters, metrics_aggregated
 
     def _aggregate(self, results: List[Tuple[NDArrays, int]], loss_values: List[Scalar]):
@@ -467,7 +494,7 @@ class FedPIDAvg(FedCostWAvg):
         return f"FedPIDAvg(alpha={self.alpha}, beta{self.beta}, gamma={self.gamma})"
 
 
-def save_aggregated_model(model: models.UNet, aggregated_parameters, model_dir, server_round: int):
+def save_aggregated_model(model: models.UNet, aggregated_parameters, model_dir, server_round: int, best_model=False):
     """
         Takes aggregated parameters and saves them to the model_dir with name describing the current round.
     """
@@ -478,8 +505,8 @@ def save_aggregated_model(model: models.UNet, aggregated_parameters, model_dir, 
     # it could have been done using 
     # model.load_state_dict(state_dict)
     # model.save(model_dir, filename=f"round{server_round}.pth")
-
-    torch.save(state_dict, os.path.join(model_dir, f"round{server_round}.pth"))
+    best_model_info = "best" if best_model else ""
+    torch.save(state_dict, os.path.join(model_dir, f"round{server_round}{best_model_info}.pth"))
     logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {model_dir}")
 
 

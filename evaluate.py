@@ -54,7 +54,7 @@ if __name__ == '__main__':
     images = images.to(config_train.DEVICE)
     predictions = unet(images)
 
-    metrics = unet.evaluate(testloader, with_masked_ssim=True)
+    metrics = unet.evaluate(testloader, with_masked_ssim=True, save_preds_dir="preds")
     representative_test_dir = test_dir.split('/')[-2]
     model_dir = '/'.join(e for e in model_path.split('/')[:-1])
   
