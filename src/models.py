@@ -5,6 +5,7 @@ import wandb
 import time
 from typing import Callable
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -172,7 +173,7 @@ class UNet(nn.Module):
         if config_train.USE_WANDB:
             wandb.login(key=creds.api_key_wandb)
             wandb.init(
-                name=model_dir.split(path.sep)[-1],  # keeping only the last part of the model_dir (it stores all the viable information)
+                name=model_dir,  # keeping only the last part of the model_dir (it stores all the viable information)
                 project=f"fl-mri")
 
         if not isinstance(self.criterion, Callable):
@@ -244,7 +245,7 @@ class UNet(nn.Module):
 
         return history
 
-    def evaluate(self, testloader, plots_path=None, plot_filename=None, evaluate=True, with_masked_ssim=False):
+    def evaluate(self, testloader, plots_path=None, plot_filename=None, evaluate=True, with_masked_ssim=False, save_preds_dir=None):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
@@ -260,13 +261,23 @@ class UNet(nn.Module):
         if evaluate:
             metrics = {f"val_{name}": metric for name, metric in metrics.items()}
 
+        if save_preds_dir:
+            fop.try_create_dir(save_preds_dir)
+
         metrics_values = {m_name: 0.0 for m_name in metrics.keys()}
         with torch.no_grad():
-            for images_cpu, targets_cpu in testloader:
+            for batch_index, images_cpu, targets_cpu in enumerate(testloader):
                 images = images_cpu.to(config_train.DEVICE)
                 targets = targets_cpu.to(config_train.DEVICE)
 
                 predictions = self(images)
+
+                if save_preds_dir:
+                    for img_index in range(images.shape[0]):
+                        patient_slice_name = testloader.dataset.images[img_index+batch_index].split(path.sep)[-1]
+                        pred_filepath = path.join(save_preds_dir, patient_slice_name)
+                        print(pred_filepath)
+                        np.save(pred_filepath, predictions[img_index].numpy())
 
                 for metric_name, metrics_obj in metrics.items():
                     if isinstance(metrics_obj, loss_functions.LossWithProximalTerm):

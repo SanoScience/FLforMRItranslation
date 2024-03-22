@@ -38,7 +38,7 @@ if __name__ == '__main__':
         print(f"WARNING: The config file not found at {config_path}. The direction of the translation not verified!")
 
     testset = datasets.MRIDatasetNumpySlices([test_dir], translation_direction=config_train.TRANSLATION)
-    testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)
+    testloader = DataLoader(testset, batch_size=BATCH_SIZE)
 
     criterion = loss_functions.DssimMse()
     unet = models.UNet(criterion).to(config_train.DEVICE)
