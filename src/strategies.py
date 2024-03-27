@@ -61,6 +61,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
             loss_values = [fit_res.metrics["val_loss"] for _, fit_res in results]
             current_avg_loss = sum(loss_values)/len(loss_values)
             if current_avg_loss < self.best_loss:
+                print(f"Best model with loss {current_avg_loss}>{self.best_loss}")
                 save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
 
             # saving in the last round

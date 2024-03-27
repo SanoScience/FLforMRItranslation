@@ -10,11 +10,11 @@
 ##SBATCH --mem=100GB
 #SBATCH --mem-per-cpu=10GB
 ## Maksymalny czas trwania zlecenia (format HH:MM:SS)
-#SBATCH --time=04:00:00
+#SBATCH --time=08:00:00
 ## Nazwa grantu do rozliczenia zużycia zasobów
-#SBATCH -A plgfmri2-gpu-a100
+#SBATCH -A plgfmri2-gpu
 ## Specyfikacja partycji
-#SBATCH --partition=plgrid-gpu-a100
+#SBATCH --partition=plgrid-gpu-v100
 #SBATCH --gpus-per-task=1
 ## Plik ze standardowym wyjściem
 #SBATCH --output="logs/training/t2_to_t1/FL/FedAvg/global.out"
