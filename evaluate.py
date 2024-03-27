@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     metrics = unet.evaluate(testloader, with_masked_ssim=True, save_preds_dir=os.path.join(model_dir, "preds", representative_test_dir))
   
-    filepath = os.path.join(model_dir, f"test_{representative_test_dir}_ssiim_{metrics['val_ssim']:.2f}.pkl")
+    filepath = os.path.join(model_dir, f"test_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
 
     with open(filepath, "wb") as file:
         pickle.dump(metrics, file)
