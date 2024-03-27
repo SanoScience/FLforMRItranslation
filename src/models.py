@@ -281,14 +281,14 @@ class UNet(nn.Module):
                     if batch_index == 0:  # getting the batch size in the first round
                         batch_size = current_batch_size
 
-                        for img_index in range(current_batch_size):  # iterating over current batch size (number of images)
-                            # retrieving the name of the current slice
-                            patient_slice_name = testloader.dataset.images[img_index+batch_index*batch_size].split(path.sep)[-1]
-                            pred_filepath = path.join(save_preds_dir, patient_slice_name)
+                    for img_index in range(current_batch_size):  # iterating over current batch size (number of images)
+                        # retrieving the name of the current slice
+                        patient_slice_name = testloader.dataset.images[img_index+batch_index*batch_size].split(path.sep)[-1]
+                        pred_filepath = path.join(save_preds_dir, patient_slice_name)
 
-                            # saving the current image to the declared directory with the same name as the input image name
-                            print(pred_filepath)
-                            np.save(pred_filepath, predictions[img_index].numpy())
+                        # saving the current image to the declared directory with the same name as the input image name
+                        print(pred_filepath)
+                        np.save(pred_filepath, predictions[img_index].cpu().numpy())
 
                 # calculating metrics
                 for metric_name, metrics_obj in metrics.items():
