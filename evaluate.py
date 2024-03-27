@@ -26,6 +26,8 @@ if __name__ == '__main__':
     test_dir = sys.argv[1]
     model_path = sys.argv[2]
     BATCH_SIZE = int(sys.argv[3])
+    model_dir = '/'.join(e for e in model_path.split('/')[:-1])
+    representative_test_dir = test_dir.split('/')[-2]
 
     # verifying if the translation is the same direction as the trained model 
     config_path = os.path.join(os.path.dirname(model_path), "config.py")
@@ -39,12 +41,17 @@ if __name__ == '__main__':
 
     testset = datasets.MRIDatasetNumpySlices([test_dir], translation_direction=config_train.TRANSLATION)
     testloader = DataLoader(testset, batch_size=BATCH_SIZE)
-
-    criterion = loss_functions.DssimMse()
+    
+    if "prox" in model_path.lower():
+        mu = imported_config.PROXIMAL_MU
+        criterion = loss_functions.LossWithProximalTerm(proximal_mu=mu, base_loss_fn=loss_functions.DssimMse()) 
+    else:
+        criterion = loss_functions.DssimMse()
+   
     unet = models.UNet(criterion).to(config_train.DEVICE)
 
     try:
-        unet.load_state_dict(torch.load(os.path.join(model_path)))
+        unet.load_state_dict(torch.load(model_path))
     except FileNotFoundError:
         FileNotFoundError(f"You are in {os.getcwd()} and there is no given path")
         exit()
@@ -54,11 +61,9 @@ if __name__ == '__main__':
     images = images.to(config_train.DEVICE)
     predictions = unet(images)
 
-    metrics = unet.evaluate(testloader, with_masked_ssim=True, save_preds_dir="preds")
-    representative_test_dir = test_dir.split('/')[-2]
-    model_dir = '/'.join(e for e in model_path.split('/')[:-1])
+    metrics = unet.evaluate(testloader, with_masked_ssim=True, save_preds_dir=os.path.join(model_dir, "preds", representative_test_dir))
   
-    filepath = os.path.join(model_dir, f"test_{representative_test_dir}_loss_{metrics['val_ssim']:.2f}.pkl")
+    filepath = os.path.join(model_dir, f"test_{representative_test_dir}_ssiim_{metrics['val_ssim']:.2f}.pkl")
 
     with open(filepath, "wb") as file:
         pickle.dump(metrics, file)
