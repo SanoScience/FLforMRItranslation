@@ -224,7 +224,7 @@ class FedMean(FedAvg):
         self.model = model
         self.model_dir = model_dir
         self.aggregation_times = []
-
+        self.best_loss = 10000
         files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
         copy2("./configs/config_train.py", f"{model_dir}/config.py")
 
@@ -270,6 +270,7 @@ class FedMean(FedAvg):
             current_avg_loss = sum(loss_values)/len(loss_values)
             if current_avg_loss < self.best_loss:
                 save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
+                self.best_loss = current_avg_loss
 
 
         return aggregated_parameters, metrics_aggregated
@@ -288,6 +289,7 @@ class FedCostWAvg(FedAvg):
         self.previous_loss_values = None
         self.aggregation_times = []
         self.model_dir = model_dir
+        self.best_loss = 10000 
 
         files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
         copy2("./configs/config_train.py", f"{model_dir}/config.py")
@@ -346,6 +348,7 @@ class FedCostWAvg(FedAvg):
             current_avg_loss = sum(loss_values)/len(loss_values)
             if current_avg_loss < self.best_loss:
                 save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
+                self.best_loss = current_avg_loss
 
 
         return aggregated_parameters, metrics_aggregated
@@ -393,6 +396,7 @@ class FedPIDAvg(FedCostWAvg):
         self.beta = beta
         self.gamma = gamma
         self.previous_loss_values = []
+        self.best_loss = 10000
 
     def aggregate_fit(
             self,
@@ -451,6 +455,7 @@ class FedPIDAvg(FedCostWAvg):
             current_avg_loss = sum(loss_values)/len(loss_values)
             if current_avg_loss < self.best_loss:
                 save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
+                self.best_loss = current_avg_loss
 
         return aggregated_parameters, metrics_aggregated
 
