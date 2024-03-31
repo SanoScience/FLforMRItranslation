@@ -33,7 +33,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
             super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
             self.model = model
             self.aggregation_times = []
-            self.best_loss = 10000
+            self.best_loss = float('inf')
 
             files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
             copy2("./configs/config_train.py", f"{model_dir}/config.py")
@@ -224,7 +224,7 @@ class FedMean(FedAvg):
         self.model = model
         self.model_dir = model_dir
         self.aggregation_times = []
-        self.best_loss = 10000
+        self.best_loss = float('inf')
         files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
         copy2("./configs/config_train.py", f"{model_dir}/config.py")
 
@@ -289,7 +289,7 @@ class FedCostWAvg(FedAvg):
         self.previous_loss_values = None
         self.aggregation_times = []
         self.model_dir = model_dir
-        self.best_loss = 10000 
+        self.best_loss = float('inf')
 
         files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
         copy2("./configs/config_train.py", f"{model_dir}/config.py")
@@ -396,7 +396,7 @@ class FedPIDAvg(FedCostWAvg):
         self.beta = beta
         self.gamma = gamma
         self.previous_loss_values = []
-        self.best_loss = 10000
+        self.best_loss = float('inf')
 
     def aggregate_fit(
             self,
@@ -501,6 +501,7 @@ class FedPIDAvg(FedCostWAvg):
 
 
 def save_aggregated_model(model: models.UNet, aggregated_parameters, model_dir, server_round: int, best_model=False):
+    # TODO: include the condiation here for better readablity
     """
         Takes aggregated parameters and saves them to the model_dir with name describing the current round.
     """

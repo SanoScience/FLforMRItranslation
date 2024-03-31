@@ -339,6 +339,7 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
 
 
 def try_create_dir(dir_name, allow_overwrite=True):
+    # TODO: simplify (maybe the function not needed with Path
     try:
         Path(dir_name).mkdir(parents=True, exist_ok=allow_overwrite)
     except FileExistsError:
