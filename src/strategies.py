@@ -72,9 +72,11 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
             # saving the best model
             if current_avg_loss:
                 if current_avg_loss < self.best_loss:
-                    print(f"Best model with loss {current_avg_loss}>{self.best_loss}")
+                    print(f"Best model with loss {current_avg_loss:.3f}<{self.best_loss:.3f}")
                     save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round, best_model=True)
                     self.best_loss = current_avg_loss
+                else:
+                    print(f"Best model with loss {current_avg_loss:.3f}>{self.best_loss:.3f}")
 
             # saving in the last round
             if save_last_round:
