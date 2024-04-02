@@ -62,7 +62,8 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
             current_avg_loss = sum(loss_values)/len(loss_values)
             if current_avg_loss < self.best_loss:
                 print(f"Best model with loss {current_avg_loss}>{self.best_loss}")
-                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round, best_model=True)
+                self.best_loss = current_avg_loss
 
             # saving in the last round
             if server_round == config_train.N_ROUNDS:
@@ -76,147 +77,6 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
 
     return SavingModelStrategy()
 
-
-class FedTrimmedAvg(FedAvg):
-    """ COPIED FROM FLOWER UPDATED SOURCE CODE
-    Federated Averaging with Trimmed Mean [Dong Yin, et al., 2021].
-
-    Paper: https://arxiv.org/abs/1803.01498
-    """
-
-    # pylint: disable=too-many-arguments,too-many-instance-attributes, line-too-long
-    def __init__(
-        self,
-        model,
-        model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
-        *,
-        fraction_fit: float = 1.0,
-        fraction_evaluate: float = 1.0,
-        min_fit_clients: int = 2,
-        min_evaluate_clients: int = 2,
-        min_available_clients: int = 2,
-        evaluate_fn: Optional[
-            Callable[
-                [int, NDArrays, Dict[str, Scalar]],
-                Optional[Tuple[float, Dict[str, Scalar]]],
-            ]
-        ] = None,
-        on_fit_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
-        on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
-        accept_failures: bool = True,
-        initial_parameters: Optional[Parameters] = None,
-        fit_metrics_aggregation_fn=None,
-        evaluate_metrics_aggregation_fn=None,
-        beta: float = 0.2,
-    ) -> None:
-        """Federated Averaging with Trimmed Mean [Dong Yin, et al., 2021].
-        """
-        super().__init__(
-            fraction_fit=fraction_fit,
-            fraction_evaluate=fraction_evaluate,
-            min_fit_clients=min_fit_clients,
-            min_evaluate_clients=min_evaluate_clients,
-            min_available_clients=min_available_clients,
-            evaluate_fn=evaluate_fn,
-            on_fit_config_fn=on_fit_config_fn,
-            on_evaluate_config_fn=on_evaluate_config_fn,
-            accept_failures=accept_failures,
-            initial_parameters=initial_parameters,
-            fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
-            evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,
-        )
-        self.beta = beta
-        self.model_dir = model_dir
-        self.model = model
-
-        files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
-        copy2("./configs/config_train.py", f"{model_dir}/config.py")
-
-    def __repr__(self) -> str:
-        """Compute a string representation of the strategy."""
-        rep = f"FedTrimmedAvg(accept_failures={self.accept_failures})"
-        return rep
-
-    def aggregate_fit(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-        """Aggregate fit results using trimmed average."""
-        if not results:
-            return None, {}
-        # Do not aggregate if there are failures and failures are not accepted
-        if not self.accept_failures and failures:
-            return None, {}
-
-        # Convert results
-        weights_results = [
-            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
-            for _, fit_res in results
-        ]
-        aggregated_parameters = ndarrays_to_parameters(
-            aggregate_trimmed_avg(weights_results, self.beta)
-        )
-
-        # Aggregate custom metrics if aggregation fn was provided
-        metrics_aggregated = {}
-        if self.fit_metrics_aggregation_fn:
-            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
-            metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
-        elif server_round == 1:  # Only log this warning once
-            logging.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
-
-        # saving in intervals
-        if server_round % config_train.SAVING_FREQUENCY == 1:
-            save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-
-        # saving in the last round
-        if server_round == config_train.N_ROUNDS:
-            # model
-            save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-            # aggregation times
-
-
-        return aggregated_parameters, metrics_aggregated
-
-
-def aggregate_trimmed_avg(
-        results: List[Tuple[NDArrays, int]], proportiontocut: float
-) -> NDArrays:
-    """Compute trimmed average."""
-    # Create a list of weights and ignore the number of examples
-    weights = [weights for weights, _ in results]
-
-    trimmed_w: NDArrays = [
-        _trim_mean(np.asarray(layer), proportiontocut=proportiontocut)
-        for layer in zip(*weights)
-    ]
-
-    return trimmed_w
-
-
-def _trim_mean(array: NDArray, proportiontocut: float) -> NDArray:
-    """Compute trimmed mean along axis=0.
-
-    It is based on the scipy implementation.
-
-    https://docs.scipy.org/doc/scipy/reference/generated/
-    scipy.stats.trim_mean.html.
-    """
-    axis = 0
-    nobs = array.shape[axis]
-    lowercut = int(proportiontocut * nobs)
-    uppercut = nobs - lowercut
-    if lowercut > uppercut:
-        raise ValueError("Proportion too big.")
-
-    atmp = np.partition(array, (lowercut, uppercut - 1), axis)
-
-    slice_list = [slice(None)] * atmp.ndim
-    slice_list[axis] = slice(lowercut, uppercut)
-    result: NDArray = np.mean(atmp[tuple(slice_list)], axis=axis)
-    return result
 
 class FedMean(FedAvg):
     def __init__(self, model, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, *args, **kwargs):
@@ -269,6 +129,7 @@ class FedMean(FedAvg):
             loss_values = [fit_res.metrics["val_loss"] for _, fit_res in results]
             current_avg_loss = sum(loss_values)/len(loss_values)
             if current_avg_loss < self.best_loss:
+                print(f"Best model with loss {current_avg_loss}>{self.best_loss}")
                 save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
                 self.best_loss = current_avg_loss
 
@@ -347,6 +208,7 @@ class FedCostWAvg(FedAvg):
             loss_values = list(loss_values.values())
             current_avg_loss = sum(loss_values)/len(loss_values)
             if current_avg_loss < self.best_loss:
+                print(f"Best model with loss {current_avg_loss}>{self.best_loss}")
                 save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
                 self.best_loss = current_avg_loss
 
@@ -454,6 +316,7 @@ class FedPIDAvg(FedCostWAvg):
             loss_values = list(loss_values.values())
             current_avg_loss = sum(loss_values)/len(loss_values)
             if current_avg_loss < self.best_loss:
+                print(f"Best model with loss {current_avg_loss}>{self.best_loss}")
                 save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
                 self.best_loss = current_avg_loss
 
@@ -731,3 +594,145 @@ def client_names_from_eval_dirs():
         sep = "/"
 
     return [eval_dir.split(sep)[-2] for eval_dir in config_train.EVAL_DATA_DIRS]
+
+
+class FedTrimmedAvg(FedAvg):
+    """ COPIED FROM FLOWER UPDATED SOURCE CODE
+    Federated Averaging with Trimmed Mean [Dong Yin, et al., 2021].
+
+    Paper: https://arxiv.org/abs/1803.01498
+    """
+
+    # pylint: disable=too-many-arguments,too-many-instance-attributes, line-too-long
+    def __init__(
+        self,
+        model,
+        model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
+        *,
+        fraction_fit: float = 1.0,
+        fraction_evaluate: float = 1.0,
+        min_fit_clients: int = 2,
+        min_evaluate_clients: int = 2,
+        min_available_clients: int = 2,
+        evaluate_fn: Optional[
+            Callable[
+                [int, NDArrays, Dict[str, Scalar]],
+                Optional[Tuple[float, Dict[str, Scalar]]],
+            ]
+        ] = None,
+        on_fit_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
+        on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
+        accept_failures: bool = True,
+        initial_parameters: Optional[Parameters] = None,
+        fit_metrics_aggregation_fn=None,
+        evaluate_metrics_aggregation_fn=None,
+        beta: float = 0.2,
+    ) -> None:
+        """Federated Averaging with Trimmed Mean [Dong Yin, et al., 2021].
+        """
+        super().__init__(
+            fraction_fit=fraction_fit,
+            fraction_evaluate=fraction_evaluate,
+            min_fit_clients=min_fit_clients,
+            min_evaluate_clients=min_evaluate_clients,
+            min_available_clients=min_available_clients,
+            evaluate_fn=evaluate_fn,
+            on_fit_config_fn=on_fit_config_fn,
+            on_evaluate_config_fn=on_evaluate_config_fn,
+            accept_failures=accept_failures,
+            initial_parameters=initial_parameters,
+            fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
+            evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,
+        )
+        self.beta = beta
+        self.model_dir = model_dir
+        self.model = model
+
+        files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
+        copy2("./configs/config_train.py", f"{model_dir}/config.py")
+
+    def __repr__(self) -> str:
+        """Compute a string representation of the strategy."""
+        rep = f"FedTrimmedAvg(accept_failures={self.accept_failures})"
+        return rep
+
+    def aggregate_fit(
+        self,
+        server_round: int,
+        results: List[Tuple[ClientProxy, FitRes]],
+        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+        """Aggregate fit results using trimmed average."""
+        if not results:
+            return None, {}
+        # Do not aggregate if there are failures and failures are not accepted
+        if not self.accept_failures and failures:
+            return None, {}
+
+        # Convert results
+        weights_results = [
+            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
+            for _, fit_res in results
+        ]
+        aggregated_parameters = ndarrays_to_parameters(
+            aggregate_trimmed_avg(weights_results, self.beta)
+        )
+
+        # Aggregate custom metrics if aggregation fn was provided
+        metrics_aggregated = {}
+        if self.fit_metrics_aggregation_fn:
+            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+            metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
+        elif server_round == 1:  # Only log this warning once
+            logging.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
+
+        # saving in intervals
+        if server_round % config_train.SAVING_FREQUENCY == 1:
+            save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
+
+        # saving in the last round
+        if server_round == config_train.N_ROUNDS:
+            # model
+            save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
+            # aggregation times
+
+
+        return aggregated_parameters, metrics_aggregated
+
+
+def aggregate_trimmed_avg(
+        results: List[Tuple[NDArrays, int]], proportiontocut: float
+) -> NDArrays:
+    """Compute trimmed average."""
+    # Create a list of weights and ignore the number of examples
+    weights = [weights for weights, _ in results]
+
+    trimmed_w: NDArrays = [
+        _trim_mean(np.asarray(layer), proportiontocut=proportiontocut)
+        for layer in zip(*weights)
+    ]
+
+    return trimmed_w
+
+
+def _trim_mean(array: NDArray, proportiontocut: float) -> NDArray:
+    """Compute trimmed mean along axis=0.
+
+    It is based on the scipy implementation.
+
+    https://docs.scipy.org/doc/scipy/reference/generated/
+    scipy.stats.trim_mean.html.
+    """
+    axis = 0
+    nobs = array.shape[axis]
+    lowercut = int(proportiontocut * nobs)
+    uppercut = nobs - lowercut
+    if lowercut > uppercut:
+        raise ValueError("Proportion too big.")
+
+    atmp = np.partition(array, (lowercut, uppercut - 1), axis)
+
+    slice_list = [slice(None)] * atmp.ndim
+    slice_list[axis] = slice(lowercut, uppercut)
+    result: NDArray = np.mean(atmp[tuple(slice_list)], axis=axis)
+    return result
