@@ -287,7 +287,7 @@ class UNet(nn.Module):
                         pred_filepath = path.join(save_preds_dir, patient_slice_name)
 
                         # saving the current image to the declared directory with the same name as the input image name
-                        print(pred_filepath)
+                        # print(pred_filepath)
                         np.save(pred_filepath, predictions[img_index].cpu().numpy())
 
                 # calculating metrics
