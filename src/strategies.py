@@ -440,7 +440,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
     elif strategy_name == "fedprox":
         strategy_class = FedProx
         kwargs["proximal_mu"] = config_train.PROXIMAL_MU
-    elif strategy_name == "fedadam":
+    elif strategy_name in ["fedadam", "fedmix"]:
         strategy_class = FedAdam
         kwargs["tau"] = config_train.TAU
     elif strategy_name == "fedyogi":

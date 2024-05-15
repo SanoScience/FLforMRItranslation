@@ -320,7 +320,7 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
 
     elif client_type_name == "fedbn":
         return FedBNClient(client_id, unet, optimizer, data_dir, model_dir)
-    elif client_type_name == "fedmri":
+    elif client_type_name in ["fedmri", "fedmix"]:
         return FedMRIClient(client_id, unet, optimizer, data_dir, model_dir)
     elif  client_type_name in  ["fedavg", "fedcostw", "fedpid", "fedavgm", "fedadam", "fedadagrad", "fedyogi", "fedmean", "fedtrimmed"]:
         return ClassicClient(client_id, unet, optimizer, data_dir, model_dir)
