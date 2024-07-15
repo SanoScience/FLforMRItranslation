@@ -20,7 +20,7 @@ if __name__ == "__main__":
         with_num_workers = True
 
         if not config_train.LOCAL:
-            with open(config_train.NODE_FILENAME, 'r') as file:
+            with open(f"server_nodes/{sys.argv[4]}{config_train.NODE_FILENAME}", 'r') as file:   # TODO: sys.argv
                 server_node = file.read()
 
         if ":" not in server_address:
@@ -36,6 +36,8 @@ if __name__ == "__main__":
         client = client_from_string(client_id, unet, optimizer, data_dir, sys.argv[4])
     # Address
     # If port not provided it is taken from the config
+
+    print(f"The retrieved server address is :", server_address)
 
     fl.client.start_numpy_client(
         server_address=server_address,

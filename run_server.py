@@ -14,7 +14,7 @@ if __name__ == "__main__":
         strategy = strategy_from_config(unet, None)
         print(f"Strategy taken from config.")
     else:
-        strategy = strategy_from_string(unet, sys.argv[2])
+        strategy = strategy_from_string(unet, sys.argv[2])  
         print(f"Strategy taken from given string: {sys.argv[2]}")
 
     if config_train.LOCAL:
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     print("Server address: {}\n".format(server_address))
 
     if not config_train.LOCAL:
-        with open(config_train.NODE_FILENAME, 'w') as file:
+        with open(f"server_nodes/{sys.argv[2]}{config_train.NODE_FILENAME}", 'w') as file:  # TODO: sys.avgr..
             file.write(socket.gethostname())
 
     fl.server.start_server(
