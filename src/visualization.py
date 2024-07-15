@@ -7,7 +7,7 @@ from torch import Tensor
 
 import math
 
-def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", forecolor='black', figsize=(10, 6), rotation_list=None, savepath=None):
+def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", forecolor='black', column_gap=100, figsize=(10, 6), rotation_list=None, savepath=None):
     if rotation_list is None:
         rotation_list = [0, 0 , 0, 0, 0]
 
@@ -60,14 +60,14 @@ def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", foreco
 
     if col_labels:
         for index, col_label in enumerate(col_labels):
-            plt.text(index * 240, 0, col_label, color=textcolor)
+            plt.text(index * column_gap, 0, col_label, color=textcolor)
 
     if savepath:
         plt.savefig(savepath)
         plt.close()
 
 
-def plot_diff_tight(targets, preds, col_labels=None, img_size=None, cmap="bwr", forecolor='white', figsize=(10, 6), vmin=-0.8, vmax=0.8, rotation_list=None, colorbar_shrink=0.7, savepath=None):
+def plot_diff_tight(targets, preds, col_labels=None, img_size=None, cmap="bwr", forecolor='white', column_gap=100, figsize=(10, 6), vmin=-0.8, vmax=0.8, rotation_list=None, colorbar_shrink=0.7, savepath=None):
     if rotation_list is None:
         rotation_list = [0, 0 , 0, 0, 0]
 
@@ -130,7 +130,7 @@ def plot_diff_tight(targets, preds, col_labels=None, img_size=None, cmap="bwr", 
 
     if col_labels:
         for index, col_label in enumerate(col_labels):
-            plt.text(index * 240, 0, col_label, color=textcolor)
+            plt.text(index * column_gap, 0, col_label, color=textcolor)
 
     plt.colorbar(shrink=colorbar_shrink)
 
@@ -160,7 +160,7 @@ def plot_difference(target, predictions, row_labels=None, cmap="hsv", vmin=-0.5,
     fig.colorbar(im, cax=cbar_ax)
 
 
-def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, title=None, ylabel="Loss", xlabel="Rounds", ylim=None, figsize=None, legend=True, savepath=None, gridstyle=None):
+def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, title=None, ylabel="Loss", xlabel="Rounds", ylim=None, figsize=None, legend=True, savepath=None, markers=None, linewidths=None, gridstyle=None, markersize=3, yscale="linear"):
 
     if figsize:
         plt.figure(figsize=figsize)
@@ -169,6 +169,8 @@ def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, ti
         plt.ylim(ylim)
 
     linestyle = '-'
+    marker = None
+    linewidth = 2
 
     for index, loss_values in enumerate(loss_histories):
         epochs = range(1, len(loss_values) + 1)
@@ -177,17 +179,22 @@ def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, ti
 
         if linetypes:
             linestyle = linetypes[index]
+        if markers:
+            marker = markers[index]
+        if linewidths:
+            linewidth = linewidths[index]
+
         if colors:
-            plt.plot(epochs, loss_values, label=label, linestyle=linestyle, color=colors[index])
+            plt.plot(epochs, loss_values, label=label, linestyle=linestyle, marker=marker, markersize=markersize, linewidth=linewidth, color=colors[index])
         else:
-            plt.plot(epochs, loss_values, label=label, linestyle=linestyle)
+            plt.plot(epochs, loss_values, label=label, linestyle=linestyle, marker=marker, markersize=markersize, linewidth=linewidth)
 
     if title is not None:
         plt.title(title)
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-
+    plt.yscale(yscale)
     if legend:
         plt.legend()
 
