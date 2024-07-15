@@ -318,7 +318,7 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
 
         return FedProxClient(client_id, unet, optimizer, data_dir, model_dir, stragglers_mat)
 
-    elif client_type_name == "fedbn":
+    elif client_type_name in ["fedbn", "fedbadam"]:
         return FedBNClient(client_id, unet, optimizer, data_dir, model_dir)
     elif client_type_name in ["fedmri", "fedmix"]:
         return FedMRIClient(client_id, unet, optimizer, data_dir, model_dir)
