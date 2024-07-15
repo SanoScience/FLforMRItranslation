@@ -1,6 +1,7 @@
 import logging
 import os
 import random
+import re
 import traceback
 from glob import glob
 from typing import Tuple, Optional
@@ -355,6 +356,35 @@ def try_create_dir(dir_name, allow_overwrite=True):
             f"The path {dir_name} to directory willing to be created doesn't exist. You are in {os.getcwd()}.")
 
         traceback.print_exception(FileNotFoundError, ex, ex.__traceback__)
+
+
+def get_brains_slices_info(dir_name):
+    filenames = os.listdir(dir_name)
+    patient_slices = {}
+
+    # the file is in the format e.g. patient-Brats18_TCIA10_420_1_t1-slice108.npy
+    # we are extracting ID which is always between "-"
+    # in this case Brats18_TCIA10_420_1_t1
+    # list(set(...)) for extracting unique values
+    patients_id = list(set([f.split('-')[1] for f in filenames]))
+
+    for patient_id in patients_id:
+        slices_nr = []
+        for f in filenames:
+            if patient_id in f:
+                slices_nr.append(int(re.search(r'slice(\d+)', f).group(1)))
+
+        patient_slices[patient_id] = (min(slices_nr), max(slices_nr))
+
+    return patient_slices
+
+
+def get_all_brains_slices_info(ds_dir_name):
+    test_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "test"))
+    train_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "train"))
+    validation_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "validation"))
+
+    return train_patients_slices, test_patients_slices, validation_patients_slices
 
 
 def test_mask_in(img_name, img_dir, breakpoint=10, failed_dir="failed"):
