@@ -358,40 +358,40 @@ def try_create_dir(dir_name, allow_overwrite=True):
         traceback.print_exception(FileNotFoundError, ex, ex.__traceback__)
 
 
-def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_order, mask_fingerprint="*seg.nii.gz", output_format=".npy"):
+def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_order,
+                                 masked_dir_name="mask", mask_fingerprint="*seg.nii.gz", output_format=".npy"):
     mask_dirs = os.listdir(mask_dir_name)
 
-    for set_dir in os.listdir(preprocess_dir_name):
-        dir_path = os.path.join(preprocess_dir_name, set_dir)
-        patients_slices = get_brains_slices_info(dir_path)
+    dir_path = os.path.join(preprocess_dir_name, masked_dir_name)
+    patients_slices = get_brains_slices_info(dir_path)
 
-        created_mask_dir = os.path.join(f"{dir_path}_brain_mask")
-        try_create_dir(created_mask_dir)
+    created_mask_dir = os.path.join(f"{dir_path}_brain_mask")
+    try_create_dir(created_mask_dir)
 
-        for patient_id, slices_range in patients_slices.items():
-            full_dir_name = None
-            for mask_dir in mask_dirs:
-                if "_".join(patient_id.split('_')[:-1]) in mask_dir:  # the patient ID has a "leftover" (.._t1) which is skipped
-                    full_dir_name = mask_dir
-                    break
+    for patient_id, slices_range in patients_slices.items():
+        full_dir_name = None
+        for mask_dir in mask_dirs:
+            if "_".join(patient_id.split('_')[:-1]) in mask_dir:  # the patient ID has a "leftover" (.._t1) which is skipped
+                full_dir_name = mask_dir
+                break
 
-            path_mask = os.path.join(mask_dir_name, full_dir_name)
-            like_path_mask = os.path.join(path_mask, mask_fingerprint)
-            mask_file = glob(like_path_mask)[0]
-            mask_filepath = os.path.join(path_mask, mask_file)
+        path_mask = os.path.join(mask_dir_name, full_dir_name)
+        like_path_mask = os.path.join(path_mask, mask_fingerprint)
+        mask_file = glob(like_path_mask)[0]
+        mask_filepath = os.path.join(path_mask, mask_file)
 
-            mask_slices, _, _ = load_nii_slices(mask_filepath,
-                                                transpose_order,
-                                                min_slice_index=slices_range[0],
-                                                max_slices_index=slices_range[1],
-                                                target_zero_ratio=1)  # not caring about the zero percentage
+        mask_slices, _, _ = load_nii_slices(mask_filepath,
+                                            transpose_order,
+                                            min_slice_index=slices_range[0],
+                                            max_slices_index=slices_range[1],
+                                            target_zero_ratio=1)  # not caring about the zero percentage
 
-            for mask, mask_real_index in zip(mask_slices, range(slices_range[0], slices_range[1] + 1)):  # change [0] [1]
-                mask_slice_filename = f"patient-{patient_id}-slice{mask_real_index}{output_format}"
-                mask_slice_filepath = os.path.join(created_mask_dir, mask_slice_filename)
+        for mask, mask_real_index in zip(mask_slices, range(slices_range[0], slices_range[1] + 1)):  # change [0] [1]
+            mask_slice_filename = f"patient-{patient_id}-slice{mask_real_index}{output_format}"
+            mask_slice_filepath = os.path.join(created_mask_dir, mask_slice_filename)
 
-                np.save(mask_slice_filepath, mask)
-                print(f"Mask file: {mask_slice_filepath} saved.")
+            np.save(mask_slice_filepath, mask)
+            print(f"Mask file: {mask_slice_filepath} saved.")
 
 
 def get_brains_slices_info(dir_name):
