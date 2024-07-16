@@ -91,7 +91,7 @@ class UNet(nn.Module):
         """
         Method used by perform_train(). Does one iteration of training.
         """
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error}
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -122,18 +122,23 @@ class UNet(nn.Module):
             optimizer.zero_grad()
 
             predictions = self(images)
+            criterion_2 = loss_functions.DssimMse()
+            loss_2 = criterion_2(predictions, targets)
 
             if use_prox_loss:
                 loss = self.criterion(predictions, targets, self.parameters(), global_params)
             else:
                 loss = self.criterion(predictions, targets)
 
+            # loss.requires_grad = True  # This is ugly af, but not a better solution found yet
             loss.backward()
             optimizer.step()
 
             for metric_name, metric_object in metrics.items():
                 if metric_name == "loss":
                     metric_value = loss
+                elif metric_name == "dice":
+                    metric_value = metric_object(predictions, targets.int())
                 else:
                     metric_value = metric_object(predictions, targets)
                 total_metrics[metric_name] += metric_value.item()
@@ -255,7 +260,7 @@ class UNet(nn.Module):
 
         n_steps = 0
 
-        metrics = {"loss": self.criterion, "ssim": ssim,  "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error}
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
 
         if with_masked_ssim:
             metrics["masked_ssim"] = masked_ssim
