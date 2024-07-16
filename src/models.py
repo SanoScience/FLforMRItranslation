@@ -23,6 +23,8 @@ mse = nn.MSELoss()
 masked_mse = loss_functions.MaskedMSE()
 relative_error = loss_functions.RelativeError()
 masked_ssim = loss_functions.MaskedSSIM().to(device)
+dice_score = loss_functions.Dice().to(device)
+jaccard_index = loss_functions.BinaryJaccardIndex().to(device)
 # zoomed_ssim = loss_functions.ZoomedSSIM()
 # qilv = loss_functions.QILV(use_mask=False)
 

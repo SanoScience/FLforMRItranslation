@@ -1,8 +1,6 @@
 from typing import Dict, List, Any
 
 import numpy as np
-import torch
-import torch.nn.functional as F
 from configs import config_train
 from torch.nn import MSELoss
 from torchmetrics.image import StructuralSimilarityIndexMeasure
@@ -12,33 +10,33 @@ from scipy import signal
 from typing import List, Optional, Sequence, Tuple, Union
 
 import torch
+import torch.nn.functional as F
 from torch import Tensor
-from torch.nn import functional as F  # noqa: N812
 from typing_extensions import Literal
 
 # for own torch implementation
 from torchmetrics.functional.image.helper import _gaussian_kernel_2d, _gaussian_kernel_3d, _reflection_pad_3d
 from torchmetrics.functional.image.ssim import _multiscale_ssim_update, _ssim_check_inputs
 from torchmetrics.utilities.data import dim_zero_cat
+from torchmetrics.classification import Dice, BinaryJaccardIndex
 
 class DssimMse:
     def __init__(self, sqrt=False, zoomed_ssim=False):
-        self.zoomed_ssim = zoomed_ssim
         self.sqrt = sqrt
+        self.mse = MSELoss()
+
+        if zoomed_ssim:
+            self.ssim = ZoomedSSIM()
+        else:
+            self.ssim = StructuralSimilarityIndexMeasure().to(config_train.DEVICE)
 
     def __call__(self, predicted, targets):
-        mse = MSELoss()
-        if self.zoomed_ssim:
-            ssim = ZoomedSSIM()
-        else:
-            ssim = StructuralSimilarityIndexMeasure().to(config_train.DEVICE)
-
-        dssim = (1 - ssim(predicted, targets)) / 2
+        dssim = (1 - self.ssim(predicted, targets)) / 2
 
         if self.sqrt:
-            result = torch.sqrt_(mse(predicted, targets)) + dssim
+            result = torch.sqrt_(self.mse(predicted, targets)) + dssim
         else:
-            result = mse(predicted, targets) + dssim
+            result = self.mse(predicted, targets) + dssim
         return result
 
     def __repr__(self):
@@ -513,3 +511,25 @@ def metrics_to_str(metrics: Dict[str, List[float]], starting_symbol=""):
         metrics_epoch_str += f"{metric_name}: {epoch_value:.3f}\t"
 
     return metrics_epoch_str
+
+
+#################
+# SEGMENATATION #
+#################
+
+
+class DiceLoss(torch.nn.Module):
+    def __init__(self):
+        super(DiceLoss, self).__init__()
+        self.dice = Dice().to(config_train.DEVICE)
+    
+    def __call__(self, predicted, targets):
+        dice = Dice().to(config_train.DEVICE)
+        dice_score = dice(predicted, targets.int())
+        return 1 - dice_score
+
+    def __repr__(self):
+        return "DICE LOSS"
+
+    def __str__(self):
+        return "DICE LOSS"
