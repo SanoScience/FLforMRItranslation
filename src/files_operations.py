@@ -359,26 +359,36 @@ def try_create_dir(dir_name, allow_overwrite=True):
 
 
 def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_order,
-                                 new_masked_dir_name="mask", indir_reading_name="train", mask_fingerprint="*seg.nii.gz", output_format=".npy"):
+                                 new_masked_dir_name="mask", indir_reading_name="t1", mask_fingerprint="*seg.nii.gz", output_format=".npy"):
     mask_dirs = os.listdir(mask_dir_name)
 
     dir_path = os.path.join(preprocess_dir_name, indir_reading_name)
+    print(f"Reading slices from directory: {dir_path}\n\n")
+
     patients_slices = get_brains_slices_info(dir_path)
 
     created_mask_dir = os.path.join(preprocess_dir_name, new_masked_dir_name)
     try_create_dir(created_mask_dir)
 
+    print("Patients id and the slices range:")
     for patient_id, slices_range in patients_slices.items():
+        print("Patient id: ", patient_id)
+        print("Range: ", slices_range, "\n")
+        
+        print("Folder found:")
         full_dir_name = None
         for mask_dir in mask_dirs:
             if "_".join(patient_id.split('_')[:-1]) in mask_dir:  # the patient ID has a "leftover" (.._t1) which is skipped
+                print(mask_dir)
                 full_dir_name = mask_dir
                 break
-
+        
         path_mask = os.path.join(mask_dir_name, full_dir_name)
         like_path_mask = os.path.join(path_mask, mask_fingerprint)
         mask_file = glob(like_path_mask)[0]
         mask_filepath = os.path.join(path_mask, mask_file)
+
+        print(f"Used filepath to find the mask: {mask_filepath}")
 
         mask_slices, _, _ = load_nii_slices(mask_filepath,
                                             transpose_order,
@@ -386,7 +396,7 @@ def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_o
                                             max_slices_index=slices_range[1],
                                             target_zero_ratio=1)  # not caring about the zero percentage
 
-        for mask, mask_real_index in zip(mask_slices, range(slices_range[0], slices_range[1] + 1)):  # change [0] [1]
+        for mask, mask_real_index in zip(mask_slices, range(slices_range[0], slices_range[1] + 1)):
             mask_slice_filename = f"patient-{patient_id}-slice{mask_real_index}{output_format}"
             mask_slice_filepath = os.path.join(created_mask_dir, mask_slice_filename)
 
@@ -415,12 +425,12 @@ def get_brains_slices_info(dir_name):
     return patient_slices
 
 
-def get_all_brains_slices_info(ds_dir_name):
-    test_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "test"))
-    train_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "train"))
-    validation_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "validation"))
+# def get_all_brains_slices_info(ds_dir_name):
+#     test_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "test"))
+#     train_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "train"))
+#     validation_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "validation"))
 
-    return train_patients_slices, test_patients_slices, validation_patients_slices
+#     return train_patients_slices, test_patients_slices, validation_patients_slices
 
 
 def test_mask_in(img_name, img_dir, breakpoint=10, failed_dir="failed"):
