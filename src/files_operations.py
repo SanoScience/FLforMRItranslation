@@ -224,7 +224,7 @@ def trim_image(image, target_image_size: Tuple[int, int]):
            y_pixels_margin:target_image_size[1] + y_pixels_margin]
 
 
-def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[int, int]], min_slice_index=-1,
+def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[int, int]] = None, min_slice_index=-1,
                     max_slices_index=-1, index_step=1, target_zero_ratio=0.9):
     def get_optimal_slice_range(brain_slices, eps=1e-4, target_zero_ratio=0.9):
         zero_ratios = np.array([np.sum(brain_slice < eps) / (brain_slice.shape[0] * brain_slice.shape[1])
@@ -249,9 +249,9 @@ def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[i
         img = np.transpose(img, transpose_order)
 
     # an ugly way to deal with oasis different shape in the dataset
-    if img.shape[2] != 256:
-        print(f"Wrong image shape {img.shape}")
-        return None, None, None
+    # if img.shape[2] != 256:
+    #     print(f"Wrong image shape {img.shape}")
+    #     return None, None, None
 
     if image_size is not None:
         img = [trim_image(brain_slice, image_size) for brain_slice in img]
@@ -356,6 +356,42 @@ def try_create_dir(dir_name, allow_overwrite=True):
             f"The path {dir_name} to directory willing to be created doesn't exist. You are in {os.getcwd()}.")
 
         traceback.print_exception(FileNotFoundError, ex, ex.__traceback__)
+
+
+def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_order, mask_fingerprint="*seg.nii.gz", output_format=".npy"):
+    mask_dirs = os.listdir(mask_dir_name)
+
+    for set_dir in os.listdir(preprocess_dir_name):
+        dir_path = os.path.join(preprocess_dir_name, set_dir)
+        patients_slices = get_brains_slices_info(dir_path)
+
+        created_mask_dir = os.path.join(f"{dir_path}_brain_mask")
+        try_create_dir(created_mask_dir)
+
+        for patient_id, slices_range in patients_slices.items():
+            full_dir_name = None
+            for mask_dir in mask_dirs:
+                if "_".join(patient_id.split('_')[:-1]) in mask_dir:  # the patient ID has a "leftover" (.._t1) which is skipped
+                    full_dir_name = mask_dir
+                    break
+
+            path_mask = os.path.join(mask_dir_name, full_dir_name)
+            like_path_mask = os.path.join(path_mask, mask_fingerprint)
+            mask_file = glob(like_path_mask)[0]
+            mask_filepath = os.path.join(path_mask, mask_file)
+
+            mask_slices, _, _ = load_nii_slices(mask_filepath,
+                                                transpose_order,
+                                                min_slice_index=slices_range[0],
+                                                max_slices_index=slices_range[1],
+                                                target_zero_ratio=1)  # not caring about the zero percentage
+
+            for mask, mask_real_index in zip(mask_slices, range(slices_range[0], slices_range[1] + 1)):  # change [0] [1]
+                mask_slice_filename = f"patient-{patient_id}-slice{mask_real_index}{output_format}"
+                mask_slice_filepath = os.path.join(created_mask_dir, mask_slice_filename)
+
+                np.save(mask_slice_filepath, mask)
+                print(f"Mask file: {mask_slice_filepath} saved.")
 
 
 def get_brains_slices_info(dir_name):

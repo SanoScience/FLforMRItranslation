@@ -36,6 +36,7 @@ class NormalizationType(Enum):
 
 
 class ImageModality(Enum):
+    MASK = 0
     T1 = 1
     T2 = 2
     FLAIR = 3

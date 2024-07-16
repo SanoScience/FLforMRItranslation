@@ -17,7 +17,7 @@ class MRIDatasetNumpySlices(Dataset):
     """
     EPS = 1e-6
 
-    def __init__(self, data_dirs: List[str], translation_direction, image_size=None, normalize=True):
+    def __init__(self, data_dirs: List[str], translation_direction, image_size=None, normalize=True, binarize=False):
         if not isinstance(data_dirs, List):
             raise TypeError(f"Given parameter 'data_dirs': {data_dirs} is type: "
                             f"{type(data_dirs)} and should be a list of string.")
@@ -41,7 +41,11 @@ class MRIDatasetNumpySlices(Dataset):
             raise TypeError(f"Given parameter 'translation_direction': {translation_direction} "
                             f"is type: {type(translation_direction)} and should be a tuple")
 
+        if normalize and binarize:
+            raise ValueError("This dataset can either be used for binary output or output to be normalized, NOT both. ")
+
         self.normalize = normalize
+        self.binarize = binarize
         self.image_size = image_size
         self.images = []
         self.targets = []
@@ -82,6 +86,9 @@ class MRIDatasetNumpySlices(Dataset):
 
         tensor_image = torch.from_numpy(np.expand_dims(np_image, axis=0))
         tensor_target = torch.from_numpy(np.expand_dims(np_target, axis=0))
+
+        if self.binarize:
+            tensor_target = tensor_target > 0
 
         if self.normalize:
             try:
