@@ -359,13 +359,13 @@ def try_create_dir(dir_name, allow_overwrite=True):
 
 
 def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_order,
-                                 masked_dir_name="mask", mask_fingerprint="*seg.nii.gz", output_format=".npy"):
+                                 new_masked_dir_name="mask", indir_reading_name="train", mask_fingerprint="*seg.nii.gz", output_format=".npy"):
     mask_dirs = os.listdir(mask_dir_name)
 
-    dir_path = os.path.join(preprocess_dir_name, masked_dir_name)
+    dir_path = os.path.join(preprocess_dir_name, indir_reading_name)
     patients_slices = get_brains_slices_info(dir_path)
 
-    created_mask_dir = os.path.join(f"{dir_path}_brain_mask")
+    created_mask_dir = os.path.join(preprocess_dir_name, new_masked_dir_name)
     try_create_dir(created_mask_dir)
 
     for patient_id, slices_range in patients_slices.items():
