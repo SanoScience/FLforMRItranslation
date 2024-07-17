@@ -18,7 +18,6 @@ from typing_extensions import Literal
 from torchmetrics.functional.image.helper import _gaussian_kernel_2d, _gaussian_kernel_3d, _reflection_pad_3d
 from torchmetrics.functional.image.ssim import _multiscale_ssim_update, _ssim_check_inputs
 from torchmetrics.utilities.data import dim_zero_cat
-from torchmetrics.classification import Dice, BinaryJaccardIndex
 
 class DssimMse:
     def __init__(self, sqrt=False, zoomed_ssim=False):
@@ -530,11 +529,14 @@ class BinaryDiceLoss(torch.nn.Module):
     Raise:
         Exception if unexpected reduction
     """
-    def __init__(self, smooth=1, p=2, reduction='mean'):
+    def __init__(self, smooth=1, p=2, binary_crossentropy=False):
         super(BinaryDiceLoss, self).__init__()
         self.smooth = smooth
         self.p = p
-        self.reduction = reduction
+        self.binary_crossentropy = binary_crossentropy
+
+        if binary_crossentropy:
+            self.bce_loss = torch.nn.BCELoss().to(config_train.DEVICE)
 
     def forward(self, predict, target):
         assert predict.shape[0] == target.shape[0], "predict & target batch size don't match"
@@ -545,28 +547,46 @@ class BinaryDiceLoss(torch.nn.Module):
         den = torch.sum(predict.pow(self.p) + target.pow(self.p), dim=1) + self.smooth
 
         loss = 1 - num / den
+        loss = loss.mean()
 
-        if self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
-        elif self.reduction == 'none':
-            return loss
+        if self.binary_crossentropy:
+            bce_loss = self.bce_loss(loss, target.float())
+            total_loss = loss + bce_loss
         else:
-            raise Exception('Unexpected reduction {}'.format(self.reduction))
+            total_loss = loss
 
-class DiceLoss(torch.nn.Module):
-    def __init__(self):
-        super(DiceLoss, self).__init__()
-        self.dice = Dice().to(config_train.DEVICE)
+        return total_loss
     
-    def __call__(self, predicted, targets):
-        dice = Dice().to(config_train.DEVICE)
-        dice_score = dice(predicted, targets.int())
-        return 1 - dice_score
-
     def __repr__(self):
-        return "DICE LOSS"
+        if self.binary_crossentropy:
+            return "Dice with BCE LOSS"
+        else:
+            return "Dice LOSS"
 
-    def __str__(self):
-        return "DICE LOSS"
+
+# class DiceLoss(torch.nn.Module):
+#     def __init__(self, binary_crossentropy=False):
+#         super(DiceLoss, self).__init__()
+#         self.dice = Dice().to(config_train.DEVICE)
+
+#         self.binary_crossentropy = binary_crossentropy
+#         if self.binary_crossentropy:
+#             self.bce_loss = torch.nn.BCELoss()
+
+#     def __call__(self, predicted, targets):
+#         dice_score = self.dice(predicted, targets.int())
+#         dice_loss = 1 - dice_score
+        
+#         if self.binary_crossentropy:
+#             bce_loss = self.bce_loss(predicted, targets.float())
+#             total_loss = dice_loss + bce_loss
+#         else:
+#             total_loss = dice_loss
+        
+#         return total_loss
+
+#     def __repr__(self):
+#         return "DICE LOSS"
+
+#     def __str__(self):
+#         return "DICE LOSS"

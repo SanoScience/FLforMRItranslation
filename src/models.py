@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
+from torchmetrics.classification import Dice, BinaryJaccardIndex
 
 from configs import config_train, creds
 from src import visualization, loss_functions, files_operations as fop
@@ -23,8 +24,8 @@ mse = nn.MSELoss()
 masked_mse = loss_functions.MaskedMSE()
 relative_error = loss_functions.RelativeError()
 masked_ssim = loss_functions.MaskedSSIM().to(device)
-dice_score = loss_functions.Dice().to(device)
-jaccard_index = loss_functions.BinaryJaccardIndex().to(device)
+dice_score = Dice().to(device)
+jaccard_index = BinaryJaccardIndex().to(device)
 # zoomed_ssim = loss_functions.ZoomedSSIM()
 # qilv = loss_functions.QILV(use_mask=False)
 
