@@ -617,10 +617,7 @@ class DomiBinaryDiceLoss(torch.nn.Module):
         return loss
     
     def __repr__(self):
-        if self.binary_crossentropy:
-            return "Domi LOSS"
-        else:
-            return "Domi LOSS"
+        return "Domi LOSS"
 
 # class DiceLoss(torch.nn.Module):
 #     def __init__(self, binary_crossentropy=False):
