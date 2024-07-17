@@ -550,7 +550,7 @@ class BinaryDiceLoss(torch.nn.Module):
         loss = loss.mean()
 
         if self.binary_crossentropy:
-            bce_loss = self.bce_loss(predict, target)
+            bce_loss = self.bce_loss(predict, target.float())
             total_loss = loss + bce_loss
         else:
             total_loss = loss
@@ -563,6 +563,64 @@ class BinaryDiceLoss(torch.nn.Module):
         else:
             return "Dice LOSS"
 
+
+def weighted_BCE(predict, target):
+    
+    total_samples = torch.numel(target)
+    num_samples_0 = (target == 0).sum().item()
+    num_samples_1 = (target == 1).sum().item()
+    
+    weight_0 = 0 if num_samples_0 == 0 else total_samples/(num_samples_0*2)
+    weight_1 = 0 if num_samples_1 == 0 else total_samples/(num_samples_1*2)
+    
+    loss = -(weight_1*(target*torch.log(predict)) + weight_0*((1 - target)*torch.log(1 - predict)))
+         
+    return torch.mean(loss)
+
+
+def generalized_Dice(predict, target):
+    
+    num_samples_0 = (target == 0).sum().item()
+    num_samples_1 = (target == 1).sum().item()
+    
+    weight_0 = 0 if num_samples_0 == 0 else 1/(num_samples_0*num_samples_0)
+    weight_1 = 0 if num_samples_1 == 0 else 1/(num_samples_1*num_samples_1)
+
+    intersect = weight_1*(predict * target).sum() + weight_0*((1 - predict) * (1 - target)).sum()
+    denominator = weight_1*(predict + target).sum() + weight_0*((1 - predict) + (1 - target)).sum()
+    
+    loss = 1 - (2*(intersect/denominator))
+
+    return loss
+
+
+class DomiBinaryDiceLoss(torch.nn.Module):
+    """Dice loss of binary class
+    Args:
+        smooth: A float number to smooth loss, and avoid NaN error, default: 1
+        p: Denominator value: \sum{x^p} + \sum{y^p}, default: 2
+        predict: A tensor of shape [N, *]
+        target: A tensor of shape same with predict
+        reduction: Reduction method to apply, return mean over batch if 'mean',
+            return sum if 'sum', return a tensor of shape [N,] if 'none'
+    Returns:
+        Loss tensor according to arg reduction
+    Raise:
+        Exception if unexpected reduction
+    """
+    def __init__(self):
+        super(DomiBinaryDiceLoss, self).__init__()
+
+    def forward(self, predict, target):
+        loss = weighted_BCE(predict, target) + generalized_Dice(predict, target)
+
+        return loss
+    
+    def __repr__(self):
+        if self.binary_crossentropy:
+            return "Domi LOSS"
+        else:
+            return "Domi LOSS"
 
 # class DiceLoss(torch.nn.Module):
 #     def __init__(self, binary_crossentropy=False):
