@@ -550,7 +550,7 @@ class BinaryDiceLoss(torch.nn.Module):
         loss = loss.mean()
 
         if self.binary_crossentropy:
-            bce_loss = self.bce_loss(loss, target.float())
+            bce_loss = self.bce_loss(predict, target)
             total_loss = loss + bce_loss
         else:
             total_loss = loss
