@@ -17,7 +17,7 @@ LOCAL = False
 NODE_FILENAME = "SERVERNODE.txt"
 
 # saving and logging
-USE_WANDB = True
+USE_WANDB = False
 BATCH_PRINT_FREQ = 10  # number of batch after each the training parameters (metrics, loss) is printed
 SAVING_FREQUENCY = 10  # how often (round-wise) the model is saved
 CLIENT_SAVING_FREQ = 10  # how often (round-wise) the model is saved for client
@@ -28,10 +28,13 @@ N_GROUP_NORM = 32
 
 
 # client parameters
-METRICS = ["loss", "ssim", "pnsr", "mse", "masked_mse", "relative_error"]
+METRICS = ["loss",  "mse", "relative_error"]
+
+# METRICS = ["loss", "ssim", "pnsr", "mse", "masked_mse", "relative_error"]
+# METRICS = ["loss", "ssim", "masked_ssim", "pnsr", "mse", "masked_mse", "relative_error"]
 N_EPOCHS_CLIENT = 4
 
-TRANSLATION = (ImageModality.T1, ImageModality.FLAIR)
+TRANSLATION = (ImageModality.T2, ImageModality.MASK)
 LOSS_TYPE = LossFunctions.MSE_DSSIM
 BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)
@@ -44,25 +47,24 @@ NUM_WORKERS = 8
 PORT = "8084"
 # training parameters
 CLIENT_TYPE = ClientTypes.FED_BN
-AGGREGATION_METHOD = AggregationMethods.FED_AVG
-
+AGGREGATION_METHOD = AggregationMethods.FED_AVG 
 
 # federated learning parameters
 N_ROUNDS = 32
-MIN_FIT_CLIENTS = MIN_AVAILABLE_CLIENTS = 5
+MIN_FIT_CLIENTS = MIN_AVAILABLE_CLIENTS = 4
 FRACTION_FIT = 1.0
 
 # SPECIALIZED METHOD
 # FedOpt
 TAU = 1e-3
 # FedProx
-PROXIMAL_MU = 0.01
-STRAGGLERS = 0.2
+PROXIMAL_MU = 0.001
+STRAGGLERS = 0.5
 # FedAvgM
 MOMENTUM = 0.9
 
 # centralized train
-N_EPOCHS_CENTRALIZED = 50
+N_EPOCHS_CENTRALIZED = 10
 
 # directories
 if LOCAL:
