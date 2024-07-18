@@ -41,8 +41,8 @@ class MRIDatasetNumpySlices(Dataset):
             raise TypeError(f"Given parameter 'translation_direction': {translation_direction} "
                             f"is type: {type(translation_direction)} and should be a tuple")
 
-        if normalize and binarize:
-            raise ValueError("This dataset can either be used for binary output or output to be normalized, NOT both. ")
+        # if normalize and binarize:
+        #     raise ValueError("This dataset can either be used for binary output or output to be normalized, NOT both. ")
 
         self.normalize = normalize
         self.binarize = binarize
@@ -89,6 +89,7 @@ class MRIDatasetNumpySlices(Dataset):
 
         if self.binarize:
             tensor_target = tensor_target > 0
+            tensor_target = tensor_target.int()
 
         if self.normalize:
             try:
@@ -96,16 +97,18 @@ class MRIDatasetNumpySlices(Dataset):
             except ZeroDivisionError:
                 logging.warning(f"Data slice from the file {image_path} is a null image. "
                                 f"All the values of the numpy array are 0.0")
-
-            try:
-                tensor_target = self._normalize(tensor_target)
-            except ZeroDivisionError:
-                logging.warning(f"Data slice from the file {target_path} is a null image. "
-                                f"All the values of the numpy array are 0.0")
+            if not self.binarize:
+                try:
+                    tensor_target = self._normalize(tensor_target)
+                    tensor_target = tensor_target.float()
+                except ZeroDivisionError:
+                    logging.warning(f"Data slice from the file {target_path} is a null image. "
+                                    f"All the values of the numpy array are 0.0")
+                    
 
         # converting to float to be able to perform tensor multiplication
         # otherwise an error
-        return tensor_image.float(), tensor_target.float()
+        return tensor_image.float(), tensor_target
 
 
 class MRIDatasetNII(Dataset):

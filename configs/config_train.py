@@ -34,7 +34,7 @@ METRICS = ["loss",  "mse", "relative_error"]
 # METRICS = ["loss", "ssim", "masked_ssim", "pnsr", "mse", "masked_mse", "relative_error"]
 N_EPOCHS_CLIENT = 4
 
-TRANSLATION = (ImageModality.T2, ImageModality.MASK)
+TRANSLATION = (ImageModality.FLAIR, ImageModality.MASK)
 LOSS_TYPE = LossFunctions.MSE_DSSIM
 BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)
