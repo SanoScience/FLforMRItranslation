@@ -16,7 +16,7 @@ class MRIDatasetNumpySlices(Dataset):
     """
     EPS = 1e-6
 
-    def __init__(self, data_dirs: List[str], translation_direction, image_size=None, normalize=True, binarize=False):
+    def __init__(self, data_dirs: List[str], translation_direction, image_size=None, normalize=True, binarize=False, metric_mask_dir=None):
         if not isinstance(data_dirs, List):
             raise TypeError(f"Given parameter 'data_dirs': {data_dirs} is type: "
                             f"{type(data_dirs)} and should be a list of string.")
@@ -40,20 +40,26 @@ class MRIDatasetNumpySlices(Dataset):
             raise TypeError(f"Given parameter 'translation_direction': {translation_direction} "
                             f"is type: {type(translation_direction)} and should be a tuple")
 
-        # if normalize and binarize:
-        #     raise ValueError("This dataset can either be used for binary output or output to be normalized, NOT both. ")
-
+        # declaring booleans
         self.normalize = normalize
         self.binarize = binarize
+        self.metric_mask = metric_mask_dir is not None
+
         self.image_size = image_size
+
+        # declaring path lists
         self.images = []
         self.targets = []
+        self.masks_for_metrics = []
 
         for data_directory in data_dirs:
             self.images.extend(
                 sorted(glob(f"{data_directory}/{image_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
             self.targets.extend(
                 sorted(glob(f"{data_directory}/{target_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
+            if metric_mask_dir:
+                self.masks_for_metrics.extend(
+                    sorted(glob(f"{data_directory}/{metric_mask_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
 
             if len(self.images) == 0:
                 raise FileNotFoundError(f"In directory {data_directory} no 't1' and 't2' directories found.")
@@ -104,6 +110,13 @@ class MRIDatasetNumpySlices(Dataset):
                     logging.warning(f"Data slice from the file {target_path} is a null image. "
                                     f"All the values of the numpy array are 0.0")
                     
+        if self.metric_mask:
+            # all the same as previously
+            mask_path = self.masks_for_metrics[index]
+            np_mask = np.load(mask_path)
+            np_mask = np_mask > 0  # binarize
+            tensor_mask = torch.from_numpy(np.expand_dims(np_mask, axis=0))
+            return tensor_image.float(), tensor_target, tensor_mask.int()
 
         # converting to float to be able to perform tensor multiplication
         # otherwise an error

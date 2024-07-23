@@ -1,4 +1,4 @@
-from src import files_operations as fop
+from src.utils import files_operations as fop
 import sys
 
 

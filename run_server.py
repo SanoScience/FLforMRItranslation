@@ -1,8 +1,7 @@
 import socket
-import os
 import sys
 
-from src.strategies import *
+from src.fl.strategies import *
 
 import flwr as fl
 

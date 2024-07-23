@@ -12,9 +12,9 @@ from flwr.common.typing import NDArrays, Scalar
 from torch.utils.data import DataLoader
 
 from configs import config_train, enums
-from src import models
+from src.ml import models
 from src.utils import files_operations as fop
-from src.datasets import MRIDatasetNumpySlices
+from src.ml.datasets import MRIDatasetNumpySlices
 
 
 class ClassicClient(fl.client.NumPyClient):

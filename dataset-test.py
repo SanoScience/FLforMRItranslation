@@ -1,11 +1,10 @@
 import sys
-import numpy as np
-from os import path, listdir
+from os import path
 import torch
 
 from configs import config_train
-from src.visualization import plot_batch
-from src.datasets import MRIDatasetNumpySlices
+from src.utils.visualization import plot_batch
+from src.ml.datasets import MRIDatasetNumpySlices
 
 from torch.utils.data import DataLoader
 

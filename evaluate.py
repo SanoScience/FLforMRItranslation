@@ -5,17 +5,17 @@ import torch
 import importlib
 
 from configs import config_train, enums
-from src import datasets, models, loss_functions, visualization
+from src.ml import custom_metrics, datasets, models
 from torch.utils.data import DataLoader
 
 
-class DifferentConfigs(Exception):
+class DifferentTranslationError(Exception):
     pass
 
 
-def import_from_filepath(filepath):
-    module_name = filepath.replace('/', '_').replace('.py', '')  # Create a valid module name
-    spec = importlib.util.spec_from_file_location(module_name, filepath)
+def import_from_filepath(to_import_filepath):
+    module_name = to_import_filepath.replace('/', '_').replace('.py', '')  # Create a valid module name
+    spec = importlib.util.spec_from_file_location(module_name, to_import_filepath)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -40,7 +40,7 @@ if __name__ == '__main__':
         imported_config = import_from_filepath(config_path)
         
         if imported_config.TRANSLATION != config_train.TRANSLATION:
-            raise DifferentConfigs(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
+            raise DifferentTranslationError(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
         else:
             print(f"Translations match: {imported_config.TRANSLATION}")
 
@@ -55,11 +55,11 @@ if __name__ == '__main__':
     testloader = DataLoader(testset, batch_size=1355, shuffle=False)
     if "prox" in model_path.lower():
         mu = imported_config.PROXIMAL_MU
-        criterion = loss_functions.LossWithProximalTerm(proximal_mu=mu, base_loss_fn=loss_functions.DssimMse())
+        criterion = custom_metrics.LossWithProximalTerm(proximal_mu=mu, base_loss_fn=custom_metrics.DssimMse())
     elif segmenatation_task:
-        criterion = loss_functions.BinaryDiceLoss(binary_crossentropy=True) 
+        criterion = custom_metrics.BinaryDiceLoss(binary_crossentropy=True)
     else:
-        criterion = loss_functions.DssimMse()
+        criterion = custom_metrics.DssimMse()
     
     print(f"Taken criterion is: {criterion}")
     unet = models.UNet(criterion).to(config_train.DEVICE)

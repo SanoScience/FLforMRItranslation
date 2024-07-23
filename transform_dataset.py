@@ -1,6 +1,6 @@
 import sys
 
-from src.files_operations import TransformNIIDataToNumpySlices
+from src.utils.files_operations import TransformNIIDataToNumpySlices
 
 if __name__ == '__main__':
     # target_root_dir = sys.argv[1]

@@ -3,11 +3,9 @@ import sys
 from shutil import copy2
 
 import torch.optim as optim
-from torch.nn import MSELoss
 
-from src import custom_metrics
-from src.datasets import *
-from src.models import *
+from src.ml.datasets import *
+from src.ml.models import *
 
 
 if __name__ == '__main__':

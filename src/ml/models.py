@@ -12,7 +12,7 @@ from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoise
 from torchmetrics.classification import Dice, BinaryJaccardIndex
 
 from configs import config_train, creds
-from src import custom_metrics
+from src.ml import custom_metrics
 from src.utils import files_operations as fop, visualization
 
 device = config_train.DEVICE
@@ -271,10 +271,11 @@ class UNet(nn.Module):
 
         metrics_values = {m_name: 0.0 for m_name in metrics.keys()}
         with torch.no_grad():
-            for batch_index, (images_cpu, targets_cpu) in enumerate(testloader):
+            for batch_index, (images_cpu, targets_cpu, metric_mask_cpu) in enumerate(testloader):
                 # loading the input and target images
                 images = images_cpu.to(config_train.DEVICE)
                 targets = targets_cpu.to(config_train.DEVICE)
+                metric_mask = metric_mask_cpu.to(config_train.DEVICE)
 
                 # utilizing the network
                 predictions = self(images)
@@ -299,7 +300,11 @@ class UNet(nn.Module):
                 for metric_name, metrics_obj in metrics.items():
                     if isinstance(metrics_obj, custom_metrics.LossWithProximalTerm):
                         metrics_obj = metrics_obj.base_loss_fn
-                    metric_value = metrics_obj(predictions, targets)
+                    if isinstance(metrics_obj, custom_metrics.ZoomedSSIM):
+                        metric_value = metrics_obj(predictions, targets, metric_mask)
+                    else:
+                        metric_value = metrics_obj(predictions, targets)
+
                     print(f"{metric_name}: ", metric_value)
                     metrics_values[metric_name] += metric_value.item()
 

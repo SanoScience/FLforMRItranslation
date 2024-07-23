@@ -1,9 +1,6 @@
-import os
 import sys
-import socket
 
-from src import loss_functions, models
-from src.clients import *
+from src.fl.clients import *
 
 
 if __name__ == "__main__":
