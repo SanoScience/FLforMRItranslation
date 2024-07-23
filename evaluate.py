@@ -4,7 +4,7 @@ import pickle
 import torch
 import importlib
 
-from configs import config_train
+from configs import config_train, enums
 from src import datasets, models, loss_functions, visualization
 from torch.utils.data import DataLoader
 
@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
     model_dir = '/'.join(e for e in model_path.split('/')[:-1])
     representative_test_dir = test_dir.split('/')[-2]
-
+    print("Model dir is: ", model_dir)
     # verifying if the translation is the same direction as the trained model 
     try:
         imported_config = import_from_filepath(config_path)
@@ -44,16 +44,21 @@ if __name__ == '__main__':
         else:
             print(f"Translations match: {imported_config.TRANSLATION}")
 
+        segmenatation_task = imported_config.TRANSLATION[1] == enums.ImageModality.MASK
+        if segmenatation_task:
+            print("\nMask as the target modality, evaluation for segmenatation task\n")
+
     except FileNotFoundError:
         print(f"WARNING: The config file not found at {config_path}. The direction of the translation not verified!")
-
-    testset = datasets.MRIDatasetNumpySlices([test_dir], translation_direction=config_train.TRANSLATION)
-    testloader = DataLoader(testset, batch_size=BATCH_SIZE)
+    
+    testset = datasets.MRIDatasetNumpySlices([test_dir], translation_direction=config_train.TRANSLATION, binarize=segmenatation_task)
+    testloader = DataLoader(testset, batch_size=1355, shuffle=False)
     if "prox" in model_path.lower():
         mu = imported_config.PROXIMAL_MU
         criterion = loss_functions.LossWithProximalTerm(proximal_mu=mu, base_loss_fn=loss_functions.DssimMse())
+    elif segmenatation_task:
+        criterion = loss_functions.BinaryDiceLoss(binary_crossentropy=True) 
     else:
-        print(model_path)
         criterion = loss_functions.DssimMse()
     
     print(f"Taken criterion is: {criterion}")
@@ -65,16 +70,25 @@ if __name__ == '__main__':
     except FileNotFoundError:
         print(f"You are in {os.getcwd()} and there is no given path")
         exit()
-
+    
+    print(f"Testing on the data from: {test_dir}")
     images, targets = next(iter(testloader))
 
     images = images.to(config_train.DEVICE)
     predictions = unet(images)
 
     print(f"Model and data loaed; evaluation starts...")
-    metrics = unet.evaluate(testloader, with_masked_ssim=True, save_preds_dir=os.path.join(model_dir, "preds", representative_test_dir))
-  
-    filepath = os.path.join(model_dir, f"test_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
+    if segmenatation_task:
+        save_preds_dir = None
+    else:
+        save_preds_dir = os.path.join(model_dir, "preds", representative_test_dir)
+        
+    metrics = unet.evaluate(testloader, wanted_metrics=["jaccard", "dice", "loss"], save_preds_dir=save_preds_dir)
+    
+    if segmenatation_task:
+        filepath = os.path.join(model_dir, f"test_{representative_test_dir}_jaccard_{metrics['val_jaccard']:.2f}.pkl")
+    else:
+        filepath = os.path.join(model_dir, f"test_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
 
     with open(filepath, "wb") as file:
         pickle.dump(metrics, file)

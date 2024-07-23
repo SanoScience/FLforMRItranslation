@@ -20,17 +20,30 @@ if __name__ == '__main__':
             data_dir = sys.argv[1]
             train_directories = [os.path.join(data_dir, "train")]
             validation_directories = [os.path.join(data_dir, "validation")]
+            representative_test_dir = train_directories[0].split(os.path.sep)[-2]
         else:
-            train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/oasis_125/train"]
-            validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/oasis_125/validation"]
+            train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/oasis/train",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/ucsf_150/train",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/train",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg_125/train",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_mgh_masks/train",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_wu_minn/train"]
+            validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/oasis/validation",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/ucsf_150/validation",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/validation",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg_125/validation",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_mgh_masks/validation",
+                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_wu_minn/validation"]
+            representative_test_dir = "all_data"
+
 
     translation_direction = config_train.TRANSLATION  # T1->T2
-    train_dataset = MRIDatasetNumpySlices(train_directories, translation_direction=translation_direction)
-    validation_dataset = MRIDatasetNumpySlices(validation_directories, translation_direction=translation_direction)
+    train_dataset = MRIDatasetNumpySlices(train_directories, translation_direction=translation_direction, binarize=True)
+    # train_dataset = MRIDatasetNumpySlices(train_directories, translation_direction=translation_direction, image_size=(176, 240))
+    validation_dataset = MRIDatasetNumpySlices(validation_directories, translation_direction=translation_direction, binarize=True)
 
     print(f"Translation: {translation_direction[0].name}->{translation_direction[1].name}")
 
-    representative_test_dir = train_directories[0].split(os.path.sep)[-2]
 
     if config_train.LOCAL:
         trainloader = DataLoader(train_dataset,
@@ -52,7 +65,7 @@ if __name__ == '__main__':
                                num_workers=config_train.NUM_WORKERS,
                                pin_memory=True)
 
-    criterion = loss_functions.DssimMse()
+    criterion = loss_functions.BinaryDiceLoss(binary_crossentropy=True)
     unet = UNet(criterion).to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
 
