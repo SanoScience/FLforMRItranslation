@@ -253,7 +253,7 @@ class UNet(nn.Module):
 
         return history
 
-    def evaluate(self, testloader, plots_path=None, plot_filename=None, evaluate=True, with_masked_ssim=False, save_preds_dir=None):
+    def evaluate(self, testloader, plots_path=None, plot_filename=None, evaluate=True, wanted_metrics=None, save_preds_dir=None):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
@@ -261,10 +261,10 @@ class UNet(nn.Module):
 
         n_steps = 0
 
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "masked_ssim": masked_ssim, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
 
-        if with_masked_ssim:
-            metrics["masked_ssim"] = masked_ssim
+        if wanted_metrics:
+            metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if metric_name in wanted_metrics}
 
         if evaluate:
             metrics = {f"val_{name}": metric for name, metric in metrics.items()}
@@ -303,6 +303,7 @@ class UNet(nn.Module):
                     if isinstance(metrics_obj, loss_functions.LossWithProximalTerm):
                         metrics_obj = metrics_obj.base_loss_fn
                     metric_value = metrics_obj(predictions, targets)
+                    print(f"{metric_name}: ", metric_value)
                     metrics_values[metric_name] += metric_value.item()
 
                 n_steps += 1
