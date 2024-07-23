@@ -23,7 +23,8 @@ class DssimMse:
     def __init__(self, sqrt=False, zoomed_ssim=False):
         self.sqrt = sqrt
         self.mse = MSELoss()
-
+        self.zoomed_ssim = zoomed_ssim
+        
         if zoomed_ssim:
             self.ssim = ZoomedSSIM()
         else:
