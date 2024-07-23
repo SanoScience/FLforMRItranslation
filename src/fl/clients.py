@@ -3,7 +3,7 @@ import os.path
 import pickle
 import random
 from collections import OrderedDict
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple
 
 import flwr as fl
 import numpy as np
@@ -12,7 +12,8 @@ from flwr.common.typing import NDArrays, Scalar
 from torch.utils.data import DataLoader
 
 from configs import config_train, enums
-from src import models, loss_functions, files_operations as fop
+from src import models
+from src.utils import files_operations as fop
 from src.datasets import MRIDatasetNumpySlices
 
 

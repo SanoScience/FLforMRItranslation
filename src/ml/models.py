@@ -1,5 +1,4 @@
 from os import path
-from itertools import chain
 import pickle
 import wandb
 import time
@@ -9,21 +8,21 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
 from torchmetrics.classification import Dice, BinaryJaccardIndex
 
 from configs import config_train, creds
-from src import visualization, loss_functions, files_operations as fop
+from src import custom_metrics
+from src.utils import files_operations as fop, visualization
 
 device = config_train.DEVICE
 batch_print_freq = config_train.BATCH_PRINT_FREQ
 ssim = StructuralSimilarityIndexMeasure().to(device)
 psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
 mse = nn.MSELoss()
-masked_mse = loss_functions.MaskedMSE()
-relative_error = loss_functions.RelativeError()
-masked_ssim = loss_functions.MaskedSSIM().to(device)
+masked_mse = custom_metrics.MaskedMSE()
+relative_error = custom_metrics.RelativeError()
+masked_ssim = custom_metrics.MaskedSSIM().to(device)
 dice_score = Dice().to(device)
 jaccard_index = BinaryJaccardIndex().to(device)
 # zoomed_ssim = loss_functions.ZoomedSSIM()
@@ -105,7 +104,7 @@ class UNet(nn.Module):
         # running_loss, total_ssim = 0.0, 0.0
         # epoch_loss, epoch_ssim = 0.0, 0.0
 
-        use_prox_loss = isinstance(self.criterion, loss_functions.LossWithProximalTerm)
+        use_prox_loss = isinstance(self.criterion, custom_metrics.LossWithProximalTerm)
         
         if n_batches < config_train.BATCH_PRINT_FREQ:
             batch_print_frequency = n_batches - 2  # tbh not sure if this -2 is needed
@@ -123,8 +122,6 @@ class UNet(nn.Module):
             optimizer.zero_grad()
 
             predictions = self(images)
-            criterion_2 = loss_functions.DssimMse()
-            loss_2 = criterion_2(predictions, targets)
 
             if use_prox_loss:
                 loss = self.criterion(predictions, targets, self.parameters(), global_params)
@@ -149,13 +146,13 @@ class UNet(nn.Module):
 
             if index % batch_print_frequency == batch_print_frequency - 1:
                 divided_batch_metrics = {metric_name: total_value/batch_print_frequency for metric_name, total_value in total_metrics.items()}
-                metrics_str = loss_functions.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
+                metrics_str = custom_metrics.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
                 print(f'\tbatch {(index + 1)} out of {n_batches}\t\t{metrics_str}')
 
                 total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
 
         averaged_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in epoch_metrics.items()}
-        metrics_epoch_str = loss_functions.metrics_to_str(averaged_epoch_metrics, starting_symbol="")
+        metrics_epoch_str = custom_metrics.metrics_to_str(averaged_epoch_metrics, starting_symbol="")
 
         print(f"\n\tTime exceeded: {time.time() - start:.1f}")
         print(f"\tEpoch metrics: {metrics_epoch_str}")
@@ -300,7 +297,7 @@ class UNet(nn.Module):
 
                 # calculating metrics
                 for metric_name, metrics_obj in metrics.items():
-                    if isinstance(metrics_obj, loss_functions.LossWithProximalTerm):
+                    if isinstance(metrics_obj, custom_metrics.LossWithProximalTerm):
                         metrics_obj = metrics_obj.base_loss_fn
                     metric_value = metrics_obj(predictions, targets)
                     print(f"{metric_name}: ", metric_value)
@@ -316,7 +313,7 @@ class UNet(nn.Module):
                                      filepath=filepath)
 
         averaged_metrics = {metric_name: metric_value / n_steps for metric_name, metric_value in metrics_values.items()}
-        metrics_str = loss_functions.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
+        metrics_str = custom_metrics.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
 
         print(f"\tFor evaluation set: {metrics_str}\n")
 

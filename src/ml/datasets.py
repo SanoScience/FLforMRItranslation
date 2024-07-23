@@ -7,8 +7,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import Compose
 
-from src.files_operations import load_nii_slices, get_nii_filepaths, TransformNIIDataToNumpySlices, trim_image
-from configs import enums
+from src.utils.files_operations import load_nii_slices, get_nii_filepaths, TransformNIIDataToNumpySlices, trim_image
 
 
 class MRIDatasetNumpySlices(Dataset):

@@ -10,7 +10,8 @@ import numpy as np
 from functools import reduce
 from torch.utils.data import DataLoader
 
-from src import files_operations, loss_functions, models, datasets
+from src import models, datasets
+from src.utils import files_operations
 from configs import config_train
 
 import flwr as fl

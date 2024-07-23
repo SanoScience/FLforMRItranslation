@@ -19,12 +19,13 @@ from torchmetrics.functional.image.helper import _gaussian_kernel_2d, _gaussian_
 from torchmetrics.functional.image.ssim import _multiscale_ssim_update, _ssim_check_inputs
 from torchmetrics.utilities.data import dim_zero_cat
 
+
 class DssimMse:
     def __init__(self, sqrt=False, zoomed_ssim=False):
         self.sqrt = sqrt
         self.mse = MSELoss()
         self.zoomed_ssim = zoomed_ssim
-        
+
         if zoomed_ssim:
             self.ssim = ZoomedSSIM()
         else:
@@ -70,7 +71,7 @@ class LossWithProximalTerm:
         for local_weights, global_weights in zip(local_params, global_params):
             proximal_term += (local_weights - global_weights).norm(2) ** 2
 
-        return self.base_loss_fn(predicted, targets) + (self.proximal_mu/2) * proximal_term
+        return self.base_loss_fn(predicted, targets) + (self.proximal_mu / 2) * proximal_term
 
     def __repr__(self):
         return f"ProxLoss with mu={self.proximal_mu} base function={self.base_loss_fn}"
@@ -86,15 +87,15 @@ class ZoomedSSIM(Metric):
         self.add_state("batch_size", default=torch.tensor(0), dist_reduce_fx="sum")
         self.ssim = StructuralSimilarityIndexMeasure(data_range=data_range).to(config_train.DEVICE)
 
-    def update(self, preds: torch.Tensor, targets: torch.Tensor):
-
+    def update(self, preds: torch.Tensor, targets: torch.Tensor, mask: torch.Tensor = None):
         # preds, targets = self._input_format()
         assert preds.shape == targets.shape
 
         for pred, target in zip(preds, targets):
             image = target.detach()[0]
 
-            non_zeros = torch.nonzero(image)
+            if mask is None:  # default the brain mask which can be easily computed
+                non_zeros = torch.nonzero(image)
             first_index_row = int(non_zeros[0][0])
             last_index_row = int(non_zeros[-1][0])
 
@@ -347,7 +348,183 @@ class MaskedSSIM(Metric):
 
         ssim_idx_masked = ssim_idx * mask[..., pad_h:-pad_h, pad_w:-pad_w]
 
-        return ssim_idx_masked.reshape(ssim_idx_masked.shape[0], -1).sum(-1) / mask.reshape(ssim_idx_masked.shape[0], -1).sum(-1)
+        return ssim_idx_masked.reshape(ssim_idx_masked.shape[0], -1).sum(-1) / mask.reshape(ssim_idx_masked.shape[0],
+                                                                                            -1).sum(-1)
+
+
+class MaskedMSE:
+    def __call__(self, predicted, targets):
+        mask = targets > 0
+        return torch.sum(((predicted - targets) * mask) ** 2.0) / torch.sum(mask)
+
+
+class RelativeError:
+    def __call__(self, predicted, targets, *args: Any, **kwds: Any) -> Any:
+        mask = targets > 0
+        result = torch.nansum((abs(predicted - targets) / targets) * mask) / torch.sum(mask)
+        return result
+
+
+def loss_from_config():
+    if config_train.LOSS_TYPE == config_train.LossFunctions.MSE_DSSIM:
+        return DssimMse()
+    elif config_train.LOSS_TYPE == config_train.LossFunctions.PROX:
+        return LossWithProximalTerm(config_train.PROXIMAL_MU, DssimMse())
+    elif config_train.LOSS_TYPE == config_train.LossFunctions.RMSE_DDSIM:
+        return DssimMse(sqrt=True)
+    elif config_train.LOSS_TYPE == config_train.LossFunctions.MSE_ZOOMED_DSSIM:
+        return DssimMse(zoomed_ssim=True)
+    else:  # config_train.LOSS_TYPE == config_train.LossFunctions.MSE:
+        return MSELoss()
+
+
+def metrics_to_str(metrics: Dict[str, List[float]], starting_symbol=""):
+    metrics_epoch_str = starting_symbol
+    for metric_name, epoch_value in metrics.items():
+        metrics_epoch_str += f"{metric_name}: {epoch_value:.3f}\t"
+
+    return metrics_epoch_str
+
+
+################
+# SEGMENTATION #
+################
+class BinaryDiceLoss(torch.nn.Module):
+    """Dice loss of binary class
+    Args:
+        smooth: A float number to smooth loss, and avoid NaN error, default: 1
+        p: Denominator value: \sum{x^p} + \sum{y^p}, default: 2
+        predict: A tensor of shape [N, *]
+        target: A tensor of shape same with predict
+        reduction: Reduction method to apply, return mean over batch if 'mean',
+            return sum if 'sum', return a tensor of shape [N,] if 'none'
+    Returns:
+        Loss tensor according to arg reduction
+    Raise:
+        Exception if unexpected reduction
+    """
+
+    def __init__(self, smooth=1, p=2, binary_crossentropy=False):
+        super(BinaryDiceLoss, self).__init__()
+        self.smooth = smooth
+        self.p = p
+        self.binary_crossentropy = binary_crossentropy
+
+        if binary_crossentropy:
+            self.bce_loss = torch.nn.BCELoss().to(config_train.DEVICE)
+
+    def forward(self, predict, target):
+        assert predict.shape[0] == target.shape[0], "predict & target batch size don't match"
+        predict = predict.contiguous().view(predict.shape[0], -1)
+        target = target.contiguous().view(target.shape[0], -1)
+
+        num = torch.sum(torch.mul(predict, target), dim=1) + self.smooth
+        den = torch.sum(predict.pow(self.p) + target.pow(self.p), dim=1) + self.smooth
+
+        loss = 1 - num / den
+        loss = loss.mean()
+
+        if self.binary_crossentropy:
+            bce_loss = self.bce_loss(predict, target.float())
+            total_loss = loss + bce_loss
+        else:
+            total_loss = loss
+
+        return total_loss
+
+    def __repr__(self):
+        if self.binary_crossentropy:
+            return "Dice with BCE LOSS"
+        else:
+            return "Dice LOSS"
+
+
+def weighted_BCE(predict, target):
+    total_samples = torch.numel(target)
+    num_samples_0 = (target == 0).sum().item()
+    num_samples_1 = (target == 1).sum().item()
+
+    weight_0 = 0 if num_samples_0 == 0 else total_samples / (num_samples_0 * 2)
+    weight_1 = 0 if num_samples_1 == 0 else total_samples / (num_samples_1 * 2)
+
+    loss = -(weight_1 * (target * torch.log(predict)) + weight_0 * ((1 - target) * torch.log(1 - predict)))
+
+    return torch.mean(loss)
+
+
+def generalized_Dice(predict, target):
+    num_samples_0 = (target == 0).sum().item()
+    num_samples_1 = (target == 1).sum().item()
+
+    weight_0 = 0 if num_samples_0 == 0 else 1 / (num_samples_0 * num_samples_0)
+    weight_1 = 0 if num_samples_1 == 0 else 1 / (num_samples_1 * num_samples_1)
+
+    intersect = weight_1 * (predict * target).sum() + weight_0 * ((1 - predict) * (1 - target)).sum()
+    denominator = weight_1 * (predict + target).sum() + weight_0 * ((1 - predict) + (1 - target)).sum()
+
+    loss = 1 - (2 * (intersect / denominator))
+
+    return loss
+
+
+class DomiBinaryDiceLoss(torch.nn.Module):
+    """Dice loss of binary class
+    Args:
+        smooth: A float number to smooth loss, and avoid NaN error, default: 1
+        p: Denominator value: \sum{x^p} + \sum{y^p}, default: 2
+        predict: A tensor of shape [N, *]
+        target: A tensor of shape same with predict
+        reduction: Reduction method to apply, return mean over batch if 'mean',
+            return sum if 'sum', return a tensor of shape [N,] if 'none'
+    Returns:
+        Loss tensor according to arg reduction
+    Raise:
+        Exception if unexpected reduction
+    """
+
+    def __init__(self):
+        super(DomiBinaryDiceLoss, self).__init__()
+
+    def forward(self, predict, target):
+        loss = weighted_BCE(predict, target) + generalized_Dice(predict, target)
+
+        return loss
+
+    def __repr__(self):
+        return "Domi LOSS"
+
+
+###############
+## GRAVEYARD ##
+###############
+
+
+# class DiceLoss(torch.nn.Module):
+#     def __init__(self, binary_crossentropy=False):
+#         super(DiceLoss, self).__init__()
+#         self.dice = Dice().to(config_train.DEVICE)
+
+#         self.binary_crossentropy = binary_crossentropy
+#         if self.binary_crossentropy:
+#             self.bce_loss = torch.nn.BCELoss()
+
+#     def __call__(self, predicted, targets):
+#         dice_score = self.dice(predicted, targets.int())
+#         dice_loss = 1 - dice_score
+
+#         if self.binary_crossentropy:
+#             bce_loss = self.bce_loss(predicted, targets.float())
+#             total_loss = dice_loss + bce_loss
+#         else:
+#             total_loss = dice_loss
+
+#         return total_loss
+
+#     def __repr__(self):
+#         return "DICE LOSS"
+
+#     def __str__(self):
+#         return "DICE LOSS"
 
 
 class QILV(Metric):
@@ -367,7 +544,6 @@ class QILV(Metric):
 
     def compute(self):
         return (sum(self.qilv_list) / self.batch_size).clone().detach()
-
 
     @staticmethod
     def nanstd(x):
@@ -432,6 +608,7 @@ class QILV(Metric):
 
         return ind.to(config_train.DEVICE)
 
+
 def QILV_nontorch(image1, image2, mask=None, window=0):
     if (window == 0):
         window = signal.gaussian(11, std=1.5)
@@ -477,172 +654,3 @@ def QILV_nontorch(image1, image2, mask=None, window=0):
     ind = ind1 * ind2 * ind3
 
     return ind
-
-
-class MaskedMSE:
-    def __call__(self, predicted, targets):
-        mask = targets > 0
-        return torch.sum(((predicted-targets)*mask)**2.0) / torch.sum(mask)
-    
-
-class RelativeError:
-    def __call__(self, predicted, targets, *args: Any, **kwds: Any) -> Any:
-        mask = targets > 0
-        result = torch.nansum((abs(predicted-targets)/targets)*mask)/torch.sum(mask)
-        return result
-
-
-def loss_from_config():
-    if config_train.LOSS_TYPE == config_train.LossFunctions.MSE_DSSIM:
-        return DssimMse()
-    elif config_train.LOSS_TYPE == config_train.LossFunctions.PROX:
-        return LossWithProximalTerm(config_train.PROXIMAL_MU, DssimMse())
-    elif config_train.LOSS_TYPE == config_train.LossFunctions.RMSE_DDSIM:
-        return DssimMse(sqrt=True)
-    elif config_train.LOSS_TYPE == config_train.LossFunctions.MSE_ZOOMED_DSSIM:
-        return DssimMse(zoomed_ssim=True)
-    else:  # config_train.LOSS_TYPE == config_train.LossFunctions.MSE:
-        return MSELoss()
-
-
-def metrics_to_str(metrics: Dict[str, List[float]], starting_symbol=""):
-    metrics_epoch_str = starting_symbol
-    for metric_name, epoch_value in metrics.items():
-        metrics_epoch_str += f"{metric_name}: {epoch_value:.3f}\t"
-
-    return metrics_epoch_str
-
-
-#################
-# SEGMENATATION #
-#################
-class BinaryDiceLoss(torch.nn.Module):
-    """Dice loss of binary class
-    Args:
-        smooth: A float number to smooth loss, and avoid NaN error, default: 1
-        p: Denominator value: \sum{x^p} + \sum{y^p}, default: 2
-        predict: A tensor of shape [N, *]
-        target: A tensor of shape same with predict
-        reduction: Reduction method to apply, return mean over batch if 'mean',
-            return sum if 'sum', return a tensor of shape [N,] if 'none'
-    Returns:
-        Loss tensor according to arg reduction
-    Raise:
-        Exception if unexpected reduction
-    """
-    def __init__(self, smooth=1, p=2, binary_crossentropy=False):
-        super(BinaryDiceLoss, self).__init__()
-        self.smooth = smooth
-        self.p = p
-        self.binary_crossentropy = binary_crossentropy
-
-        if binary_crossentropy:
-            self.bce_loss = torch.nn.BCELoss().to(config_train.DEVICE)
-
-    def forward(self, predict, target):
-        assert predict.shape[0] == target.shape[0], "predict & target batch size don't match"
-        predict = predict.contiguous().view(predict.shape[0], -1)
-        target = target.contiguous().view(target.shape[0], -1)
-
-        num = torch.sum(torch.mul(predict, target), dim=1) + self.smooth
-        den = torch.sum(predict.pow(self.p) + target.pow(self.p), dim=1) + self.smooth
-
-        loss = 1 - num / den
-        loss = loss.mean()
-
-        if self.binary_crossentropy:
-            bce_loss = self.bce_loss(predict, target.float())
-            total_loss = loss + bce_loss
-        else:
-            total_loss = loss
-
-        return total_loss
-    
-    def __repr__(self):
-        if self.binary_crossentropy:
-            return "Dice with BCE LOSS"
-        else:
-            return "Dice LOSS"
-
-
-def weighted_BCE(predict, target):
-    
-    total_samples = torch.numel(target)
-    num_samples_0 = (target == 0).sum().item()
-    num_samples_1 = (target == 1).sum().item()
-    
-    weight_0 = 0 if num_samples_0 == 0 else total_samples/(num_samples_0*2)
-    weight_1 = 0 if num_samples_1 == 0 else total_samples/(num_samples_1*2)
-    
-    loss = -(weight_1*(target*torch.log(predict)) + weight_0*((1 - target)*torch.log(1 - predict)))
-         
-    return torch.mean(loss)
-
-
-def generalized_Dice(predict, target):
-    
-    num_samples_0 = (target == 0).sum().item()
-    num_samples_1 = (target == 1).sum().item()
-    
-    weight_0 = 0 if num_samples_0 == 0 else 1/(num_samples_0*num_samples_0)
-    weight_1 = 0 if num_samples_1 == 0 else 1/(num_samples_1*num_samples_1)
-
-    intersect = weight_1*(predict * target).sum() + weight_0*((1 - predict) * (1 - target)).sum()
-    denominator = weight_1*(predict + target).sum() + weight_0*((1 - predict) + (1 - target)).sum()
-    
-    loss = 1 - (2*(intersect/denominator))
-
-    return loss
-
-
-class DomiBinaryDiceLoss(torch.nn.Module):
-    """Dice loss of binary class
-    Args:
-        smooth: A float number to smooth loss, and avoid NaN error, default: 1
-        p: Denominator value: \sum{x^p} + \sum{y^p}, default: 2
-        predict: A tensor of shape [N, *]
-        target: A tensor of shape same with predict
-        reduction: Reduction method to apply, return mean over batch if 'mean',
-            return sum if 'sum', return a tensor of shape [N,] if 'none'
-    Returns:
-        Loss tensor according to arg reduction
-    Raise:
-        Exception if unexpected reduction
-    """
-    def __init__(self):
-        super(DomiBinaryDiceLoss, self).__init__()
-
-    def forward(self, predict, target):
-        loss = weighted_BCE(predict, target) + generalized_Dice(predict, target)
-
-        return loss
-    
-    def __repr__(self):
-        return "Domi LOSS"
-
-# class DiceLoss(torch.nn.Module):
-#     def __init__(self, binary_crossentropy=False):
-#         super(DiceLoss, self).__init__()
-#         self.dice = Dice().to(config_train.DEVICE)
-
-#         self.binary_crossentropy = binary_crossentropy
-#         if self.binary_crossentropy:
-#             self.bce_loss = torch.nn.BCELoss()
-
-#     def __call__(self, predicted, targets):
-#         dice_score = self.dice(predicted, targets.int())
-#         dice_loss = 1 - dice_score
-        
-#         if self.binary_crossentropy:
-#             bce_loss = self.bce_loss(predicted, targets.float())
-#             total_loss = dice_loss + bce_loss
-#         else:
-#             total_loss = dice_loss
-        
-#         return total_loss
-
-#     def __repr__(self):
-#         return "DICE LOSS"
-
-#     def __str__(self):
-#         return "DICE LOSS"
