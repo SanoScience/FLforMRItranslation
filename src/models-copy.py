@@ -1,43 +1,26 @@
-import logging
 from os import path
 import pickle
 import wandb
 import time
 from typing import Callable
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
-from torchmetrics.classification import Dice, BinaryJaccardIndex
 
 from configs import config_train, creds
-from src.ml import custom_metrics
 from src.utils import files_operations as fop, visualization
 
 device = config_train.DEVICE
 batch_print_freq = config_train.BATCH_PRINT_FREQ
-ssim = StructuralSimilarityIndexMeasure().to(device)
+ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
 psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
 mse = nn.MSELoss()
-masked_mse = custom_metrics.MaskedMSE()
-relative_error = custom_metrics.RelativeError()
-masked_ssim = custom_metrics.MaskedSSIM().to(device)
-zoomed_ssim = custom_metrics.ZoomedSSIM(margin=5)
+zoomed_ssim = loss_functions.ZoomedSSIM()
 
-dice_score = Dice().to(device)
-jaccard_index = BinaryJaccardIndex().to(device)
-# qilv = loss_functions.QILV(use_mask=False)
 
 class UNet(nn.Module):
-    """
-        UNet model class used for federated learning.
-        Consists the methods to train and evaluate.
-        Allows two different normalizations: 
-            - standard BatchNormalization
-            - GroupNorm (the number of groups specified in the config)
-    """
     def __init__(self, criterion=None, bilinear=False, normalization=config_train.NORMALIZATION):
         super(UNet, self).__init__()
 
@@ -70,9 +53,6 @@ class UNet(nn.Module):
         return logits
 
     def save(self, dir_name: str, filename=None):
-        """
-        Saves the model to a given directory. Allows to change the name of the file, by default it is "model".
-        """
         if filename is None:
             filename = "model"
 
@@ -90,10 +70,7 @@ class UNet(nn.Module):
         print("Model saved to: ", filepath)
 
     def _train_one_epoch(self, trainloader, optimizer):
-        """
-        Method used by perform_train(). Does one iteration of training.
-        """
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
+        metrics = {"loss": self.criterion, "ssim": ssim, "zoomed_ssim": zoomed_ssim, "pnsr": psnr, "mse": mse}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -106,8 +83,7 @@ class UNet(nn.Module):
         # running_loss, total_ssim = 0.0, 0.0
         # epoch_loss, epoch_ssim = 0.0, 0.0
 
-        use_prox_loss = isinstance(self.criterion, custom_metrics.LossWithProximalTerm)
-        
+        use_prox_loss = config_train.LOSS_TYPE == config_train.LossFunctions.PROX
         if n_batches < config_train.BATCH_PRINT_FREQ:
             batch_print_frequency = n_batches - 2  # tbh not sure if this -2 is needed
         else:
@@ -130,31 +106,38 @@ class UNet(nn.Module):
             else:
                 loss = self.criterion(predictions, targets)
 
-            # loss.requires_grad = True  # This is ugly af, but not a better solution found yet
             loss.backward()
             optimizer.step()
 
             for metric_name, metric_object in metrics.items():
                 if metric_name == "loss":
                     metric_value = loss
-                elif metric_name == "dice":
-                    metric_value = metric_object(predictions, targets.int())
                 else:
                     metric_value = metric_object(predictions, targets)
                 total_metrics[metric_name] += metric_value.item()
                 epoch_metrics[metric_name] += metric_value.item()
 
+            # ssim_value = ssim(predictions, targets)
+            #
+            # running_loss += loss.item()
+            # total_ssim += ssim_value.item()
+            #
+            # epoch_loss += loss.item()
+            # epoch_ssim += ssim_value.item()
+
             n_train_steps += 1
 
             if index % batch_print_frequency == batch_print_frequency - 1:
                 divided_batch_metrics = {metric_name: total_value/batch_print_frequency for metric_name, total_value in total_metrics.items()}
-                metrics_str = custom_metrics.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
+                metrics_str = loss_functions.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
                 print(f'\tbatch {(index + 1)} out of {n_batches}\t\t{metrics_str}')
 
                 total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
+                # running_loss = 0.0
+                # total_ssim = 0.0
 
         averaged_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in epoch_metrics.items()}
-        metrics_epoch_str = custom_metrics.metrics_to_str(averaged_epoch_metrics, starting_symbol="")
+        metrics_epoch_str = loss_functions.metrics_to_str(averaged_epoch_metrics, starting_symbol="")
 
         print(f"\n\tTime exceeded: {time.time() - start:.1f}")
         print(f"\tEpoch metrics: {metrics_epoch_str}")
@@ -172,16 +155,14 @@ class UNet(nn.Module):
                       plots_dir=None,
                       save_best_model=False, 
                       save_each_epoch=False):
-        """
-            Performs the train for a given number of epochs.
-        """
+
         print(f"TRAINING... \n\ton device: {device} \n\twith loss: {self.criterion}\n")
 
-        if config_train.USE_WANDB:
-            wandb.login(key=creds.api_key_wandb)
-            wandb.init(
-                name=model_dir,  # keeping only the last part of the model_dir (it stores all the viable information)
-                project=f"fl-mri")
+        wandb.login(key=creds.api_key_wandb)
+
+        wandb.init(
+            name=model_dir,
+            project=f"fl-mri")
 
         if not isinstance(self.criterion, Callable):
             raise TypeError(f"Loss function (criterion) has to be callable. It is {type(self.criterion)} which is not.")
@@ -220,129 +201,68 @@ class UNet(nn.Module):
 
                 for metric in val_metric_names:
                     # trimming after val_ to get only the metric name since it is provided by the
-                    history[metric].append(val_metric[metric])
+                    history[metric].append(val_metric[metric[len("val_"):]])
 
                 if save_best_model:
-                    if val_metric["val_loss"] < best_loss:
-                        print(f"\tModel form epoch {epoch} taken as the best one.\n\tIts loss {val_metric['val_loss']} is better than current best loss {best_loss}.")
-                        best_loss = val_metric["val_loss"]
+                    if val_metric["loss"] < best_loss:
+                        print(f"\tModel form epoch {epoch} taken as the best one.\n\tIts loss {val_metric['loss']} is better than current best loss {best_loss}.")
+                        best_loss = val_metric["loss"]
                         best_model = self.state_dict()
 
-                if config_train.USE_WANDB:
-                    wandb.log(val_metric)
-
-            if config_train.USE_WANDB:
-                wandb.log(epoch_metrics)
+            wandb.log(epoch_metrics)
 
             if save_each_epoch:
-                self.save(model_dir, f"model-ep{epoch}.pth")       
-
-            # saving
-            if save_best_model:
-                torch.save(best_model, path.join(model_dir, "best_model.pth"))
-
-            if history_filename is not None:
-                with open(path.join(model_dir, history_filename), 'wb') as file:
-                    pickle.dump(history, file)
-
+                self.save(model_dir, f"model-ep{epoch}.pth")
+                
         print("\tAll epochs finished.\n")
+
+        if save_best_model:
+            torch.save(best_model, path.join(model_dir, "best_model.pth"))
+
+        # saving
+        if history_filename is not None:
+            with open(path.join(model_dir, history_filename), 'wb') as file:
+                pickle.dump(history, file)
 
         if filename is not None:
             self.save(model_dir, filename)
 
         return history
 
-    def evaluate(self, testloader, plots_path=None, plot_filename=None, evaluate=True, wanted_metrics=None, save_preds_dir=None):
+    def evaluate(self, testloader, plots_path=None, plot_filename=None):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
             raise TypeError(f"Loss function (criterion) has to be callable.It is {type(self.criterion)} which is not.")
 
         n_steps = 0
-        n_skipped = 0
 
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "masked_ssim": masked_ssim, "zoomed_ssim": zoomed_ssim, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
-
-        if wanted_metrics:
-            metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if metric_name in wanted_metrics}
-
-        if evaluate:
-            metrics = {f"val_{name}": metric for name, metric in metrics.items()}
-
-        if save_preds_dir:
-            fop.try_create_dir(save_preds_dir)
-
-        metrics_values = {m_name: 0.0 for m_name in metrics.keys()}
+        metrics = {"loss": self.criterion, "zoomed_ssim": zoomed_ssim, "ssim": ssim, "pnsr": psnr, "mse": mse}
+        metrics_values = {m_name: 0.0 for m_name in config_train.METRICS}
         with torch.no_grad():
-            for batch_index, batch in enumerate(testloader):
-                # loading the input and target images
-                images_cpu, targets_cpu = batch[0], batch[1]
-
-                # the is possibility that a metric will require a mask e.g. brain mask
-                # then it is should be loaded from the dataloader
-                if testloader.dataset.metric_mask:
-                    metric_mask_cpu = batch[2]
-                    metric_mask = metric_mask_cpu.to(config_train.DEVICE)
-
+            for images_cpu, targets_cpu in testloader:
                 images = images_cpu.to(config_train.DEVICE)
                 targets = targets_cpu.to(config_train.DEVICE)
 
-                # utilizing the network
                 predictions = self(images)
 
-                # saving all the predictions
-                if save_preds_dir:
-                    current_batch_size = images.shape[0]
-
-                    if batch_index == 0:  # getting the batch size in the first round
-                        batch_size = current_batch_size
-
-                    for img_index in range(current_batch_size):  # iterating over current batch size (number of images)
-                        # retrieving the name of the current slice
-                        patient_slice_name = testloader.dataset.images[img_index+batch_index*batch_size].split(path.sep)[-1]
-                        pred_filepath = path.join(save_preds_dir, patient_slice_name)
-
-                        # saving the current image to the declared directory with the same name as the input image name
-                        # print(pred_filepath)
-                        np.save(pred_filepath, predictions[img_index].cpu().numpy())
-
-                # calculating metrics
                 for metric_name, metrics_obj in metrics.items():
-                    if isinstance(metrics_obj, custom_metrics.LossWithProximalTerm):
+                    if isinstance(metrics_obj, loss_functions.LossWithProximalTerm):
                         metrics_obj = metrics_obj.base_loss_fn
-                    if isinstance(metrics_obj, custom_metrics.ZoomedSSIM):
-                        if testloader.dataset.metric_mask:
-                            if torch.sum(metric_mask) > 0:
-                                metric_value = metrics_obj(predictions, targets, metric_mask)
-                            else:
-                                print(f"Batch number {batch_index} skipped because all the values are zero - no mask provided")
-                                logging.log(logging.WARNING, f"The batch number {batch_index} is skipped due to usage of `ZoomedSSIM`. I can affect the metric result."
-                                                             f"It is advised to don't use `ZoomedSSIM` with other metrics if there are masks with only zeros.")
-                                n_skipped += 1
-                                break
-                        else:
-                            # TODO: NoMaskDatasetError
-                            ValueError(f"Dataloader should be able to load the mask of the image to compute: {metric_name}. "
-                                       f"Provide `metric_mask_dir` in the dataset `MRIDatasetNumpySlices` object initialization to use this metric.")
-
-                    else:
-                        metric_value = metrics_obj(predictions, targets)
-
-                    # print(f"{metric_name}: ", metric_value)
+                    metric_value = metrics_obj(predictions, targets)
                     metrics_values[metric_name] += metric_value.item()
 
                 n_steps += 1
 
         if plots_path:
-            fop.try_create_dir(plots_path)  # pretty sure this is not needed (only makes warnings)
+            fop.try_create_dir(plots_path)
             filepath = path.join(plots_path, plot_filename)
             # maybe cast to cpu ?? still dunno if needed
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
                                      filepath=filepath)
-        if n_skipped == n_steps:
-            ValueError(f"All the mask in the provided dataset are zeros. None values were computed")
-        averaged_metrics = {metric_name: metric_value / (n_steps - n_skipped) for metric_name, metric_value in metrics_values.items()}
-        metrics_str = custom_metrics.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
+
+        averaged_metrics = {metric_name: metric_value / n_steps for metric_name, metric_value in metrics_values.items()}
+        metrics_str = loss_functions.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
 
         print(f"\tFor evaluation set: {metrics_str}\n")
 
@@ -421,7 +341,9 @@ class Up(nn.Module):
 
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
-
+        # if you have padding issues, see
+        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
+        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 

@@ -81,27 +81,33 @@ class LossWithProximalTerm:
 
 
 class ZoomedSSIM(Metric):
-    def __init__(self, data_range=1.0):
+    def __init__(self, data_range=1.0, margin=0):
         super().__init__()
         self.add_state("ssim_list", default=[], dist_reduce_fx="cat")
         self.add_state("batch_size", default=torch.tensor(0), dist_reduce_fx="sum")
         self.ssim = StructuralSimilarityIndexMeasure(data_range=data_range).to(config_train.DEVICE)
 
-    def update(self, preds: torch.Tensor, targets: torch.Tensor, mask: torch.Tensor = None):
+        self.margin = margin
+
+    def update(self, preds: torch.Tensor, targets: torch.Tensor, masks: torch.Tensor = None):
         # preds, targets = self._input_format()
         assert preds.shape == targets.shape
 
-        for pred, target in zip(preds, targets):
+        for pred, target, mask in zip(preds, targets, masks):
             image = target.detach()[0]
 
             if mask is None:  # default the brain mask which can be easily computed
                 non_zeros = torch.nonzero(image)
-            first_index_row = int(non_zeros[0][0])
-            last_index_row = int(non_zeros[-1][0])
+                non_zeros_T = torch.nonzero(torch.t(image))
+            else:
+                non_zeros = torch.nonzero(mask)
+                non_zeros_T = torch.nonzero(torch.t(mask))
 
-            non_zeros_T = torch.nonzero(torch.t(image))
-            first_index_col = int(non_zeros_T[0][0])
-            last_index_col = int(non_zeros_T[-1][0])
+            first_index_row = int(non_zeros[0][0]) - self.margin
+            last_index_row = int(non_zeros[-1][0]) + self.margin
+
+            first_index_col = int(non_zeros_T[0][0]) - self.margin
+            last_index_col = int(non_zeros_T[-1][0]) + self.margin
 
             trimmed_targets = image.detach().clone()[first_index_row:last_index_row, first_index_col:last_index_col]
             trimmed_predicted = pred.detach().clone()[0, first_index_row:last_index_row, first_index_col:last_index_col]
@@ -115,7 +121,15 @@ class ZoomedSSIM(Metric):
     def compute(self):
         return (sum(self.ssim_list) / self.batch_size).clone().detach()
 
-
+# mask = torch.nonzero(image)
+#
+#
+# first_index_row = int(mask[0][0])
+# last_index_row = int(mask[-1][0])
+#
+# mask_T = torch.nonzero(torch.t(image))
+# first_index_col = int(mask_T[0][0])
+# last_index_col = int(mask_T[-1][0])
 class MaskedSSIM(Metric):
     higher_is_better: bool = True
     is_differentiable: bool = True

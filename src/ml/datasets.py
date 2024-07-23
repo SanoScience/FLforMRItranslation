@@ -116,7 +116,7 @@ class MRIDatasetNumpySlices(Dataset):
             np_mask = np.load(mask_path)
             np_mask = np_mask > 0  # binarize
             tensor_mask = torch.from_numpy(np.expand_dims(np_mask, axis=0))
-            return tensor_image.float(), tensor_target, tensor_mask.int()
+            return tensor_image.float(), tensor_target, tensor_mask[0].int()
 
         # converting to float to be able to perform tensor multiplication
         # otherwise an error
