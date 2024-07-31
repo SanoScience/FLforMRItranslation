@@ -504,7 +504,7 @@ def not_weighted_generalized_Dice(predict, target):
     intersect = pred_mutl_target + opp_pred_mutl_target
     denominator = pred_plus_target + opp_pred_plus_target
 
-    print(f"Not weighted dice components: {pred_mutl_target} + {opp_pred_mutl_target} / {pred_plus_target} + {opp_pred_plus_target}")
+    print(f"\t\tNot weighted dice components: {pred_mutl_target} + {opp_pred_mutl_target} / {pred_plus_target} + {opp_pred_plus_target}")
     return intersect / denominator
 
 
@@ -608,8 +608,6 @@ def _generalized_dice_validate_args(
         )
     
 class GeneralizedDiceScore(Metric):
-
-
     score: Tensor
     samples: Tensor
     full_state_update: bool = False

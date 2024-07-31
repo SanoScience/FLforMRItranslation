@@ -29,7 +29,7 @@ zoomed_ssim = custom_metrics.ZoomedSSIM(margin=5)
 general_dice_2 = custom_metrics.GeneralizedDiceScore(num_classes=2).to(device)
 general_dice_1 = custom_metrics.GeneralizedDiceScore(num_classes=1).to(device)
 domi_dice = custom_metrics.generalized_Dice
-domi_dice = custom_metrics.not_weighted_generalized_Dice
+domi_dice_not_weighted = custom_metrics.not_weighted_generalized_Dice
 
 
 dice_score = Dice().to(device)
@@ -100,7 +100,7 @@ class UNet(nn.Module):
         """
         Method used by perform_train(). Does one iteration of training.
         """
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice_classification": dice_score, "general_dice_1": general_dice_1, "general_dice_2": general_dice_2, "domi_dice": domi_dice, "jaccard": jaccard_index}
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice_classification": dice_score, "general_dice_1": general_dice_1, "general_dice_2": general_dice_2, "domi_dice": domi_dice, "not_weighted_dice": domi_dice_not_weighted, "jaccard": jaccard_index}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -144,10 +144,10 @@ class UNet(nn.Module):
             for metric_name, metric_object in metrics.items():
                 if metric_name == "loss":
                     metric_value = loss
-                elif metric_name == "dice_score":
-                    metric_value = metric_object(predictions, targets.int())
-                elif "dice" in metric_name:
+                elif "general_dice" in metric_name:
                     metric_value = metric_object(predictions.to(torch.int64), targets.to(torch.int64))
+                elif "dice" in metric_name:
+                    metric_value = metric_object(predictions, targets.int())
                 else:
                     metric_value = metric_object(predictions, targets)
                 total_metrics[metric_name] += metric_value.item()
@@ -322,11 +322,11 @@ class UNet(nn.Module):
                         metric_obj = metric_obj.base_loss_fn
 
                     # TODO: unite the way of checking (either by string or by the object)
-                    elif metric_name == "dice_score":
+                    elif metric_name == "val_dice_classification":
                         metric_value = metric_obj(predictions, targets.int())
                     elif "dice" in metric_name:
                         metric_value = metric_obj(predictions.to(torch.int64), targets.to(torch.int64))
-                    if isinstance(metric_obj, custom_metrics.ZoomedSSIM):
+                    elif isinstance(metric_obj, custom_metrics.ZoomedSSIM):
                         if testloader.dataset.metric_mask:
                             if torch.sum(metric_mask) > 0:
                                 # print(torch.sum(metric_mask))
