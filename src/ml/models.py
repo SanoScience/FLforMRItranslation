@@ -29,6 +29,8 @@ zoomed_ssim = custom_metrics.ZoomedSSIM(margin=5)
 general_dice_2 = custom_metrics.GeneralizedDiceScore(num_classes=2).to(device)
 general_dice_1 = custom_metrics.GeneralizedDiceScore(num_classes=1).to(device)
 domi_dice = custom_metrics.generalized_Dice
+domi_dice = custom_metrics.not_weighted_generalized_Dice
+
 
 dice_score = Dice().to(device)
 # dice_score = Dice().to(device)
@@ -267,8 +269,9 @@ class UNet(nn.Module):
 
         n_steps = 0
         n_skipped = 0
-
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "masked_ssim": masked_ssim, "zoomed_ssim": zoomed_ssim, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
+        
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice_classification": dice_score, "general_dice_1": general_dice_1, "general_dice_2": general_dice_2, "domi_dice": domi_dice, "jaccard": jaccard_index}
+        # metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "masked_ssim": masked_ssim, "zoomed_ssim": zoomed_ssim, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
 
         if wanted_metrics:
             metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if metric_name in wanted_metrics}
@@ -314,22 +317,28 @@ class UNet(nn.Module):
                         np.save(pred_filepath, predictions[img_index].cpu().numpy())
 
                 # calculating metrics
-                for metric_name, metrics_obj in metrics.items():
-                    if isinstance(metrics_obj, custom_metrics.LossWithProximalTerm):
-                        metrics_obj = metrics_obj.base_loss_fn
-                    if isinstance(metrics_obj, custom_metrics.ZoomedSSIM):
+                for metric_name, metric_obj in metrics.items():
+                    if isinstance(metric_obj, custom_metrics.LossWithProximalTerm):
+                        metric_obj = metric_obj.base_loss_fn
+
+                    # TODO: unite the way of checking (either by string or by the object)
+                    elif metric_name == "dice_score":
+                        metric_value = metric_obj(predictions, targets.int())
+                    elif "dice" in metric_name:
+                        metric_value = metric_obj(predictions.to(torch.int64), targets.to(torch.int64))
+                    if isinstance(metric_obj, custom_metrics.ZoomedSSIM):
                         if testloader.dataset.metric_mask:
                             if torch.sum(metric_mask) > 0:
                                 # print(torch.sum(metric_mask))
-                                metric_value = metrics_obj(predictions, targets, metric_mask)
+                                metric_value = metric_obj(predictions, targets, metric_mask)
 
                                 # if torch.isnan(metric_value):
                                 #     print(f"Here the nan value is.")
-                                #     print(metrics_obj.batch_size)
-                                #     print(len(metrics_obj.ssim_list))
-                                #     print(sum(metrics_obj.ssim_list))
-                                #     print(sum(metrics_obj.ssim_list)/metrics_obj.batch_size)
-                                #     print((sum(metrics_obj.ssim_list)/metrics_obj.batch_size).clone().detach())
+                                #     print(metric_obj.batch_size)
+                                #     print(len(metric_obj.ssim_list))
+                                #     print(sum(metric_obj.ssim_list))
+                                #     print(sum(metric_obj.ssim_list)/metric_obj.batch_size)
+                                #     print((sum(metric_obj.ssim_list)/metric_obj.batch_size).clone().detach())
 
                             else:
                                 # print(f"Batch number {batch_index} skipped because all the values are zero - no mask provided.")
@@ -343,7 +352,7 @@ class UNet(nn.Module):
                                        f"Provide `metric_mask_dir` in the dataset `MRIDatasetNumpySlices` object initialization to use this metric.")
 
                     else:
-                        metric_value = metrics_obj(predictions, targets)
+                        metric_value = metric_obj(predictions, targets)
 
                     # print(f"{metric_name}: ", metric_value)
                     metrics_values[metric_name] += metric_value.item()
