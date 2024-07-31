@@ -492,9 +492,20 @@ def generalized_Dice(predict, target):
     intersect = weight_1 * (predict * target).sum() + weight_0 * ((1 - predict) * (1 - target)).sum()
     denominator = weight_1 * (predict + target).sum() + weight_0 * ((1 - predict) + (1 - target)).sum()
 
-    loss = 1 - (2 * (intersect / denominator))
+    return intersect / denominator
 
-    return loss
+def not_weighted_generalized_Dice(predict, target):
+    pred_mutl_target = (predict * target).sum()
+    pred_plus_target = (predict + target).sum()
+
+    opp_pred_mutl_target = ((1 - predict) * (1 - target)).sum()
+    opp_pred_plus_target = ((1 - predict) * (1 - target)).sum()
+
+    intersect = pred_mutl_target + opp_pred_mutl_target
+    denominator = pred_plus_target + opp_pred_plus_target
+
+    print(f"Not weighted dice components: {pred_mutl_target} + {opp_pred_mutl_target} / {pred_plus_target} + {opp_pred_plus_target}")
+    return intersect / denominator
 
 
 class DomiBinaryDiceLoss(torch.nn.Module):
@@ -516,7 +527,7 @@ class DomiBinaryDiceLoss(torch.nn.Module):
         super(DomiBinaryDiceLoss, self).__init__()
 
     def forward(self, predict, target):
-        loss = weighted_BCE(predict, target) + generalized_Dice(predict, target)
+        loss = weighted_BCE(predict, target) + (1 - generalized_Dice(predict, target))  # dice loss
 
         return loss
 
