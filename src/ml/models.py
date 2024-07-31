@@ -142,8 +142,10 @@ class UNet(nn.Module):
             for metric_name, metric_object in metrics.items():
                 if metric_name == "loss":
                     metric_value = loss
-                elif metric_name == "dice":
+                elif metric_name == "dice_score":
                     metric_value = metric_object(predictions, targets.int())
+                elif "dice" in metric_name:
+                    metric_value = metric_object(predictions.to(torch.int64), targets.to(torch.int64))
                 else:
                     metric_value = metric_object(predictions, targets)
                 total_metrics[metric_name] += metric_value.item()
