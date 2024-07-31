@@ -26,7 +26,12 @@ relative_error = custom_metrics.RelativeError()
 masked_ssim = custom_metrics.MaskedSSIM().to(device)
 zoomed_ssim = custom_metrics.ZoomedSSIM(margin=5)
 
+general_dice_2 = custom_metrics.GeneralizedDiceScore(num_classes=2).to(device)
+general_dice_1 = custom_metrics.GeneralizedDiceScore(num_classes=1).to(device)
+domi_dice = custom_metrics.generalized_Dice
+
 dice_score = Dice().to(device)
+# dice_score = Dice().to(device)
 jaccard_index = BinaryJaccardIndex().to(device)
 # qilv = loss_functions.QILV(use_mask=False)
 
@@ -93,7 +98,7 @@ class UNet(nn.Module):
         """
         Method used by perform_train(). Does one iteration of training.
         """
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice_classification": dice_score, "general_dice_1": general_dice_1, "general_dice_2": general_dice_2, "domi_dice": domi_dice, "jaccard": jaccard_index}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -313,10 +318,20 @@ class UNet(nn.Module):
                     if isinstance(metrics_obj, custom_metrics.ZoomedSSIM):
                         if testloader.dataset.metric_mask:
                             if torch.sum(metric_mask) > 0:
+                                # print(torch.sum(metric_mask))
                                 metric_value = metrics_obj(predictions, targets, metric_mask)
+
+                                # if torch.isnan(metric_value):
+                                #     print(f"Here the nan value is.")
+                                #     print(metrics_obj.batch_size)
+                                #     print(len(metrics_obj.ssim_list))
+                                #     print(sum(metrics_obj.ssim_list))
+                                #     print(sum(metrics_obj.ssim_list)/metrics_obj.batch_size)
+                                #     print((sum(metrics_obj.ssim_list)/metrics_obj.batch_size).clone().detach())
+
                             else:
-                                print(f"Batch number {batch_index} skipped because all the values are zero - no mask provided")
-                                logging.log(logging.WARNING, f"The batch number {batch_index} is skipped due to usage of `ZoomedSSIM`. I can affect the metric result."
+                                # print(f"Batch number {batch_index} skipped because all the values are zero - no mask provided.")
+                                logging.log(logging.WARNING, f"The batch number {batch_index} is skipped due to usage of `ZoomedSSIM`. I can affect the metric result. "
                                                              f"It is advised to don't use `ZoomedSSIM` with other metrics if there are masks with only zeros.")
                                 n_skipped += 1
                                 break
@@ -341,6 +356,7 @@ class UNet(nn.Module):
                                      filepath=filepath)
         if n_skipped == n_steps:
             ValueError(f"All the mask in the provided dataset are zeros. None values were computed")
+
         averaged_metrics = {metric_name: metric_value / (n_steps - n_skipped) for metric_name, metric_value in metrics_values.items()}
         metrics_str = custom_metrics.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
 

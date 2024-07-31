@@ -19,6 +19,9 @@ from torchmetrics.functional.image.helper import _gaussian_kernel_2d, _gaussian_
 from torchmetrics.functional.image.ssim import _multiscale_ssim_update, _ssim_check_inputs
 from torchmetrics.utilities.data import dim_zero_cat
 
+from torchmetrics.utilities.checks import _check_same_shape
+from torchmetrics.utilities.compute import _safe_divide
+
 
 class DssimMse:
     def __init__(self, sqrt=False, zoomed_ssim=False):
@@ -81,13 +84,14 @@ class LossWithProximalTerm:
 
 
 class ZoomedSSIM(Metric):
-    def __init__(self, data_range=1.0, margin=0):
+    def __init__(self, data_range=1.0, margin=0, min_mask_size=10):
         super().__init__()
         self.add_state("ssim_list", default=[], dist_reduce_fx="cat")
         self.add_state("batch_size", default=torch.tensor(0), dist_reduce_fx="sum")
         self.ssim = StructuralSimilarityIndexMeasure(data_range=data_range).to(config_train.DEVICE)
 
         self.margin = margin
+        self.min_mask_size=min_mask_size
 
     def update(self, preds: torch.Tensor, targets: torch.Tensor, masks: torch.Tensor = None):
         # preds, targets = self._input_format()
@@ -100,14 +104,26 @@ class ZoomedSSIM(Metric):
                 non_zeros = torch.nonzero(image)
                 non_zeros_T = torch.nonzero(torch.t(image))
             else:
+                # print(f"Mask characteriscs are {torch.unique(mask, return_counts=True)}")
                 non_zeros = torch.nonzero(mask)
                 non_zeros_T = torch.nonzero(torch.t(mask))
+
+                # in case in the picture is no mask 
+                # then the evaluation is skipped
+                # and the batch size is decreased 
+                mask_size = torch.sum(mask)
+                if  mask_size < self.min_mask_size: 
+                    print(f"Skipped due to too small mask size {mask_size}")
+                    self.batch_size -= 1
+                    continue
 
             first_index_row = int(non_zeros[0][0]) - self.margin
             last_index_row = int(non_zeros[-1][0]) + self.margin
 
             first_index_col = int(non_zeros_T[0][0]) - self.margin
             last_index_col = int(non_zeros_T[-1][0]) + self.margin
+
+            # print(f"taken indices:" , first_index_col, last_index_col, first_index_row, last_index_row)
 
             trimmed_targets = image.detach().clone()[first_index_row:last_index_row, first_index_col:last_index_col]
             trimmed_predicted = pred.detach().clone()[0, first_index_row:last_index_row, first_index_col:last_index_col]
@@ -506,6 +522,121 @@ class DomiBinaryDiceLoss(torch.nn.Module):
 
     def __repr__(self):
         return "Domi LOSS"
+
+
+def _generalized_dice_compute(numerator: Tensor, denominator: Tensor, per_class: bool = True) -> Tensor:
+    """Compute the generalized dice score."""
+    if not per_class:
+        numerator = torch.sum(numerator, 1)
+        denominator = torch.sum(denominator, 1)
+    return _safe_divide(numerator, denominator)
+
+def _generalized_dice_update(
+    preds: Tensor,
+    target: Tensor,
+    num_classes: int,
+    include_background: bool,
+    weight_type: Literal["square", "simple", "linear"] = "square",
+) -> Tensor:
+    """Update the state with the current prediction and target."""
+    _check_same_shape(preds, target)
+    if preds.ndim < 3:
+        raise ValueError(f"Expected both `preds` and `target` to have at least 3 dimensions, but got {preds.ndim}.")
+
+    if (preds.bool() != preds).any():  # preds is an index tensor
+        preds = torch.nn.functional.one_hot(preds, num_classes=num_classes).movedim(-1, 1)
+    if (target.bool() != target).any():  # target is an index tensor
+        target = torch.nn.functional.one_hot(target, num_classes=num_classes).movedim(-1, 1)
+
+
+    reduce_axis = list(range(2, target.ndim))
+    intersection = torch.sum(preds * target, dim=reduce_axis)
+    target_sum = torch.sum(target, dim=reduce_axis)
+    pred_sum = torch.sum(preds, dim=reduce_axis)
+    cardinality = target_sum + pred_sum
+
+    if weight_type == "simple":
+        weights = 1.0 / target_sum
+    elif weight_type == "linear":
+        weights = torch.ones_like(target_sum)
+    elif weight_type == "square":
+        weights = 1.0 / (target_sum**2)
+    else:
+        raise ValueError(
+            f"Expected argument `weight_type` to be one of 'simple', 'linear', 'square', but got {weight_type}."
+        )
+
+    w_shape = weights.shape
+    weights_flatten = weights.flatten()
+    infs = torch.isinf(weights_flatten)
+    weights_flatten[infs] = 0
+    w_max = torch.max(weights, 0).values.repeat(w_shape[0], 1).T.flatten()
+    weights_flatten[infs] = w_max[infs]
+    weights = weights_flatten.reshape(w_shape)
+
+    numerator = 2.0 * intersection * weights
+    denominator = cardinality * weights
+    return numerator, denominator  # type:ignore[return-value]
+
+def _generalized_dice_validate_args(
+    num_classes: int,
+    include_background: bool,
+    per_class: bool,
+    weight_type: Literal["square", "simple", "linear"],
+) -> None:
+    """Validate the arguments of the metric."""
+    if num_classes <= 0:
+        raise ValueError(f"Expected argument `num_classes` must be a positive integer, but got {num_classes}.")
+    if not isinstance(include_background, bool):
+        raise ValueError(f"Expected argument `include_background` must be a boolean, but got {include_background}.")
+    if not isinstance(per_class, bool):
+        raise ValueError(f"Expected argument `per_class` must be a boolean, but got {per_class}.")
+    if weight_type not in ["square", "simple", "linear"]:
+        raise ValueError(
+            f"Expected argument `weight_type` to be one of 'square', 'simple', 'linear', but got {weight_type}."
+        )
+    
+class GeneralizedDiceScore(Metric):
+
+
+    score: Tensor
+    samples: Tensor
+    full_state_update: bool = False
+    is_differentiable: bool = False
+    higher_is_better: bool = True
+    plot_lower_bound: float = 0.0
+    plot_upper_bound: float = 1.0
+
+    def __init__(
+        self,
+        num_classes: int,
+        include_background: bool = True,
+        per_class: bool = False,
+        weight_type: Literal["square", "simple", "linear"] = "square",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        _generalized_dice_validate_args(num_classes, include_background, per_class, weight_type)
+        self.num_classes = num_classes
+        self.include_background = include_background
+        self.per_class = per_class
+        self.weight_type = weight_type
+
+        num_classes = num_classes - 1 if not include_background else num_classes
+        self.add_state("score", default=torch.zeros(num_classes if per_class else 1), dist_reduce_fx="sum")
+        self.add_state("samples", default=torch.zeros(1), dist_reduce_fx="sum")
+
+    def update(self, preds: Tensor, target: Tensor) -> None:
+        """Update the state with new data."""
+        numerator, denominator = _generalized_dice_update(
+            preds, target, self.num_classes, self.include_background, self.weight_type
+        )
+        self.score += _generalized_dice_compute(numerator, denominator, self.per_class).sum(dim=0)
+        self.samples += preds.shape[0]
+
+    def compute(self) -> Tensor:
+        """Compute the final generalized dice score."""
+        return self.score / self.samples
 
 
 ###############

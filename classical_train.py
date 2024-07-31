@@ -7,6 +7,7 @@ import torch.optim as optim
 from src.ml.datasets import *
 from src.ml.models import *
 
+from torch.utils.data import DataLoader
 
 if __name__ == '__main__':
 
@@ -63,7 +64,7 @@ if __name__ == '__main__':
                                num_workers=config_train.NUM_WORKERS,
                                pin_memory=True)
 
-    criterion = loss_functions.BinaryDiceLoss(binary_crossentropy=True)
+    criterion = custom_metrics.BinaryDiceLoss(binary_crossentropy=True)
     unet = UNet(criterion).to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
 
