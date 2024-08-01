@@ -521,8 +521,18 @@ def not_weighted_generalized_dice(predict, target, eps=100):
     ones_faction = (pred_mutl_target + eps)/ (pred_plus_target + eps)
     zeros_faction = (opp_pred_mutl_target + eps) / (opp_pred_plus_target + eps)
 
+    if ones_faction > 0.5:
+        # print(f"\t\t\t\tThe one fraction is equal to: {ones_faction}")
+        # TODO: not sure how to do it cause to have a good gradient, maybe setting like this is alright IDK
+        ones_faction = torch.tensor(0.5)
+
     print(f"\t\tNot weighted dice components: {pred_mutl_target+eps}/{pred_plus_target+eps} + {opp_pred_mutl_target+eps}/{opp_pred_plus_target+eps}")
-    return ones_faction + zeros_faction
+
+    dice_score = ones_faction + zeros_faction
+
+    if dice_score > 1:
+        dice_score = torch.tensor(1.0)
+    return dice_score
 
 def loss_not_weighted_generalized_dice(predict, target):
     dice = not_weighted_generalized_dice(predict, target)
@@ -545,16 +555,23 @@ class DomiBinaryDiceLoss(torch.nn.Module):
     """
 
     def __init__(self):
-        super(DomiBinaryDiceLoss, self).__init__()
+        super(DomiBinaryDiceLoss, self).__init__(weighted=True)
+        if weighted:
+            self.bce_loss = weighted_BCE
+        else:
+            self.bce_loss = torch.nn.BCELoss().to(config_train.DEVICE)
 
     def forward(self, predict, target):
-        loss = weighted_BCE(predict, target) + loss_generalized_dice(predict, target) 
+        loss = self.bce_loss(predict, target) + loss_not_weighted_generalized_dice(predict, target) 
 
         return loss
 
     def __repr__(self):
         return "Domi LOSS"
 
+###############
+## GRAVEYARD ##
+###############
 
 def _generalized_dice_compute(numerator: Tensor, denominator: Tensor, per_class: bool = True) -> Tensor:
     """Compute the generalized dice score."""
@@ -669,9 +686,7 @@ class GeneralizedDiceScore(Metric):
         return self.score / self.samples
 
 
-###############
-## GRAVEYARD ##
-###############
+
 
 
 # class DiceLoss(torch.nn.Module):
