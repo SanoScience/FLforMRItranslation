@@ -165,7 +165,7 @@ class UNet(nn.Module):
             if index % batch_print_frequency == batch_print_frequency - 1:
                 divided_batch_metrics = {metric_name: total_value/batch_print_frequency for metric_name, total_value in total_metrics.items()}
                 metrics_str = custom_metrics.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
-                print(f'\tbatch {(index + 1)} out of {n_batches}\t\t{metrics_str}')
+                print(f'\t\tbatch {(index + 1)} out of {n_batches}\t\t{metrics_str}')
 
                 total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
 
