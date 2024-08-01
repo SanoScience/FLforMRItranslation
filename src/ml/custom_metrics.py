@@ -492,24 +492,24 @@ def generalized_dice(predict, target):
     intersect = weight_1 * (predict * target).sum() + weight_0 * ((1 - predict) * (1 - target)).sum()
     denominator = weight_1 * (predict + target).sum() + weight_0 * ((1 - predict) + (1 - target)).sum()
 
-    return intersect / denominator
+    return 2 * intersect / denominator
 
 def loss_generalized_dice(predict, target):
     dice = generalized_dice(predict, target)
     return 1 - dice
 
-def not_weighted_generalized_dice(predict, target):
+def not_weighted_generalized_dice(predict, target, eps=1e-6):
     pred_mutl_target = (predict * target).sum()
     pred_plus_target = (predict + target).sum()
 
     opp_pred_mutl_target = ((1 - predict) * (1 - target)).sum()
     opp_pred_plus_target = ((1 - predict) + (1 - target)).sum()
 
-    intersect = pred_mutl_target + opp_pred_mutl_target
-    denominator = pred_plus_target + opp_pred_plus_target
+    ones_faction = pred_mutl_target / pred_plus_target
+    zeros_faction = opp_pred_mutl_target / opp_pred_plus_target
 
-    print(f"\t\tNot weighted dice components: {pred_mutl_target} + {opp_pred_mutl_target} / {pred_plus_target} + {opp_pred_plus_target}")
-    return intersect / denominator
+    print(f"\t\tNot weighted dice components: {pred_mutl_target}/{pred_plus_target} + {opp_pred_mutl_target}/{opp_pred_plus_target}")
+    return ones_faction + zeros_faction
 
 def loss_not_weighted_generalized_dice(predict, target):
     dice = not_weighted_generalized_dice(predict, target)
