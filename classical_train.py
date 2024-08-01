@@ -12,8 +12,8 @@ from torch.utils.data import DataLoader
 if __name__ == '__main__':
 
     if config_train.LOCAL:
-        train_directories = ["C:\\Users\\JanFiszer\\data\\mri\\mgh_on_hpc\\train"]
-        validation_directories = ["C:\\Users\\JanFiszer\\data\\mri\\mega_small_hgg\\validation"]
+        train_directories = ["C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples"]
+        validation_directories = ["C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples"]
     else:
         if len(sys.argv) > 1:
             data_dir = sys.argv[1]
