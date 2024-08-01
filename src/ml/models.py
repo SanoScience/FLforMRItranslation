@@ -28,8 +28,8 @@ zoomed_ssim = custom_metrics.ZoomedSSIM(margin=5)
 
 general_dice_2 = custom_metrics.GeneralizedDiceScore(num_classes=2).to(device)
 general_dice_1 = custom_metrics.GeneralizedDiceScore(num_classes=1).to(device)
-domi_dice = custom_metrics.generalized_Dice
-domi_dice_not_weighted = custom_metrics.not_weighted_generalized_Dice
+domi_dice = custom_metrics.generalized_dice
+domi_dice_not_weighted = custom_metrics.not_weighted_generalized_dice
 
 
 dice_score = Dice().to(device)
@@ -270,7 +270,7 @@ class UNet(nn.Module):
         n_steps = 0
         n_skipped = 0
         
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice_classification": dice_score, "general_dice_1": general_dice_1, "general_dice_2": general_dice_2, "domi_dice": domi_dice, "jaccard": jaccard_index}
+        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "relative_error": relative_error, "dice_classification": dice_score, "general_dice_1": general_dice_1, "general_dice_2": general_dice_2, "domi_dice": domi_dice, "not_weighted_dice": domi_dice_not_weighted, "jaccard": jaccard_index}
         # metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "masked_ssim": masked_ssim, "zoomed_ssim": zoomed_ssim, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
 
         if wanted_metrics:
