@@ -481,7 +481,20 @@ def weighted_BCE(predict, target):
 
     return torch.mean(loss)
 
+def loss_generalized_dice(predict, target):
+    
+    num_samples_0 = (target == 0).sum().item()
+    num_samples_1 = (target == 1).sum().item()
+    
+    weight_0 = 0 if num_samples_0 == 0 else 1/(num_samples_0*num_samples_0)
+    weight_1 = 0 if num_samples_1 == 0 else 1/(num_samples_1*num_samples_1)
 
+    intersect = weight_1*(predict * target).sum() + weight_0*((1 - predict) * (1 - target)).sum()
+    denominator = weight_1*(predict + target).sum() + weight_0*((1 - predict) + (1 - target)).sum()
+    
+    loss = 1 - (2*(intersect/denominator))
+
+    return loss
 def generalized_dice(predict, target):
     num_samples_0 = (target == 0).sum().item()
     num_samples_1 = (target == 1).sum().item()
@@ -494,21 +507,21 @@ def generalized_dice(predict, target):
 
     return 2 * intersect / denominator
 
-def loss_generalized_dice(predict, target):
-    dice = generalized_dice(predict, target)
-    return 1 - dice
+# def loss_generalized_dice(predict, target):
+#     dice = generalized_dice(predict, target)
+#     return 1 - dice
 
-def not_weighted_generalized_dice(predict, target, eps=1e-6):
+def not_weighted_generalized_dice(predict, target, eps=100):
     pred_mutl_target = (predict * target).sum()
     pred_plus_target = (predict + target).sum()
 
     opp_pred_mutl_target = ((1 - predict) * (1 - target)).sum()
     opp_pred_plus_target = ((1 - predict) + (1 - target)).sum()
 
-    ones_faction = pred_mutl_target / pred_plus_target
-    zeros_faction = opp_pred_mutl_target / opp_pred_plus_target
+    ones_faction = (pred_mutl_target + eps)/ (pred_plus_target + eps)
+    zeros_faction = (opp_pred_mutl_target + eps) / (opp_pred_plus_target + eps)
 
-    print(f"\t\tNot weighted dice components: {pred_mutl_target}/{pred_plus_target} + {opp_pred_mutl_target}/{opp_pred_plus_target}")
+    print(f"\t\tNot weighted dice components: {pred_mutl_target+eps}/{pred_plus_target+eps} + {opp_pred_mutl_target+eps}/{opp_pred_plus_target+eps}")
     return ones_faction + zeros_faction
 
 def loss_not_weighted_generalized_dice(predict, target):
