@@ -94,10 +94,10 @@ if __name__ == '__main__':
     else:
         save_preds_dir = os.path.join(model_dir, "preds", representative_test_dir)
         
-    metrics = unet.evaluate(testloader, wanted_metrics=["loss",  "dice_classification", "domi_dice", "not_weighted_dice", "jaccard"], save_preds_dir=save_preds_dir)
+    metrics = unet.evaluate(testloader, wanted_metrics=["loss",  "dice_classification", "generalized_dice", "dice_2_class", "jaccard"], save_preds_dir=save_preds_dir)
     
     if segmentation_task:
-        filepath = os.path.join(model_dir, f"test_{representative_test_dir}_dice_{metrics['val_not_weighted_dice']:.2f}.pkl")
+        filepath = os.path.join(model_dir, f"test_{representative_test_dir}_dice_{metrics['val_dice_2_class']:.2f}.pkl")
     else:
         filepath = os.path.join(model_dir, f"test_{representative_test_dir}_zoomed_ssim_{metrics['val_zoomed_ssim']:.2f}.pkl")
 

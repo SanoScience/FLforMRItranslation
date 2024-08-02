@@ -511,7 +511,7 @@ def generalized_dice(predict, target):
 #     dice = generalized_dice(predict, target)
 #     return 1 - dice
 
-def not_weighted_generalized_dice(predict, target, eps=100):
+def dice_2_class(predict, target, eps=100):
     pred_mutl_target = (predict * target).sum()
     pred_plus_target = (predict + target).sum()
 
@@ -526,7 +526,7 @@ def not_weighted_generalized_dice(predict, target, eps=100):
         # TODO: not sure how to do it cause to have a good gradient, maybe setting like this is alright IDK
         ones_faction = torch.tensor(0.5)
 
-    print(f"\t\tNot weighted dice components: {pred_mutl_target+eps}/{pred_plus_target+eps} + {opp_pred_mutl_target+eps}/{opp_pred_plus_target+eps}")
+    # print(f"\t\tNot weighted dice components: {pred_mutl_target+eps}/{pred_plus_target+eps} + {opp_pred_mutl_target+eps}/{opp_pred_plus_target+eps}")
 
     dice_score = ones_faction + zeros_faction
 
@@ -534,8 +534,8 @@ def not_weighted_generalized_dice(predict, target, eps=100):
         dice_score = torch.tensor(1.0)
     return dice_score
 
-def loss_not_weighted_generalized_dice(predict, target):
-    dice = not_weighted_generalized_dice(predict, target)
+def loss_dice_2_class(predict, target):
+    dice = dice_2_class(predict, target)
     return 1 - dice
 
 
@@ -554,15 +554,15 @@ class DomiBinaryDiceLoss(torch.nn.Module):
         Exception if unexpected reduction
     """
 
-    def __init__(self):
-        super(DomiBinaryDiceLoss, self).__init__(weighted=True)
+    def __init__(self, weighted=True):
+        super(DomiBinaryDiceLoss, self).__init__()
         if weighted:
             self.bce_loss = weighted_BCE
         else:
             self.bce_loss = torch.nn.BCELoss().to(config_train.DEVICE)
 
     def forward(self, predict, target):
-        loss = self.bce_loss(predict, target) + loss_not_weighted_generalized_dice(predict, target) 
+        loss = self.bce_loss(predict, target) + loss_dice_2_class(predict, target)
 
         return loss
 

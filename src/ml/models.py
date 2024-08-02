@@ -26,12 +26,8 @@ relative_error = custom_metrics.RelativeError()
 masked_ssim = custom_metrics.MaskedSSIM().to(device)
 zoomed_ssim = custom_metrics.ZoomedSSIM(margin=5)
 
-# general_dice_2 = custom_metrics.GeneralizedDiceScore(num_classes=2).to(device)
-# general_dice_1 = custom_metrics.GeneralizedDiceScore(num_classes=1).to(device)
-domi_dice = custom_metrics.generalized_dice
-domi_dice_not_weighted = custom_metrics.not_weighted_generalized_dice
-
-
+dice_generalized = custom_metrics.generalized_dice
+dice_2_class = custom_metrics.dice_2_class
 dice_score = Dice().to(device)
 # dice_score = Dice().to(device)
 jaccard_index = BinaryJaccardIndex().to(device)
@@ -102,11 +98,9 @@ class UNet(nn.Module):
         """
         metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, 
                    "relative_error": relative_error, 
-                   "dice_classification": dice_score, 
-                #    "general_dice_1": general_dice_1, 
-                #    "general_dice_2": general_dice_2, 
-                   "domi_dice": domi_dice, 
-                   "not_weighted_dice": domi_dice_not_weighted,
+                   "dice_classification": dice_score,
+                   "dice_generalized": dice_generalized,
+                   "dice_2_class": dice_2_class,
                    "jaccard": jaccard_index}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -151,8 +145,6 @@ class UNet(nn.Module):
             for metric_name, metric_object in metrics.items():
                 if metric_name == "loss":
                     metric_value = loss
-                # elif "general_dice" in metric_name:
-                #     metric_value = metric_object(predictions.to(torch.int64), targets.to(torch.int64))
                 elif "dice" in metric_name:
                     metric_value = metric_object(predictions, targets.int())
                 else:
@@ -279,11 +271,9 @@ class UNet(nn.Module):
         
         metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, 
                    "relative_error": relative_error, 
-                   "dice_classification": dice_score, 
-                #    "general_dice_1": general_dice_1, 
-                #    "general_dice_2": general_dice_2, 
-                   "domi_dice": domi_dice, 
-                   "not_weighted_dice": domi_dice_not_weighted,
+                   "dice_classification": dice_score,
+                   "dice_generalized": dice_generalized,
+                   "dice_2_class": dice_2_class,
                    "jaccard": jaccard_index}
         # metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "masked_ssim": masked_ssim, "zoomed_ssim": zoomed_ssim, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
 
