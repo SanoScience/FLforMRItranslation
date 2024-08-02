@@ -32,8 +32,11 @@ if __name__ == '__main__':
         model_path = sys.argv[2]
         BATCH_SIZE = int(sys.argv[3])
 
-    if len(sys.argv) > 4:
-        config_path = sys.argv[4]
+        if len(sys.argv) > 4:
+            target_dir = sys.argv[4]
+            
+    if len(sys.argv) > 5:
+        config_path = sys.argv[5]
     else:
         config_path = os.path.join(os.path.dirname(model_path), "config.py")
 
@@ -58,7 +61,10 @@ if __name__ == '__main__':
     except FileNotFoundError:
         print(f"WARNING: The config file not found at {config_path}. The direction of the translation not verified!")
     
-    testset = datasets.MRIDatasetNumpySlices(test_dir, target_dir=target_dir, binarize=segmentation_task)
+    # testset = datasets.MRIDatasetNumpySlices(test_dir, target_dir=target_dir, binarize=segmentation_task)
+    testset = datasets.MRIDatasetNumpySlices(test_dir, 
+                                             translation_direction=(enums.ImageModality.FLAIR, enums.ImageModality.T2),
+                                             binarize=segmentation_task)
     testloader = DataLoader(testset, batch_size=1, shuffle=False)
     if "prox" in model_path.lower():
         mu = imported_config.PROXIMAL_MU

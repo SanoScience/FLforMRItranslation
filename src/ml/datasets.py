@@ -62,8 +62,8 @@ class MRIDatasetNumpySlices(Dataset):
                             sorted(glob(
                                 f"{data_directory}/{metric_mask_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
             else:
-                self.images = sorted(glob(f"{data_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
-                self.targets = sorted(glob(f"{target_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+                self.images = sorted(glob(f"{data_dir}/{image_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+                self.targets = sorted(glob(f"{target_dir}/{image_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
 
                 if metric_mask_dir:
                     self.masks_for_metrics = sorted(glob(f"{data_dir}/{metric_mask_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
