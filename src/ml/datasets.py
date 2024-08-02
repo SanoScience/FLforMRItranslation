@@ -16,29 +16,7 @@ class MRIDatasetNumpySlices(Dataset):
     """
     EPS = 1e-6
 
-    def __init__(self, data_dirs: List[str], translation_direction, image_size=None, normalize=True, binarize=False, metric_mask_dir=None):
-        if not isinstance(data_dirs, List):
-            raise TypeError(f"Given parameter 'data_dirs': {data_dirs} is type: "
-                            f"{type(data_dirs)} and should be a list of string.")
-
-        if isinstance(translation_direction, Tuple):
-            if len(translation_direction) == 2:
-                # the translation is a two element tuple
-                # the first element is the input
-                # the second element is the target
-                # e.g. (ImageModality.T1, ImageModality.T2)
-                # stands for T1 -> T2 translation
-                # it is directly transferred to the predefined file structure
-                # see files_operations.TransformNIIDataToNumpySlices
-                image_type = translation_direction[0].name.lower()
-                target_type = translation_direction[1].name.lower()
-            else:
-                raise ValueError(
-                    "The 'translation_direction' should be a 2-element tuple, with the first element with input "
-                    "and the second the target of the translation e.g. (ImageModality.T1, ImageModality.T2)")
-        else:
-            raise TypeError(f"Given parameter 'translation_direction': {translation_direction} "
-                            f"is type: {type(translation_direction)} and should be a tuple")
+    def __init__(self, data_dir, translation_direction=None, target_dir=None, image_size=None, normalize=True, binarize=False, metric_mask_dir=None):
 
         # declaring booleans
         self.normalize = normalize
@@ -52,17 +30,55 @@ class MRIDatasetNumpySlices(Dataset):
         self.targets = []
         self.masks_for_metrics = []
 
-        for data_directory in data_dirs:
-            self.images.extend(
-                sorted(glob(f"{data_directory}/{image_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
-            self.targets.extend(
-                sorted(glob(f"{data_directory}/{target_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
-            if metric_mask_dir:
-                self.masks_for_metrics.extend(
-                    sorted(glob(f"{data_directory}/{metric_mask_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
+        if translation_direction:
+            if target_dir:
+                raise ValueError("Either `translation_direction` or `target_dir` has to be specified, NOT BOTH.")
+            if isinstance(translation_direction, Tuple):
+                if len(translation_direction) == 2:
+                    # the translation is a two element tuple
+                    # the first element is the input
+                    # the second element is the target
+                    # e.g. (ImageModality.T1, ImageModality.T2)
+                    # stands for T1 -> T2 translation
+                    # it is directly transferred to the predefined file structure
+                    # see files_operations.TransformNIIDataToNumpySlices
+                    image_type = translation_direction[0].name.lower()
+                    target_type = translation_direction[1].name.lower()
+                else:
+                    raise ValueError(
+                        "The 'translation_direction' should be a 2-element tuple, with the first element with input "
+                        "and the second the target of the translation e.g. (ImageModality.T1, ImageModality.T2)")
+            else:
+                raise TypeError(f"Given parameter 'translation_direction': {translation_direction} "
+                                f"is type: {type(translation_direction)} and should be a tuple")
+            if isinstance(data_dir, List):
+                for data_directory in data_dir:
+                    self.images.extend(
+                        sorted(glob(f"{data_directory}/{image_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
+                    self.targets.extend(
+                        sorted(glob(f"{data_directory}/{target_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
+                    if metric_mask_dir:
+                        self.masks_for_metrics.extend(
+                            sorted(glob(
+                                f"{data_directory}/{metric_mask_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
+            else:
+                self.images = sorted(glob(f"{data_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+                self.targets = sorted(glob(f"{target_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
 
-            if len(self.images) == 0:
-                raise FileNotFoundError(f"In directory {data_directory} no 't1' and 't2' directories found.")
+                if metric_mask_dir:
+                    self.masks_for_metrics = sorted(glob(f"{data_dir}/{metric_mask_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+
+        elif target_dir:
+            self.images = sorted(glob(f"{data_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+            self.targets = sorted(glob(f"{target_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+
+            if len(self.targets) == 0:
+                raise FileNotFoundError(f"In directory {target_dir} no 't1' and 't2' directories found.")
+        else:
+            raise ValueError("You either `translation_direction` or `target_dir` has to be specified.")
+
+        if len(self.images) == 0:
+            raise FileNotFoundError(f"In directory {data_dir} no 't1' and 't2' directories found.")
 
     def __len__(self):
         return len(self.images)
