@@ -24,7 +24,8 @@ def import_from_filepath(to_import_filepath):
 if __name__ == '__main__':
     # model and testset path from the command line
     if config_train.LOCAL:
-        test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test\\flair"
+        test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test"
+        # test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test\\flair"
         target_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test\\mask"
         model_path = "C:\\Users\\JanFiszer\\repos\\FLforMRItranslation\\trained_models\\centralized\\segmentation\\model-hgg_125-MSE_DSSIM-ep20-FLAIRMASK-lr0.0001-2024-08-01-16h\\best_model.pth"
     else:
@@ -63,7 +64,7 @@ if __name__ == '__main__':
     
     # testset = datasets.MRIDatasetNumpySlices(test_dir, target_dir=target_dir, binarize=segmentation_task)
     testset = datasets.MRIDatasetNumpySlices(test_dir, 
-                                             translation_direction=(enums.ImageModality.FLAIR, enums.ImageModality.T2),
+                                             translation_direction=config_train.TRANSLATION,
                                              binarize=segmentation_task)
     testloader = DataLoader(testset, batch_size=1, shuffle=False)
     if "prox" in model_path.lower():
