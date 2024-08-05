@@ -1,4 +1,5 @@
 import logging
+import os
 from glob import glob
 from typing import List, Tuple
 
@@ -16,7 +17,7 @@ class MRIDatasetNumpySlices(Dataset):
     """
     EPS = 1e-6
 
-    def __init__(self, data_dir, translation_direction=None, target_dir=None, image_size=None, normalize=True, binarize=False, metric_mask_dir=None):
+    def __init__(self, data_dir, translation_direction=None, target_dir=None, image_size=None, normalize=True, binarize=False, metric_mask_dir=None, input_target_set_union=True):
 
         # declaring booleans
         self.normalize = normalize
@@ -74,14 +75,28 @@ class MRIDatasetNumpySlices(Dataset):
             self.images = sorted(glob(f"{data_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
             self.targets = sorted(glob(f"{target_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
 
-            if len(self.targets) == 0:
-                raise FileNotFoundError(f"In directory {target_dir} no 't1' and 't2' directories found.")
         else:
             raise ValueError("You either `translation_direction` or `target_dir` has to be specified.")
 
-        if len(self.images) == 0:
-            raise FileNotFoundError(f"In directory {data_dir} no 't1' and 't2' directories found.")
+        if len(self.images) == 0 or len(self.targets):
+            raise FileNotFoundError(f"In directory {data_dir} no provided inputs or targets found directories found.")
+        
+        if input_target_set_union:
+            self.images, self.targets = self._filepath_list_union(self.images, self.targets)
 
+    def _filepath_list_union(list1, list2):
+        # Extract filenames from the filepaths in both lists
+        filenames1 = {fp.split('/')[-1] for fp in list1}
+        filenames2 = {fp.split('/')[-1] for fp in list2}
+
+        # Find the common filenames
+        common_filenames = filenames1.intersection(filenames2)
+
+        print("Excluded filepaths for inputs: ", *[fp for fp in list1 if fp.split('/')[-1] not in common_filenames])
+        print("Excluded filepaths for targets: ", *[fp for fp in list2 if fp.split('/')[-1] not in common_filenames])
+
+        return [fp for fp in list1 if fp.split('/')[-1] in common_filenames], [fp for fp in list2 if fp.split('/')[-1] in common_filenames]
+    
     def __len__(self):
         return len(self.images)
 
