@@ -13,4 +13,4 @@ if __name__ == '__main__':
         mask_dir_name = "C:\\Users\\JanFiszer\\data\\mri\\HGG"
 
     # patient_slices = fop.get_brains_slices_info(dir_name)
-    fop.create_segmentation_mask_dir(processed_dir_name, mask_dir_name, new_masked_dir_name="gliomas", transpose_order=(2, 0, 1), only_with_glioma=True)
+    fop.create_segmentation_mask_dir(processed_dir_name, mask_dir_name, new_masked_dir_name="tumor", transpose_order=(2, 0, 1), only_with_glioma=True)
