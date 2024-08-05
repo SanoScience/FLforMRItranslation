@@ -359,7 +359,8 @@ def try_create_dir(dir_name, allow_overwrite=True):
 
 
 def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_order,
-                                 new_masked_dir_name="mask", indir_reading_name="t1", mask_fingerprint="*seg.nii.gz", output_format=".npy"):
+                                 new_masked_dir_name="mask", indir_reading_name="t1", mask_fingerprint="*seg.nii.gz", output_format=".npy",
+                                 only_with_glioma=False):
     mask_dirs = os.listdir(mask_dir_name)
 
     dir_path = os.path.join(preprocess_dir_name, indir_reading_name)
@@ -390,11 +391,19 @@ def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_o
 
         print(f"Used filepath to find the mask: {mask_filepath}")
 
+        if only_with_glioma:
+            # resetting found slices indices and to take only the one which have some glioma
+            # target_zero_ratio ensures that we take only with at least one pixel
+            slices_range = (-1, -1)
+            target_zero_ratio = 1.0  # excluding full zeros
+        else:
+            target_zero_ratio = None  # not caring about the zero percentage, not considered anyway when we provide range slices
+
         mask_slices, _, _ = load_nii_slices(mask_filepath,
                                             transpose_order,
                                             min_slice_index=slices_range[0],
                                             max_slices_index=slices_range[1],
-                                            target_zero_ratio=1)  # not caring about the zero percentage
+                                            target_zero_ratio=target_zero_ratio)  # not caring about the zero percentage
 
         for mask, mask_real_index in zip(mask_slices, range(slices_range[0], slices_range[1] + 1)):
             mask_slice_filename = f"patient-{patient_id}-slice{mask_real_index}{output_format}"
