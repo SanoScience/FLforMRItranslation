@@ -90,16 +90,17 @@ class MRIDatasetNumpySlices(Dataset):
             if len(self.images) == 0 or len(self.targets):
                 raise FileNotFoundError(f"The given directories have no common file names. The union resulted in an empty lists.")
 
+    @staticmethod
     def _filepath_list_union(list1, list2):
         # Extract filenames from the filepaths in both lists
-        filenames1 = {fp.split('/')[-1] for fp in list1}
-        filenames2 = {fp.split('/')[-1] for fp in list2}
+        filenames1 = {fp.split(os.path.sep)[-1] for fp in list1}
+        filenames2 = {fp.split(os.path.sep)[-1] for fp in list2}
 
         # Find the common filenames
         common_filenames = filenames1.intersection(filenames2)
 
-        print("Excluded filepaths for inputs: ", *[fp for fp in list1 if fp.split('/')[-1] not in common_filenames])
-        print("Excluded filepaths for targets: ", *[fp for fp in list2 if fp.split('/')[-1] not in common_filenames])
+        print("Excluded filepaths for inputs: ", *[fp for fp in list1 if fp.split(os.path.sep)[-1] not in common_filenames])
+        print("Excluded filepaths for targets: ", *[fp for fp in list2 if fp.split(os.path.sep)[-1] not in common_filenames])
 
         return [fp for fp in list1 if fp.split('/')[-1] in common_filenames], [fp for fp in list2 if fp.split('/')[-1] in common_filenames]
     
