@@ -164,6 +164,7 @@ class TransformNIIDataToNumpySlices:
             print(f"Files processed {t1_paths[index]}, {t2_paths[index]}, {flair_paths[index]}")
             print("Patient number ", index, " in process ...\n")
 
+            raise NotImplementedError("load_nii_slices now returns just two values")
             t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_paths[index],
                                                                           self.transpose_order,
                                                                           self.image_size,
@@ -231,10 +232,10 @@ def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[i
                                 for brain_slice in brain_slices])
         satisfying_given_ratio = np.where(zero_ratios < target_zero_ratio)[0]
 
-        upper_bound = satisfying_given_ratio[0]
-        lower_bound = satisfying_given_ratio[-1]
+        # upper_bound = satisfying_given_ratio[0]
+        # lower_bound = satisfying_given_ratio[-1]
 
-        return upper_bound, lower_bound
+        return satisfying_given_ratio
 
     # noinspection PyUnresolvedReferences
     img = nib.load(filepath).get_fdata()
@@ -257,12 +258,15 @@ def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[i
         img = [trim_image(brain_slice, image_size) for brain_slice in img]
 
     if min_slice_index == -1 or max_slices_index == -1:
-        min_slice_index, max_slices_index = get_optimal_slice_range(img, target_zero_ratio=target_zero_ratio)
+        taken_indices = get_optimal_slice_range(img, target_zero_ratio=target_zero_ratio)
+        print(f"Slice range used for file {filepath}: {taken_indices}")
+    else:
+        print(f"Slice range used for file {filepath}: <{min_slice_index, max_slices_index}>")
+        taken_indices = range(min_slice_index, max_slices_index)
 
-    print(f"Slice range used for file {filepath}: <{min_slice_index}, {max_slices_index}>")
-    selected_slices = [img[slice_index] for slice_index in range(min_slice_index, max_slices_index + 1, index_step)]
+    selected_slices = [img[slice_index] for slice_index in taken_indices]
 
-    return selected_slices, min_slice_index, max_slices_index
+    return selected_slices, taken_indices
 
 
 def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data_dir, flair_filepath_from_data_dir,
@@ -401,13 +405,13 @@ def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_o
         else:
             target_zero_ratio = None  # not caring about the zero percentage, not considered anyway when we provide range slices
 
-        mask_slices, utilized_min_slice, utilized_max_slice = load_nii_slices(mask_filepath,
-                                                                              transpose_order,
-                                                                              min_slice_index=slices_range[0],
-                                                                              max_slices_index=slices_range[1],
-                                                                              target_zero_ratio=target_zero_ratio)  # not caring about the zero percentage
+        mask_slices, utilized_slices = load_nii_slices(mask_filepath,
+                                                       transpose_order,
+                                                       min_slice_index=slices_range[0],
+                                                       max_slices_index=slices_range[1],
+                                                       target_zero_ratio=target_zero_ratio)  # not caring about the zero percentage
 
-        for mask, mask_real_index in zip(mask_slices, range(utilized_min_slice, utilized_max_slice + 1)):
+        for mask, mask_real_index in zip(mask_slices, utilized_slices):
             mask_slice_filename = f"patient-{patient_id}-slice{mask_real_index}{output_format}"
             mask_slice_filepath = os.path.join(created_mask_dir, mask_slice_filename)
 
