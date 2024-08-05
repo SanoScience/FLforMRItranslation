@@ -36,6 +36,7 @@ class NormalizationType(Enum):
 
 
 class ImageModality(Enum):
+    TUMOR = -1
     MASK = 0
     T1 = 1
     T2 = 2

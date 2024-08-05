@@ -511,7 +511,7 @@ def generalized_dice(predict, target):
 #     dice = generalized_dice(predict, target)
 #     return 1 - dice
 
-def dice_2_class(predict, target, eps=100):
+def dice_2_class(predict, target, eps=1):
     pred_mutl_target = (predict * target).sum()
     pred_plus_target = (predict + target).sum()
 

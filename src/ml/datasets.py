@@ -17,11 +17,12 @@ class MRIDatasetNumpySlices(Dataset):
     """
     EPS = 1e-6
 
-    def __init__(self, data_dir, translation_direction=None, target_dir=None, image_size=None, normalize=True, binarize=False, metric_mask_dir=None, input_target_set_union=True):
+    def __init__(self, data_dir, translation_direction=None, target_dir=None, image_size=None, normalize=True, binarize=False, metric_mask_dir=None, squeeze=False, input_target_set_union=False):
 
         # declaring booleans
         self.normalize = normalize
         self.binarize = binarize
+        self.squeeze = squeeze
         self.metric_mask = metric_mask_dir is not None
 
         self.image_size = image_size
@@ -63,10 +64,12 @@ class MRIDatasetNumpySlices(Dataset):
                             sorted(glob(
                                 f"{data_directory}/{metric_mask_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")))
             else:
-                print(f"{data_dir}/{image_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")
-                print(f"{data_dir}/{target_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}")
-                self.images = sorted(glob(f"{data_dir}/{image_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
-                self.targets = sorted(glob(f"{data_dir}/{target_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+                image_path_like = f"{data_dir}/{image_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"
+                target_path_like = f"{data_dir}/{target_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"
+                print(f"Loading network input data from path like: {image_path_like}")
+                print(f"Loading network output data from path like: {target_path_like}")
+                self.images = sorted(glob(f"{image_path_like}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+                self.targets = sorted(glob(f"{target_path_like}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
 
                 if metric_mask_dir:
                     self.masks_for_metrics = sorted(glob(f"{data_dir}/{metric_mask_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
@@ -79,10 +82,13 @@ class MRIDatasetNumpySlices(Dataset):
             raise ValueError("You either `translation_direction` or `target_dir` has to be specified.")
 
         if len(self.images) == 0 or len(self.targets):
-            raise FileNotFoundError(f"In directory {data_dir} no provided inputs or targets found directories found.")
+            raise FileNotFoundError(f"In directory {data_dir} no provided inputs or targets found directories found.\n",
+                                    f"Check {translation_direction} and the directory names {os.listdir(data_dir[0])}")  # TODO: make it work for not list
         
         if input_target_set_union:
             self.images, self.targets = self._filepath_list_union(self.images, self.targets)
+            if len(self.images) == 0 or len(self.targets):
+                raise FileNotFoundError(f"The given directories have no common file names. The union resulted in an empty lists.")
 
     def _filepath_list_union(list1, list2):
         # Extract filenames from the filepaths in both lists
@@ -117,6 +123,9 @@ class MRIDatasetNumpySlices(Dataset):
 
         np_image = np.load(image_path)
         np_target = np.load(target_path)
+
+        if self.squeeze:
+            np_image = np_image[0]
 
         if self.image_size is not None:
             np_image = self._trim_image(np_image)
