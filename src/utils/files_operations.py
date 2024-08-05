@@ -422,6 +422,7 @@ def get_brains_slices_info(dir_name):
     # in this case Brats18_TCIA10_420_1_t1
     # list(set(...)) for extracting unique values
     patients_id = list(set([f.split('-')[1] for f in filenames]))
+    # patients_id = list(set([f.split('-')[-2] for f in filenames]))
 
     for patient_id in patients_id:
         slices_nr = []
