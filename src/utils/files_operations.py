@@ -359,7 +359,8 @@ def try_create_dir(dir_name, allow_overwrite=True):
 
 
 def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_order,
-                                 new_masked_dir_name="mask", indir_reading_name="t1", mask_fingerprint="*seg.nii.gz", output_format=".npy",
+                                 new_masked_dir_name="mask", indir_reading_name="t1", mask_fingerprint="*seg.nii.gz",
+                                 output_format=".npy",
                                  only_with_glioma=False):
     mask_dirs = os.listdir(mask_dir_name)
 
@@ -375,15 +376,16 @@ def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_o
     for patient_id, slices_range in patients_slices.items():
         print("Patient id: ", patient_id)
         print("Range: ", slices_range, "\n")
-        
+
         print("Folder found:")
         full_dir_name = None
         for mask_dir in mask_dirs:
-            if "_".join(patient_id.split('_')[:-1]) in mask_dir:  # the patient ID has a "leftover" (.._t1) which is skipped
+            if "_".join(
+                    patient_id.split('_')[:-1]) in mask_dir:  # the patient ID has a "leftover" (.._t1) which is skipped
                 print(mask_dir)
                 full_dir_name = mask_dir
                 break
-        
+
         path_mask = os.path.join(mask_dir_name, full_dir_name)
         like_path_mask = os.path.join(path_mask, mask_fingerprint)
         mask_file = glob(like_path_mask)[0]
@@ -399,13 +401,13 @@ def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_o
         else:
             target_zero_ratio = None  # not caring about the zero percentage, not considered anyway when we provide range slices
 
-        mask_slices, _, _ = load_nii_slices(mask_filepath,
-                                            transpose_order,
-                                            min_slice_index=slices_range[0],
-                                            max_slices_index=slices_range[1],
-                                            target_zero_ratio=target_zero_ratio)  # not caring about the zero percentage
+        mask_slices, utilized_min_slice, utilized_max_slice = load_nii_slices(mask_filepath,
+                                                                              transpose_order,
+                                                                              min_slice_index=slices_range[0],
+                                                                              max_slices_index=slices_range[1],
+                                                                              target_zero_ratio=target_zero_ratio)  # not caring about the zero percentage
 
-        for mask, mask_real_index in zip(mask_slices, range(slices_range[0], slices_range[1] + 1)):
+        for mask, mask_real_index in zip(mask_slices, range(utilized_min_slice, utilized_max_slice + 1)):
             mask_slice_filename = f"patient-{patient_id}-slice{mask_real_index}{output_format}"
             mask_slice_filepath = os.path.join(created_mask_dir, mask_slice_filename)
 
