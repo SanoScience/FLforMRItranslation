@@ -81,7 +81,7 @@ class MRIDatasetNumpySlices(Dataset):
         else:
             raise ValueError("You either `translation_direction` or `target_dir` has to be specified.")
 
-        if len(self.images) == 0 or len(self.targets):
+        if len(self.images) == 0 or len(self.targets) == 0:
             raise FileNotFoundError(f"In directory {data_dir} no provided inputs or targets found directories found.\n",
                                     f"Check {translation_direction} and the directory names {os.listdir(data_dir[0])}")  # TODO: make it work for not list
         
