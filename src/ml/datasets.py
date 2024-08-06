@@ -89,6 +89,10 @@ class MRIDatasetNumpySlices(Dataset):
             self.images, self.targets = self._filepath_list_union(self.images, self.targets)
             if len(self.images) == 0 or len(self.targets) == 0:
                 raise FileNotFoundError(f"The given directories have no common file names. The union resulted in an empty lists.")
+            
+        print(f"Input paths: ", *self.images)
+        print(f"Output paths: ", *self.targets)
+
 
     @staticmethod
     def _filepath_list_union(list1, list2):
@@ -125,8 +129,7 @@ class MRIDatasetNumpySlices(Dataset):
 
         image_path = self.images[index]
         target_path = self.targets[index]
-        print(image_path)
-        print(target_path)
+
         np_image = np.load(image_path)
         np_target = np.load(target_path)
 
@@ -142,6 +145,7 @@ class MRIDatasetNumpySlices(Dataset):
 
         if self.binarize:
             tensor_target = tensor_target > 0
+            # tensor_target = tensor_target < 1  # just test for the dice behaviour
             tensor_target = tensor_target.int()
 
         if self.normalize:
@@ -170,6 +174,34 @@ class MRIDatasetNumpySlices(Dataset):
         # otherwise an error
         return tensor_image.float(), tensor_target
 
+
+class VoluminEvaluation(Dataset):
+    def __init__(self, ground_truth_path: str, predicted_path: str):
+        self.ground_truth_path = ground_truth_path
+        self.predicted_path = predicted_path
+
+        patient_ids = [files.split('-')[0] for files in os.listdir(ground_truth_path)]
+        self.patient_ids = list(set(patient_ids))
+
+    def __len__(self):
+        return len(self.patient_ids)
+
+    def __getitem__(self, index):
+        patient_id = self.patient_ids[index]
+
+        target_img_paths = glob(os.path.join(self.ground_truth_path, f"{patient_id}*.{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+        predicted_img_paths = glob(os.path.join(self.predicted_path, f"{patient_id}*.{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+
+        target_slices = [np.load(fp) for fp in target_img_paths]
+        predicted_slices = [np.load(fp) for fp in predicted_img_paths]
+
+        target_volumin = np.concatenate(target_slices)
+        predicted_volumin = np.concatenate(predicted_slices)
+
+        target_volumin = target_volumin > 0  # binarize
+
+        return target_volumin, predicted_volumin
+    
 
 class MRIDatasetNII(Dataset):
     """
