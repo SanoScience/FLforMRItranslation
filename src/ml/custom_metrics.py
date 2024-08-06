@@ -534,9 +534,36 @@ def dice_2_class(predict, target, eps=1):
         dice_score = torch.tensor(1.0)
     return dice_score
 
-def loss_dice_2_class(predict, target):
-    dice = dice_2_class(predict, target)
-    return 1 - dice
+class LossDice2Class(torch.nn.Module):
+    """Dice loss of binary class
+    Args:
+        smooth: A float number to smooth loss, and avoid NaN error, default: 1
+        p: Denominator value: \sum{x^p} + \sum{y^p}, default: 2
+        predict: A tensor of shape [N, *]
+        target: A tensor of shape same with predict
+        reduction: Reduction method to apply, return mean over batch if 'mean',
+            return sum if 'sum', return a tensor of shape [N,] if 'none'
+    Returns:
+        Loss tensor according to arg reduction
+    Raise:
+        Exception if unexpected reduction
+    """
+
+    def __init__(self, smooth=True):
+        super(LossDice2Class, self).__init__()
+        self.smooth = smooth
+
+    def forward(self, predict, target):
+        loss = 1 - dice_2_class(predict, target, eps=self.smooth)
+
+        return loss
+
+    def __repr__(self):
+        return "Domi LOSS"
+    
+# def loss_dice_2_class(predict, target):
+#     dice = dice_2_class(predict, target)
+#     return 1 - dice
 
 
 class DomiBinaryDiceLoss(torch.nn.Module):
