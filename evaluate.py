@@ -25,7 +25,8 @@ def import_from_filepath(to_import_filepath):
 if __name__ == '__main__':
     # base values
     target_dir=None
-    segmentation_task = False
+    segmentation_task=False
+    TRANSLATION = None
 
     if config_train.LOCAL:
         test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test"
@@ -52,17 +53,17 @@ if __name__ == '__main__':
     print("Model dir is: ", model_dir)
     # verifying if the translation is the same direction as the trained model 
     
-    print(test_dir)
-    print(model_dir)
-    print(target_dir)
-    print(representative_test_dir)
+    # print(test_dir)
+    # print(model_dir)
+    # print(target_dir)
+    # print(representative_test_dir)
     try:
         imported_config = import_from_filepath(config_path)
-        
-        if imported_config.TRANSLATION != config_train.TRANSLATION:
-            raise DifferentTranslationError(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
-        else:
-            print(f"Translations match: {imported_config.TRANSLATION}")
+        TRANSLATION = imported_config.TRANSLATION
+        # if imported_config.TRANSLATION != TRANSLATION:
+        #     raise DifferentTranslationError(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
+        # else:
+        #     print(f"Translations match: {imported_config.TRANSLATION}")
 
         segmentation_task = imported_config.TRANSLATION[1] == enums.ImageModality.MASK or imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR
         if segmentation_task:
@@ -71,16 +72,19 @@ if __name__ == '__main__':
     except FileNotFoundError:
         print(f"WARNING: The config file not found at {config_path}. The direction of the translation not verified!")
     
+    if imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR:
+        print("Taking `tumor` datasets, only union will be taken.")
+
     # testset = datasets.MRIDatasetNumpySlices(test_dir, target_dir=target_dir, binarize=segmentation_task)
     testset = datasets.MRIDatasetNumpySlices(test_dir, 
-                                            #  target_dir=target_dir,
-                                             translation_direction=config_train.TRANSLATION,
+                                             target_dir=target_dir,
+                                             translation_direction=TRANSLATION,
                                              binarize=segmentation_task,
-                                            #  squeeze=target_dir is nost None,
-                                             input_target_set_union=True)
+                                             squeeze=target_dir is not None,
+                                             input_target_set_union=imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR)
     
-    testloader = DataLoader(testset, batch_size=32, shuffle=True)
-    
+    testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)
+
     if "prox" in model_path.lower():
         mu = imported_config.PROXIMAL_MU
         criterion = custom_metrics.LossWithProximalTerm(proximal_mu=mu, base_loss_fn=custom_metrics.DssimMse())
@@ -101,16 +105,17 @@ if __name__ == '__main__':
 
     print(f"Testing on the data from: {test_dir}")
 
-    if testset.metric_mask:
-        images, targets, _ = next(iter(testloader))
-    else:
-        images, targets = next(iter(testloader))
+    if BATCH_SIZE > 1:
+        if testset.metric_mask:
+            images, targets, _ = next(iter(testloader))
+        else:
+            images, targets = next(iter(testloader))
 
-    images = images.to(config_train.DEVICE)
-    predictions = unet(images)
+        images = images.to(config_train.DEVICE)
+        predictions = unet(images)
 
-    visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
-                            filepath=os.path.join(test_dir, f"segmenation_results"))
+        visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
+                                filepath=os.path.join(test_dir, f"segmenation_results"))
 
     print(f"Model and data loaed; evaluation starts...")
     if segmentation_task:
