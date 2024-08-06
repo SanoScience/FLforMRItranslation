@@ -68,8 +68,8 @@ class MRIDatasetNumpySlices(Dataset):
                 target_path_like = f"{data_dir}/{target_type}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"
                 print(f"Loading network input data from path like: {image_path_like}")
                 print(f"Loading network output data from path like: {target_path_like}")
-                self.images = sorted(glob(f"{image_path_like}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
-                self.targets = sorted(glob(f"{target_path_like}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+                self.images = sorted(glob(image_path_like))
+                self.targets = sorted(glob(target_path_like))
 
                 if metric_mask_dir:
                     self.masks_for_metrics = sorted(glob(f"{data_dir}/{metric_mask_dir}/*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
@@ -83,7 +83,7 @@ class MRIDatasetNumpySlices(Dataset):
 
         if len(self.images) == 0 or len(self.targets) == 0:
             raise FileNotFoundError(f"In directory {data_dir} no provided inputs or targets found directories found.\n",
-                                    f"Check {translation_direction} and the directory names {os.listdir(data_dir[0])}")  # TODO: make it work for not list
+                                    f"Check {translation_direction} and the directory names in the provided directory")  
         
         if input_target_set_union:
             self.images, self.targets = self._filepath_list_union(self.images, self.targets)
@@ -102,8 +102,8 @@ class MRIDatasetNumpySlices(Dataset):
         # Find the common filenames
         common_filenames = filenames1.intersection(filenames2)
 
-        print("Excluded filepaths for inputs: ", *[fp for fp in list1 if fp.split(os.path.sep)[-1] not in common_filenames])
-        print("Excluded filepaths for targets: ", *[fp for fp in list2 if fp.split(os.path.sep)[-1] not in common_filenames])
+        print("Excluded number filepaths for inputs: ", len([fp for fp in list1 if fp.split(os.path.sep)[-1] not in common_filenames]))
+        print("Excluded number filepaths for targets: ", len([fp for fp in list2 if fp.split(os.path.sep)[-1] not in common_filenames]))
 
         return [fp for fp in list1 if fp.split(os.path.sep)[-1] in common_filenames], [fp for fp in list2 if fp.split(os.path.sep)[-1] in common_filenames]
     
@@ -122,9 +122,11 @@ class MRIDatasetNumpySlices(Dataset):
         return trim_image(image, self.image_size)
 
     def __getitem__(self, index):
+
         image_path = self.images[index]
         target_path = self.targets[index]
-
+        print(image_path)
+        print(target_path)
         np_image = np.load(image_path)
         np_target = np.load(target_path)
 
