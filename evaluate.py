@@ -6,6 +6,7 @@ import importlib
 
 from configs import config_train, enums
 from src.ml import custom_metrics, datasets, models
+from src.utils import visualization
 from torch.utils.data import DataLoader
 
 
@@ -22,7 +23,10 @@ def import_from_filepath(to_import_filepath):
 
 
 if __name__ == '__main__':
-    # model and testset path from the command line
+    # base values
+    target_dir=None
+    segmentation_task = False
+
     if config_train.LOCAL:
         test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test"
         # test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test\\flair"
@@ -42,11 +46,16 @@ if __name__ == '__main__':
         config_path = os.path.join(os.path.dirname(model_path), "config.py")
 
     model_dir = '/'.join(e for e in model_path.split(os.path.sep)[:-1])
+
     representative_test_dir = test_dir.split(os.path.sep)[-2]
-    segmentation_task = False
 
     print("Model dir is: ", model_dir)
     # verifying if the translation is the same direction as the trained model 
+    
+    print(test_dir)
+    print(model_dir)
+    print(target_dir)
+    print(representative_test_dir)
     try:
         imported_config = import_from_filepath(config_path)
         
@@ -55,7 +64,7 @@ if __name__ == '__main__':
         else:
             print(f"Translations match: {imported_config.TRANSLATION}")
 
-        segmentation_task = imported_config.TRANSLATION[1] == enums.ImageModality.MASK
+        segmentation_task = imported_config.TRANSLATION[1] == enums.ImageModality.MASK or imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR
         if segmentation_task:
             print("\nMask as the target modality, evaluation for segmenatation task\n")
 
@@ -64,14 +73,19 @@ if __name__ == '__main__':
     
     # testset = datasets.MRIDatasetNumpySlices(test_dir, target_dir=target_dir, binarize=segmentation_task)
     testset = datasets.MRIDatasetNumpySlices(test_dir, 
+                                            #  target_dir=target_dir,
                                              translation_direction=config_train.TRANSLATION,
-                                             binarize=segmentation_task)
-    testloader = DataLoader(testset, batch_size=1, shuffle=False)
+                                             binarize=segmentation_task,
+                                            #  squeeze=target_dir is nost None,
+                                             input_target_set_union=True)
+    
+    testloader = DataLoader(testset, batch_size=32, shuffle=True)
+    
     if "prox" in model_path.lower():
         mu = imported_config.PROXIMAL_MU
         criterion = custom_metrics.LossWithProximalTerm(proximal_mu=mu, base_loss_fn=custom_metrics.DssimMse())
     elif segmentation_task:
-        criterion = custom_metrics.BinaryDiceLoss(binary_crossentropy=True)
+        criterion = custom_metrics.BinaryDiceLoss()
     else:
         criterion = custom_metrics.DssimMse()
     
@@ -94,6 +108,9 @@ if __name__ == '__main__':
 
     images = images.to(config_train.DEVICE)
     predictions = unet(images)
+
+    visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
+                            filepath=os.path.join(test_dir, f"segmenation_results"))
 
     print(f"Model and data loaed; evaluation starts...")
     if segmentation_task:
