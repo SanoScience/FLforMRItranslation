@@ -119,7 +119,6 @@ def plot_diff_tight(targets, preds, col_labels=None, img_size=None, cmap="bwr", 
 
     to_plot_trimmed = []
     for images in dim_reduced_to_plot:
-        print(images[0].shape)
         to_plot_trimmed.append([np.rot90(trim_image(img, min_W, min_H), k=rotation_direction) for img, rotation_direction in zip(images, rotation_list)])
 
     all_numpy_rows = [np.concatenate(images, axis=1) for images in to_plot_trimmed]
