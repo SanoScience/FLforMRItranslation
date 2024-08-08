@@ -90,8 +90,8 @@ class MRIDatasetNumpySlices(Dataset):
             if len(self.images) == 0 or len(self.targets) == 0:
                 raise FileNotFoundError(f"The given directories have no common file names. The union resulted in an empty lists.")
             
-        print(f"Input paths: ", *self.images)
-        print(f"Output paths: ", *self.targets)
+        # print(f"Input paths: ", *self.images)
+        # print(f"Output paths: ", *self.targets)
 
 
     @staticmethod
@@ -189,6 +189,8 @@ class VolumeEvaluation(Dataset):
 
     def __getitem__(self, index):
         patient_id = self.patient_ids[index]
+
+        print(f"Patient id: {patient_id}")
 
         target_img_paths = glob(os.path.join(self.ground_truth_path, f"*{patient_id}*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
         predicted_img_paths = glob(os.path.join(self.predicted_path, f"*{patient_id}*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))

@@ -28,6 +28,7 @@ if __name__ == '__main__':
     segmentation_task=False
     TRANSLATION = None
     input_target_union=False
+    squeeze=False
 
     if config_train.LOCAL:
         test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test"
@@ -89,7 +90,7 @@ if __name__ == '__main__':
                                              squeeze=squeeze,
                                              input_target_set_union=input_target_union)
     
-    testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True)
+    testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=False)
 
     if "prox" in model_path.lower():
         mu = imported_config.PROXIMAL_MU
