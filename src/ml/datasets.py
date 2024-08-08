@@ -180,7 +180,7 @@ class VoluminEvaluation(Dataset):
         self.ground_truth_path = ground_truth_path
         self.predicted_path = predicted_path
 
-        patient_ids = [files.split('-')[0] for files in os.listdir(ground_truth_path)]
+        patient_ids = [files.split('-')[1] for files in os.listdir(ground_truth_path)]   # the second part of the file is the patients id
         self.patient_ids = list(set(patient_ids))
 
     def __len__(self):
