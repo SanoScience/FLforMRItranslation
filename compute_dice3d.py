@@ -11,8 +11,8 @@ from torchmetrics.classification import Dice
 
 if __name__ == '__main__':
     if config_train.LOCAL:
-        target_dir = "C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples\\segmentation"
-        predicted_dir = "C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples\\mask"
+        target_dir = "C:\\Users\\JanFiszer\\data\\mri\\segmentation\\targets"
+        predicted_dir = "C:\\Users\\JanFiszer\\data\\mri\\segmentation\\preds"
     else:
         target_dir = sys.argv[1]
         predicted_dir = sys.argv[2]
@@ -20,9 +20,9 @@ if __name__ == '__main__':
     print(f"Targets loaded from: ", target_dir)
     print(f"Predictions loaded from: ", predicted_dir)
 
-    dice = Dice()
+    dice = custom_metrics.BinaryDice()
 
-    eval_dataset = datasets.VolumeEvaluation(target_dir, predicted_dir, squeeze_pred=not config_train.LOCAL)
+    eval_dataset = datasets.VolumeEvaluation(target_dir, predicted_dir)
     dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=True)
 
     dice_scores = []
@@ -44,7 +44,6 @@ if __name__ == '__main__':
 
     print(f"The 3D dice score is: {average_dice}")
     print(f"The 3D false positive ratio is: {false_positive_ratio}")
-
 
     filepath = os.path.join(predicted_dir, f"test_dice3d_{average_dice:.2f}.pkl")
 
