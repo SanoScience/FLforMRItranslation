@@ -10,11 +10,16 @@ from torchmetrics.classification import Dice
 
 
 if __name__ == '__main__':
-    dice = Dice()
-    target_dir = sys.argv[1]
-    predicted_dir = sys.argv[2]
+    if config_train.LOCAL:
+        target_dir = "C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples\\segmentation"
+        predicted_dir = "C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples\\mask"
+    else:
+        target_dir = sys.argv[1]
+        predicted_dir = sys.argv[2]
 
-    eval_dataset = datasets.VolumeEvaluation(target_dir, predicted_dir)
+    dice = Dice()
+
+    eval_dataset = datasets.VolumeEvaluation(target_dir, predicted_dir, squeeze_pred=not config_train.LOCAL)
     dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=True)
 
     dice_scores = []
