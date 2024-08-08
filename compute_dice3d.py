@@ -16,6 +16,9 @@ if __name__ == '__main__':
     else:
         target_dir = sys.argv[1]
         predicted_dir = sys.argv[2]
+    
+    print(f"Targets loaded from: ", target_dir)
+    print(f"Predictions loaded from: ", predicted_dir)
 
     dice = Dice()
 
@@ -31,7 +34,9 @@ if __name__ == '__main__':
         targets = targets_cpu.to(config_train.DEVICE)
         predicted = predicted_cpu.to(config_train.DEVICE)
 
-        dice_scores.append(dice(predicted.cpu().int(), targets.cpu()))
+        dice_score = dice(predicted.cpu().int(), targets.cpu())
+        print(f"Dice score: ", dice_score)
+        dice_scores.append(dice_score)
         false_positives.append(custom_metrics.false_positive_ratio(predicted.cpu().int(), targets.cpu().int()))
 
     average_dice = sum(dice_scores)/len(dice_scores)
