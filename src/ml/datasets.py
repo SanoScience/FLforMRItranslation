@@ -175,10 +175,11 @@ class MRIDatasetNumpySlices(Dataset):
         return tensor_image.float(), tensor_target
 
 
-class VoluminEvaluation(Dataset):
-    def __init__(self, ground_truth_path: str, predicted_path: str):
+class VolumeEvaluation(Dataset):
+    def __init__(self, ground_truth_path: str, predicted_path: str, squeeze_pred=True):
         self.ground_truth_path = ground_truth_path
         self.predicted_path = predicted_path
+        self.squeeze_pred = squeeze_pred
 
         patient_ids = [files.split('-')[1] for files in os.listdir(ground_truth_path)]   # the second part of the file is the patients id
         self.patient_ids = list(set(patient_ids))
@@ -189,18 +190,21 @@ class VoluminEvaluation(Dataset):
     def __getitem__(self, index):
         patient_id = self.patient_ids[index]
 
-        target_img_paths = glob(os.path.join(self.ground_truth_path, f"{patient_id}*.{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
-        predicted_img_paths = glob(os.path.join(self.predicted_path, f"{patient_id}*.{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+        target_img_paths = glob(os.path.join(self.ground_truth_path, f"*{patient_id}*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
+        predicted_img_paths = glob(os.path.join(self.predicted_path, f"*{patient_id}*{TransformNIIDataToNumpySlices.SLICES_FILE_FORMAT}"))
 
         target_slices = [np.load(fp) for fp in target_img_paths]
         predicted_slices = [np.load(fp) for fp in predicted_img_paths]
 
-        target_volumin = np.concatenate(target_slices)
-        predicted_volumin = np.concatenate(predicted_slices)
+        if self.squeeze_pred:
+            predicted_slices = [pred[0] for pred in predicted_slices]
 
-        target_volumin = target_volumin > 0  # binarize
+        target_volume = np.stack(target_slices)
+        predicted_volume = np.stack(predicted_slices)
 
-        return target_volumin, predicted_volumin
+        target_volume = target_volume > 0  # binarize
+
+        return target_volume, predicted_volume
     
 
 class MRIDatasetNII(Dataset):
