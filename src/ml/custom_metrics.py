@@ -468,6 +468,25 @@ class BinaryDiceLoss(torch.nn.Module):
         else:
             return "Dice LOSS"
 
+class BinaryDice(torch.nn.Module):
+     
+     def __init__(self, smooth=1):
+        super(BinaryDice, self).__init__()
+        self.smooth = smooth
+
+    def forward(self, predict, target):
+        intersection = torch.sum(predict * target)
+        
+        # Compute the sum of elements for both tensors
+        sum_pred_target = torch.sum(predict) + torch.sum(target)
+        
+        # Compute the Dice coefficient
+        dice_coefficient = (2 * intersection + self.smooth) / (sum_pred_target + self.smooth)
+
+        return dice_coefficient.item()
+
+    def __repr__(self):
+        return "BinaryDice"
 
 def weighted_BCE(predict, target):
     total_samples = torch.numel(target)
