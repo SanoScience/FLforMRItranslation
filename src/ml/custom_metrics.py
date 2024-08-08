@@ -596,6 +596,16 @@ class DomiBinaryDiceLoss(torch.nn.Module):
     def __repr__(self):
         return "Domi LOSS"
 
+
+def false_positive_ratio(y_pred, y_true):
+    false_positives = np.sum((y_pred == 1) & (y_true == 0))
+
+    # Calculate the total number of negatives in the target array
+    total_negatives = np.sum(y_pred == 0)
+
+    # Compute the false positive ratio
+    return false_positives / total_negatives if total_negatives > 0 else 0
+
 ###############
 ## GRAVEYARD ##
 ###############
