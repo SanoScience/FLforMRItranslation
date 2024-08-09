@@ -617,9 +617,9 @@ def false_positive_ratio(preds, target):
     true_pred, false_pred = target == preds, target != preds
     pos_pred, neg_pred = preds == 1, preds == 0
 
-    fp = (false_pred * pos_pred).sum(dim=1).int()
+    fp = (false_pred * pos_pred).sum().item()
 
-    tn = (true_pred * neg_pred).sum(dim=1).int()
+    tn = (true_pred * neg_pred).sum().item()
     # Compute the false positive ratio
     return fp / (tn + fp) if tn > 0 else 0
 
