@@ -36,8 +36,11 @@ if __name__ == '__main__':
             representative_test_dir = "all_data"
 
 
-    translation_direction = config_train.TRANSLATION  # T1->T2
-    dataset_kwargs = {"translation_direction": translation_direction, "binarize":True, "input_target_set_union":False}
+    translation_direction = config_train.TRANSLATION 
+    dataset_kwargs = {"translation_direction": translation_direction, 
+                      "binarize": False, 
+                      "normalize": False,
+                      "input_target_set_union": False}
     
     train_dataset = MRIDatasetNumpySlices(train_directories, **dataset_kwargs)
     # train_dataset = MRIDatasetNumpySlices(train_directories, translation_direction=translation_direction, image_size=(176, 240))
@@ -66,7 +69,7 @@ if __name__ == '__main__':
                                num_workers=config_train.NUM_WORKERS,
                                pin_memory=True)
 
-    criterion = custom_metrics.LossDice2Class(smooth=1)
+    criterion = custom_metrics.DssimMse()
     unet = UNet(criterion).to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
 
