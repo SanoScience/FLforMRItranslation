@@ -260,7 +260,14 @@ class UNet(nn.Module):
 
         return history
 
-    def evaluate(self, testloader, plots_path=None, plot_filename=None, evaluate=True, wanted_metrics=None, save_preds_dir=None):
+    def evaluate(self, 
+                 testloader, 
+                 plots_path=None, 
+                 plot_filename=None, 
+                 evaluate=True, 
+                 wanted_metrics=None, 
+                 min_mask_pixel_in_batch=9,
+                 save_preds_dir=None):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
@@ -274,11 +281,15 @@ class UNet(nn.Module):
                    "dice_classification": dice_score,
                    "dice_generalized": dice_generalized,
                    "dice_2_class": dice_2_class,
+                   "zoomed_ssim": zoomed_ssim,
                    "jaccard": jaccard_index}
         # metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "masked_ssim": masked_ssim, "zoomed_ssim": zoomed_ssim, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
 
         if wanted_metrics:
             metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if metric_name in wanted_metrics}
+        
+        if "zoomed_ssim" in wanted_metrics and len(wanted_metrics) > 2:  # if there is `zoomed_ssim` and some others metrics
+            logging.log(logging.WARNING, f"It is advised to don't use `ZoomedSSIM` with other metrics if there are masks with only zeros. The provided `wanted_metrics` are: {wanted_metrics}")
 
         if evaluate:
             metrics = {f"val_{name}": metric for name, metric in metrics.items()}
@@ -332,7 +343,7 @@ class UNet(nn.Module):
                         metric_value = metric_obj(predictions.to(torch.int64), targets.to(torch.int64))
                     elif isinstance(metric_obj, custom_metrics.ZoomedSSIM):
                         if testloader.dataset.metric_mask:
-                            if torch.sum(metric_mask) > 0:
+                            if torch.sum(metric_mask) > min_mask_pixel_in_batch:
                                 # print(torch.sum(metric_mask))
                                 metric_value = metric_obj(predictions, targets, metric_mask)
 
@@ -346,8 +357,7 @@ class UNet(nn.Module):
 
                             else:
                                 # print(f"Batch number {batch_index} skipped because all the values are zero - no mask provided.")
-                                logging.log(logging.WARNING, f"The batch number {batch_index} is skipped due to usage of `ZoomedSSIM`. I can affect the metric result. "
-                                                             f"It is advised to don't use `ZoomedSSIM` with other metrics if there are masks with only zeros.")
+                                logging.log(logging.WARNING, f"The batch number {batch_index} is skipped due to usage of `ZoomedSSIM`. I can affect the metric result. ")
                                 n_skipped += 1
                                 break
                         else:
