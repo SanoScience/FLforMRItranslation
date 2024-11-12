@@ -99,9 +99,6 @@ class MRIDatasetNumpySlices(Dataset):
         # Extract filenames from the filepaths in both lists
         filenames1 = {fp.split(os.path.sep)[-1] for fp in list1}
         filenames2 = {fp.split(os.path.sep)[-1] for fp in list2}
-        
-        # print(filenames1)
-        # print(filenames2)
 
         # Find the common filenames
         common_filenames = filenames1.intersection(filenames2)
@@ -145,7 +142,6 @@ class MRIDatasetNumpySlices(Dataset):
 
         if self.binarize:
             tensor_target = tensor_target > 0
-            # tensor_target = tensor_target < 1  # just test for the dice behaviour
             tensor_target = tensor_target.int()
 
         if self.normalize:
@@ -172,7 +168,7 @@ class MRIDatasetNumpySlices(Dataset):
 
         # converting to float to be able to perform tensor multiplication
         # otherwise an error
-        return tensor_image.float(), tensor_target
+        return tensor_image.float(), tensor_target.float()
 
 
 class VolumeEvaluation(Dataset):
