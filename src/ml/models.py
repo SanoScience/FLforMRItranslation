@@ -31,6 +31,8 @@ dice_2_class = custom_metrics.dice_2_class
 dice_score = Dice().to(device)
 # dice_score = Dice().to(device)
 jaccard_index = BinaryJaccardIndex().to(device)
+
+
 # qilv = loss_functions.QILV(use_mask=False)
 
 class UNet(nn.Module):
@@ -41,11 +43,24 @@ class UNet(nn.Module):
             - standard BatchNormalization
             - GroupNorm (the number of groups specified in the config)
     """
+
     def __init__(self, criterion=None, bilinear=False, normalization=config_train.NORMALIZATION):
         super(UNet, self).__init__()
 
         self.criterion = criterion
         self.bilinear = bilinear
+
+        self.available_metrics = {"loss": self.criterion,
+                                  "ssim": ssim,
+                                  "pnsr": psnr,
+                                  "mse": mse,
+                                  "masked_mse": masked_mse,
+                                  "relative_error": relative_error,
+                                  "dice_classification": dice_score,
+                                  "dice_generalized": dice_generalized,
+                                  "dice_2_class": dice_2_class,
+                                  "zoomed_ssim": zoomed_ssim,
+                                  "jaccard": jaccard_index}
 
         self.inc = (DoubleConv(1, 64, normalization))
         self.down1 = (Down(64, 128, normalization))
@@ -96,12 +111,7 @@ class UNet(nn.Module):
         """
         Method used by perform_train(). Does one iteration of training.
         """
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, 
-                   "relative_error": relative_error, 
-                   "dice_classification": dice_score,
-                   "dice_generalized": dice_generalized,
-                   "dice_2_class": dice_2_class,
-                   "jaccard": jaccard_index}
+        metrics = {metric_name: self.available_metrics[metric_name] for metric_name in config_train.METRICS}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
         total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -115,7 +125,7 @@ class UNet(nn.Module):
         # epoch_loss, epoch_ssim = 0.0, 0.0
 
         use_prox_loss = isinstance(self.criterion, custom_metrics.LossWithProximalTerm)
-        
+
         if n_batches < config_train.BATCH_PRINT_FREQ:
             batch_print_frequency = n_batches - 2  # tbh not sure if this -2 is needed
         else:
@@ -155,13 +165,15 @@ class UNet(nn.Module):
             n_train_steps += 1
 
             if index % batch_print_frequency == batch_print_frequency - 1:
-                divided_batch_metrics = {metric_name: total_value/batch_print_frequency for metric_name, total_value in total_metrics.items()}
+                divided_batch_metrics = {metric_name: total_value / batch_print_frequency for metric_name, total_value
+                                         in total_metrics.items()}
                 metrics_str = custom_metrics.metrics_to_str(divided_batch_metrics, starting_symbol="\t")
                 print(f'\t\tbatch {(index + 1)} out of {n_batches}\t\t{metrics_str}')
 
                 total_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
 
-        averaged_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in epoch_metrics.items()}
+        averaged_epoch_metrics = {metric_name: metric_value / n_train_steps for metric_name, metric_value in
+                                  epoch_metrics.items()}
         metrics_epoch_str = custom_metrics.metrics_to_str(averaged_epoch_metrics, starting_symbol="")
 
         print(f"\n\tTime exceeded: {time.time() - start:.1f}")
@@ -178,7 +190,7 @@ class UNet(nn.Module):
                       filename=None,
                       history_filename=None,
                       plots_dir=None,
-                      save_best_model=False, 
+                      save_best_model=False,
                       save_each_epoch=False):
         """
             Performs the train for a given number of epochs.
@@ -232,7 +244,8 @@ class UNet(nn.Module):
 
                 if save_best_model:
                     if val_metric["val_loss"] < best_loss:
-                        print(f"\tModel form epoch {epoch} taken as the best one.\n\tIts loss {val_metric['val_loss']:.3f} is better than current best loss {best_loss:.3f}.")
+                        print(
+                            f"\tModel form epoch {epoch} taken as the best one.\n\tIts loss {val_metric['val_loss']:.3f} is better than current best loss {best_loss:.3f}.")
                         best_loss = val_metric["val_loss"]
                         best_model = self.state_dict()
 
@@ -243,7 +256,7 @@ class UNet(nn.Module):
                 wandb.log(epoch_metrics)
 
             if save_each_epoch:
-                self.save(model_dir, f"model-ep{epoch}.pth")       
+                self.save(model_dir, f"model-ep{epoch}.pth")
 
             if history_filename is not None:
                 with open(path.join(model_dir, history_filename), 'wb') as file:
@@ -260,12 +273,12 @@ class UNet(nn.Module):
 
         return history
 
-    def evaluate(self, 
-                 testloader, 
-                 plots_path=None, 
-                 plot_filename=None, 
-                 evaluate=True, 
-                 wanted_metrics=None, 
+    def evaluate(self,
+                 testloader,
+                 plots_path=None,
+                 plot_filename=None,
+                 evaluate=True,
+                 wanted_metrics=None,
                  min_mask_pixel_in_batch=9,
                  save_preds_dir=None):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
@@ -275,21 +288,16 @@ class UNet(nn.Module):
 
         n_steps = 0
         n_skipped = 0
-        
-        metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, 
-                   "relative_error": relative_error, 
-                   "dice_classification": dice_score,
-                   "dice_generalized": dice_generalized,
-                   "dice_2_class": dice_2_class,
-                   "zoomed_ssim": zoomed_ssim,
-                   "jaccard": jaccard_index}
-        # metrics = {"loss": self.criterion, "ssim": ssim, "pnsr": psnr, "mse": mse, "masked_mse": masked_mse, "masked_ssim": masked_ssim, "zoomed_ssim": zoomed_ssim, "relative_error": relative_error, "dice": dice_score, "jaccard": jaccard_index}
+        metrics = {metric_name: self.available_metrics[metric_name] for metric_name in config_train.METRICS}
 
         if wanted_metrics:
-            metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if metric_name in wanted_metrics}
-        
-        if "zoomed_ssim" in wanted_metrics and len(wanted_metrics) > 2:  # if there is `zoomed_ssim` and some others metrics
-            logging.log(logging.WARNING, f"It is advised to don't use `ZoomedSSIM` with other metrics if there are masks with only zeros. The provided `wanted_metrics` are: {wanted_metrics}")
+            metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if
+                       metric_name in wanted_metrics}
+
+            if "zoomed_ssim" in wanted_metrics and len(
+                    wanted_metrics) > 2:  # if there is `zoomed_ssim` and some others metrics
+                logging.log(logging.WARNING,
+                            f"It is advised to don't use `ZoomedSSIM` with other metrics if there are masks with only zeros. The provided `wanted_metrics` are: {wanted_metrics}")
 
         if evaluate:
             metrics = {f"val_{name}": metric for name, metric in metrics.items()}
@@ -324,7 +332,8 @@ class UNet(nn.Module):
 
                     for img_index in range(current_batch_size):  # iterating over current batch size (number of images)
                         # retrieving the name of the current slice
-                        patient_slice_name = testloader.dataset.images[img_index+batch_index*batch_size].split(path.sep)[-1]
+                        patient_slice_name = \
+                            testloader.dataset.images[img_index + batch_index * batch_size].split(path.sep)[-1]
                         pred_filepath = path.join(save_preds_dir, patient_slice_name)
 
                         # saving the current image to the declared directory with the same name as the input image name
@@ -357,13 +366,15 @@ class UNet(nn.Module):
 
                             else:
                                 # print(f"Batch number {batch_index} skipped because all the values are zero - no mask provided.")
-                                logging.log(logging.WARNING, f"The batch number {batch_index} is skipped due to usage of `ZoomedSSIM`. I can affect the metric result. ")
+                                logging.log(logging.WARNING,
+                                            f"The batch number {batch_index} is skipped due to usage of `ZoomedSSIM`. I can affect the metric result. ")
                                 n_skipped += 1
                                 break
                         else:
                             # TODO: NoMaskDatasetError
-                            ValueError(f"Dataloader should be able to load the mask of the image to compute: {metric_name}. "
-                                       f"Provide `metric_mask_dir` in the dataset `MRIDatasetNumpySlices` object initialization to use this metric.")
+                            ValueError(
+                                f"Dataloader should be able to load the mask of the image to compute: {metric_name}. "
+                                f"Provide `metric_mask_dir` in the dataset `MRIDatasetNumpySlices` object initialization to use this metric.")
 
                     else:
                         metric_value = metric_obj(predictions, targets)
@@ -382,7 +393,8 @@ class UNet(nn.Module):
         if n_skipped == n_steps:
             ValueError(f"All the mask in the provided dataset are zeros. None values were computed")
 
-        averaged_metrics = {metric_name: metric_value / (n_steps - n_skipped) for metric_name, metric_value in metrics_values.items()}
+        averaged_metrics = {metric_name: metric_value / (n_steps - n_skipped) for metric_name, metric_value in
+                            metrics_values.items()}
         metrics_str = custom_metrics.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
 
         print(f"\tFor evaluation set: {metrics_str}\n")

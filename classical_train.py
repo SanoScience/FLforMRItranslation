@@ -82,9 +82,10 @@ if __name__ == '__main__':
         unet.perform_train(trainloader, optimizer,
                            validationloader=valloader,
                            epochs=config_train.N_EPOCHS_CENTRALIZED,
-                           filename="model.pth",
+                           # filename="model.pth",
                            # model_dir=f"{config_train.DATA_ROOT_DIR}/trained_models/model-{representative_test_dir}-{config_train.LOSS_TYPE.name}-ep{config_train.N_EPOCHS_CENTRALIZED}-lr{config_train.LEARNING_RATE}-{config_train.NORMALIZATION.name}-{config_train.now.date()}-{config_train.now.hour}h",
-                           history_filename="history.pkl")
+                           # history_filename="history.pkl"
+                           )
     else:
         unet.perform_train(trainloader, optimizer,
                            validationloader=valloader,
