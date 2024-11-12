@@ -3,11 +3,15 @@ import sys
 import pickle
 import torch
 import importlib
+import random
 
 from configs import config_train, enums
 from src.ml import custom_metrics, datasets, models
 from src.utils import visualization
 from torch.utils.data import DataLoader
+
+import numpy as np
+
 
 
 class DifferentTranslationError(Exception):
@@ -26,7 +30,7 @@ if __name__ == '__main__':
     # base values
     target_dir=None
     segmentation_task=False
-    TRANSLATION = None
+    TRANSLATION = config_train.TRANSLATION
     input_target_union=False
     squeeze=False
 
@@ -40,11 +44,11 @@ if __name__ == '__main__':
         model_path = sys.argv[2]
         BATCH_SIZE = int(sys.argv[3])
 
-        if len(sys.argv) > 4:
-            target_dir = sys.argv[4]
+        if len(sys.argv) > 5:
+            target_dir = sys.argv[5]
             
-    if len(sys.argv) > 5:
-        config_path = sys.argv[5]
+    if len(sys.argv) > 4:
+        config_path = sys.argv[4]
     else:
         config_path = os.path.join(os.path.dirname(model_path), "config.py")
 
@@ -57,7 +61,7 @@ if __name__ == '__main__':
     
     # print(test_dir)
     # print(model_dir)
-    # print(target_dir)
+    # print(target_dir)-
     # print(representative_test_dir)
     if target_dir is None:
         try:
@@ -66,18 +70,20 @@ if __name__ == '__main__':
             # if imported_config.TRANSLATION != TRANSLATION:
             #     raise DifferentTranslationError(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
             # else:
-            #     print(f"Translations match: {imported_config.TRANSLATION}")
+            print(f"\n\nTranslations: {imported_config.TRANSLATION}")
 
             segmentation_task = imported_config.TRANSLATION[1] == enums.ImageModality.MASK or imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR
             if segmentation_task:
                 print("\nMask as the target modality, evaluation for segmenatation task\n")
 
+            if imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR:
+                input_target_union=True
+                print("Taking `tumor` datasets, only union will be taken.")
+
         except FileNotFoundError:
             print(f"WARNING: The config file not found at {config_path}. The direction of the translation not verified!")
     
-        if imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR:
-            input_target_union=True
-            print("Taking `tumor` datasets, only union will be taken.")
+
     else:
         segmentation_task=True
         squeeze=True
@@ -88,9 +94,10 @@ if __name__ == '__main__':
                                              translation_direction=TRANSLATION,
                                              binarize=segmentation_task,
                                              squeeze=squeeze,
+                                             metric_mask_dir="mask",
                                              input_target_set_union=input_target_union)
     
-    testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=False)
+    testloader = DataLoader(testset, batch_size=BATCH_SIZE)
 
     if "prox" in model_path.lower():
         mu = imported_config.PROXIMAL_MU
@@ -130,7 +137,7 @@ if __name__ == '__main__':
     else:
         save_preds_dir = os.path.join(model_dir, "preds", representative_test_dir)
         
-    metrics = unet.evaluate(testloader, wanted_metrics=["loss",  "dice_classification", "generalized_dice", "dice_2_class", "jaccard"], save_preds_dir=save_preds_dir)
+    metrics = unet.evaluate(testloader, wanted_metrics=["zoomed_ssim"], save_preds_dir=save_preds_dir, min_mask_pixel_in_batch=100)
     
     if segmentation_task:
         filepath = os.path.join(model_dir, f"test_{representative_test_dir}_dice_{metrics['val_dice_2_class']:.2f}.pkl")
