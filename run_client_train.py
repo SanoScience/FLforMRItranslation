@@ -1,7 +1,7 @@
 import sys
 
 from src.fl.clients import *
-
+from src.ml import custom_metrics
 
 if __name__ == "__main__":
     # moving on ares/athena to the repo directory
@@ -23,7 +23,7 @@ if __name__ == "__main__":
         if ":" not in server_address:
             server_address = f"{server_node}:{server_address}"
     # Model
-    criterion = loss_functions.loss_from_config()
+    criterion = custom_metrics.loss_from_config()
     unet = models.UNet(criterion).to(config_train.DEVICE)
     optimizer = torch.optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
     
