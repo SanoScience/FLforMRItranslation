@@ -87,11 +87,13 @@ class ClassicClient(fl.client.NumPyClient):
         print(f"END OF CLIENT TRAINING\n")
 
         val_metric_names = [f"val_{metric}" for metric in config_train.METRICS]
+
+        # only validation metrics from the client (ensured by 'val_' suffix)
         avg_val_metric = {
             metric_name: sum([metric_value for metric_value in history[metric_name]]) / len(history[metric_name])
             for metric_name in val_metric_names}
 
-        avg_val_metric["client_id"] = self.client_id
+        avg_val_metric["client_id"] = self.client_id  # client_id to keep truck of the loss properly e.g. FedCostW
 
         return self.get_parameters(config=config), len(self.train_loader.dataset), avg_val_metric
 

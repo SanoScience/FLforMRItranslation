@@ -161,6 +161,7 @@ class FedCostWAvg(FedAvg):
         self.aggregation_times = []
         self.model_dir = model_dir
         self.best_loss = float('inf')
+        self.averaging_weights = []
 
         files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
         copy2("./configs/config_train.py", f"{model_dir}/config.py")
@@ -180,7 +181,7 @@ class FedCostWAvg(FedAvg):
         start = time.time()
 
         if self.previous_loss_values is None:
-            # for the first round aggregation
+            # the first round aggregation as normal
             aggregated_parameters = ndarrays_to_parameters(aggregate.aggregate(weights_results))
         else:
             aggregated_parameters = ndarrays_to_parameters(self._aggregate(weights_results, sorted_loss_values))
@@ -200,28 +201,8 @@ class FedCostWAvg(FedAvg):
         elif server_round == 1:  # Only log this warning once
             logger.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
 
-        # SAVING MODEL
-        # if aggregated_parameters is not None:
-        #     # saving in intervals
-        #     if server_round % config_train.SAVING_FREQUENCY == 1:
-        #         save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-        #
-        #     # saving in the last round
-        #     if server_round == config_train.N_ROUNDS:
-        #         # model
-        #         save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-        #         # aggregation times
-        #         with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
-        #             pickle.dump(self.aggregation_times, file)
-        #
-        #     # saving the best model
-        #     loss_values = list(loss_values.values())
-        #     current_avg_loss = sum(loss_values)/len(loss_values)
-        #     if current_avg_loss < self.best_loss:
-        #         print(f"Best model with loss {current_avg_loss}>{self.best_loss}")
-        #         save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
-        #         self.best_loss = current_avg_loss
-
+        with open(f"{self.model_dir}/averaging_weights.pkl", "wb") as file:
+            pickle.dump(self.averaging_weights, file)
 
         return aggregated_parameters, metrics_aggregated
 
@@ -234,17 +215,21 @@ class FedCostWAvg(FedAvg):
         k_j_total = sum(Kjs)  # in the paper K = sum(k_j)
 
         weighted_weights = []
-
-        # TODO: maybe optimize
+        weights_num_samples = []
+        weights_loss_change = []
 
         for (weights, num_examples), k_j in zip(results, Kjs):
             num_examples_normalized = self.alpha * num_examples / num_examples_total  # in the paper: alpha * (s_j)/S
             loss_factor = (1 - self.alpha) * k_j / k_j_total  # in the paper: (1 - alpha) * (k_j)/K
+            weights_num_samples.append(num_examples_normalized)
+            weights_loss_change.append(loss_factor)
             weighted_weights.append([layer * (num_examples_normalized + loss_factor) for layer in weights])
+
+        self.averaging_weights.append({"num_examples_normalized": weights_num_samples, "loss_factor": weights_loss_change})
 
         # noinspection PyTypeChecker
         weights_prime: NDArrays = [
-            reduce(np.add, layer_updates)  # potential big bug was here!!
+            reduce(np.add, layer_updates)
             for layer_updates in zip(*weighted_weights)
         ]
 
@@ -306,28 +291,6 @@ class FedPIDAvg(FedCostWAvg):
             metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
         elif server_round == 1:  # Only log this warning once
             logger.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
-
-        # SAVING MODEL
-        # if aggregated_parameters is not None:
-        #     # saving in intervals
-        #     if server_round % config_train.SAVING_FREQUENCY == 1:
-        #         save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-        #
-        #     # saving in the last round
-        #     if server_round == config_train.N_ROUNDS:
-        #         # model
-        #         save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-        #         # aggregation times
-        #         with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
-        #             pickle.dump(self.aggregation_times, file)
-        #
-        #     # saving the best model
-        #     loss_values = list(loss_values.values())
-        #     current_avg_loss = sum(loss_values)/len(loss_values)
-        #     if current_avg_loss < self.best_loss:
-        #         print(f"Best model with loss {current_avg_loss}>{self.best_loss}")
-        #         save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
-        #         self.best_loss = current_avg_loss
 
         return aggregated_parameters, metrics_aggregated
 
