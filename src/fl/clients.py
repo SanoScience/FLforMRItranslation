@@ -317,7 +317,7 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
         
         if not isinstance(unet.criterion, custom_metrics.LossWithProximalTerm):
             # raise ValueError("Wrong loss function change it in the config")
-            unet.criterion = custom_metrics.LossWithProximalTerm(proximal_mu=config_train.PROXIMAL_MU, base_loss_fn=loss_functions.DssimMse())
+            unet.criterion = custom_metrics.LossWithProximalTerm(proximal_mu=config_train.PROXIMAL_MU, base_loss_fn=custom_metrics.DssimMse())
 
         return FedProxClient(client_id, unet, optimizer, data_dir, model_dir, stragglers_mat)
 
