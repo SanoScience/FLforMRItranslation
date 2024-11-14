@@ -12,7 +12,7 @@ from flwr.common.typing import NDArrays, Scalar
 from torch.utils.data import DataLoader
 
 from configs import config_train, enums
-from src.ml import models
+from src.ml import models, custom_metrics
 from src.utils import files_operations as fop
 from src.ml.datasets import MRIDatasetNumpySlices
 
@@ -315,9 +315,9 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
                              p=[1 - config_train.STRAGGLERS, config_train.STRAGGLERS])
         )
         
-        if not isinstance(unet.criterion, loss_functions.LossWithProximalTerm):
+        if not isinstance(unet.criterion, custom_metrics.LossWithProximalTerm):
             # raise ValueError("Wrong loss function change it in the config")
-            unet.criterion = loss_functions.LossWithProximalTerm(proximal_mu=config_train.PROXIMAL_MU, base_loss_fn=loss_functions.DssimMse())
+            unet.criterion = custom_metrics.LossWithProximalTerm(proximal_mu=config_train.PROXIMAL_MU, base_loss_fn=loss_functions.DssimMse())
 
         return FedProxClient(client_id, unet, optimizer, data_dir, model_dir, stragglers_mat)
 
