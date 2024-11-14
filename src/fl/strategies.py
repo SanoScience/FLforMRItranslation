@@ -172,31 +172,26 @@ class FedCostWAvg(FedAvg):
             results: List[Tuple[ClientProxy, FitRes]],
             failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-        # AGGREGATING WEIGHTS
-        weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in results]
+        # client results might always come in a different order
+        # to properly track the loss change they are sorted
+        # another possibility to sort by cid from ClientProxy (ip address), maybe better?
+        sorted_results = sorted(results, key=lambda x: x[1].metrics["client_id"])
 
-        loss_values = {fit_res.metrics["client_id"]: fit_res.metrics["val_loss"] for _, fit_res in results}
-        sorted_loss = OrderedDict(sorted(loss_values.items()))
-        sorted_loss_values = list(sorted_loss.values())
-        start = time.time()
+        weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in sorted_results]
+        loss_values = [fit_res.metrics["val_loss"] for _, fit_res in sorted_results]
 
         if self.previous_loss_values is None:
             # the first round aggregation as normal
             aggregated_parameters = ndarrays_to_parameters(aggregate.aggregate(weights_results))
         else:
-            aggregated_parameters = ndarrays_to_parameters(self._aggregate(weights_results, sorted_loss_values))
+            aggregated_parameters = ndarrays_to_parameters(self._aggregate(weights_results, loss_values))
 
-        self.previous_loss_values = sorted_loss_values
-
-        # printing and saving aggregation times
-        aggregation_time = time.time() - start
-        self.aggregation_times.append(aggregation_time)
-        print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
+        self.previous_loss_values = loss_values
 
         # AGGREGATING METRICS
         metrics_aggregated = {}
         if self.fit_metrics_aggregation_fn:
-            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+            fit_metrics = [(res.num_examples, res.metrics) for _, res in sorted_results]
             metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
         elif server_round == 1:  # Only log this warning once
             logger.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
@@ -260,16 +255,18 @@ class FedPIDAvg(FedCostWAvg):
             results: List[Tuple[ClientProxy, FitRes]],
             failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-        weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in results]
+        # client results might always come in a different order
+        # to properly track the loss change they are sorted
+        # another possibility to sort by cid from ClientProxy (ip address), maybe better?
+        sorted_results = sorted(results, key=lambda x: x[1].metrics["client_id"])
 
-        loss_values = {fit_res.metrics["client_id"]: fit_res.metrics["val_loss"] for _, fit_res in results}
-        sorted_loss = OrderedDict(sorted(loss_values.items()))
-        sorted_loss_values = list(sorted_loss.values())
+        weights_results = [(parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples) for _, fit_res in sorted_results]
+        loss_values = [fit_res.metrics["val_loss"] for _, fit_res in sorted_results]
 
         start = time.time()
 
         if len(self.previous_loss_values) > 0:
-            aggregated_parameters = ndarrays_to_parameters(self._aggregate(weights_results, sorted_loss_values))
+            aggregated_parameters = ndarrays_to_parameters(self._aggregate(weights_results, loss_values))
         else:
             # for the first round aggregation
             aggregated_parameters = ndarrays_to_parameters(aggregate.aggregate(weights_results))
@@ -280,14 +277,14 @@ class FedPIDAvg(FedCostWAvg):
         print(f"\n{self.__str__()} aggregation time: {aggregation_time}\n")
 
         # appending the loss to the list and keeping its size < 6
-        self.previous_loss_values.append(sorted_loss_values)
+        self.previous_loss_values.append(loss_values)
         if len(self.previous_loss_values) > 5:
             self.previous_loss_values.pop(0)  # not the most optimal but the list never bigger than 5
 
         # AGGREGATING METRICS
         metrics_aggregated = {}
         if self.fit_metrics_aggregation_fn:
-            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+            fit_metrics = [(res.num_examples, res.metrics) for _, res in sorted_results]
             metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
         elif server_round == 1:  # Only log this warning once
             logger.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
