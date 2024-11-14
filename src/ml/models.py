@@ -55,6 +55,7 @@ class UNet(nn.Module):
                                   "pnsr": psnr,
                                   "mse": mse,
                                   "masked_mse": masked_mse,
+                                  "masked_ssim": masked_ssim,
                                   "relative_error": relative_error,
                                   "dice_classification": dice_score,
                                   "dice_generalized": dice_generalized,
@@ -387,7 +388,6 @@ class UNet(nn.Module):
         if plots_path:
             fop.try_create_dir(plots_path)  # pretty sure this is not needed (only makes warnings)
             filepath = path.join(plots_path, plot_filename)
-            # maybe cast to cpu ?? still dunno if needed
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
                                      filepath=filepath)
         if n_skipped == n_steps:
