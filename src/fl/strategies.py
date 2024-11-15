@@ -31,7 +31,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
-            super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
+            super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), model_dir=model_dir, *args, **kwargs)
             self.model = model
             self.aggregation_times = []
             self.best_loss = float('inf')
@@ -163,9 +163,6 @@ class FedCostWAvg(FedAvg):
         self.best_loss = float('inf')
         self.averaging_weights = []
 
-        files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
-        copy2("./configs/config_train.py", f"{model_dir}/config.py")
-
     def aggregate_fit(
             self,
             server_round: int,
@@ -247,7 +244,6 @@ class FedPIDAvg(FedCostWAvg):
         self.beta = beta
         self.gamma = gamma
         self.previous_loss_values = []
-        self.best_loss = float('inf')
 
     def aggregate_fit(
             self,
