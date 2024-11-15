@@ -97,8 +97,6 @@ class FedMean(FedAvg):
         self.model_dir = model_dir
         self.aggregation_times = []
         self.best_loss = float('inf')
-        files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
-        copy2("./configs/config_train.py", f"{model_dir}/config.py")
 
     def aggregate_fit(
         self,
@@ -122,28 +120,6 @@ class FedMean(FedAvg):
 
         aggregation_time = time.time() - start
         self.aggregation_times.append(aggregation_time)
-
-        # SAVING MODEL
-        # if aggregated_parameters is not None:
-        #     # saving in intervals
-        #     if server_round % config_train.SAVING_FREQUENCY == 1:
-        #         save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-        #
-        #     # saving in the last round
-        #     if server_round == config_train.N_ROUNDS:
-        #         # model
-        #         save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
-        #         # aggregation times
-        #         with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
-        #             pickle.dump(self.aggregation_times, file)
-        #
-        #     # saving the best model
-        #     loss_values = [fit_res.metrics["val_loss"] for _, fit_res in results]
-        #     current_avg_loss = sum(loss_values)/len(loss_values)
-        #     if current_avg_loss < self.best_loss:
-        #         print(f"Best model with loss {current_avg_loss}>{self.best_loss}")
-        #         save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
-        #         self.best_loss = current_avg_loss
 
         return aggregated_parameters, metrics_aggregated
 
@@ -387,6 +363,7 @@ def strategy_from_string(model, strategy_name, evaluate_fn=None):
     }
     if strategy_name == "fedcostw":
         strategy_class = FedCostWAvg
+        kwargs["alpha"] = config_train.ALPHA
     elif strategy_name == "fedpid":
         strategy_class = FedPIDAvg
     elif strategy_name in ["fedmean", "fedmri"]:
