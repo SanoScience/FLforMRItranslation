@@ -112,7 +112,7 @@ class ZoomedSSIM(Metric):
                 # then the evaluation is skipped
                 # and the batch size is decreased 
                 mask_size = torch.sum(mask)
-                if  mask_size < self.min_mask_size: 
+                if mask_size < self.min_mask_size:
                     print(f"Skipped due to too small mask size {mask_size}")
                     self.batch_size -= 1
                     continue
