@@ -295,10 +295,10 @@ class UNet(nn.Module):
             metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if
                        metric_name in wanted_metrics}
 
-            if "zoomed_ssim" in wanted_metrics and len(
-                    wanted_metrics) > 2:  # if there is `zoomed_ssim` and some others metrics
-                logging.log(logging.WARNING,
-                            f"It is advised to don't use `ZoomedSSIM` with other metrics if there are masks with only zeros. The provided `wanted_metrics` are: {wanted_metrics}")
+            # if "zoomed_ssim" in wanted_metrics and len(
+            #         wanted_metrics) > 2:  # if there is `zoomed_ssim` and some others metrics
+            #     logging.log(logging.WARNING,
+            #                 f"It is advised to don't use `ZoomedSSIM` with other metrics if there are masks with only zeros. The provided `wanted_metrics` are: {wanted_metrics}")
 
         if evaluate:
             metrics = {f"val_{name}": metric for name, metric in metrics.items()}
@@ -353,22 +353,14 @@ class UNet(nn.Module):
                         metric_value = metric_obj(predictions.to(torch.int64), targets.to(torch.int64))
                     elif isinstance(metric_obj, custom_metrics.ZoomedSSIM):
                         if testloader.dataset.metric_mask:
-                            if torch.sum(metric_mask) > min_mask_pixel_in_batch:
-                                # print(torch.sum(metric_mask))
+                            mask_size = torch.sum(metric_mask)
+                            if mask_size > min_mask_pixel_in_batch:
                                 metric_value = metric_obj(predictions, targets, metric_mask)
 
-                                # if torch.isnan(metric_value):
-                                #     print(f"Here the nan value is.")
-                                #     print(metric_obj.batch_size)
-                                #     print(len(metric_obj.ssim_list))
-                                #     print(sum(metric_obj.ssim_list))
-                                #     print(sum(metric_obj.ssim_list)/metric_obj.batch_size)
-                                #     print((sum(metric_obj.ssim_list)/metric_obj.batch_size).clone().detach())
-
                             else:
-                                # print(f"Batch number {batch_index} skipped because all the values are zero - no mask provided.")
                                 logging.log(logging.WARNING,
-                                            f"The batch number {batch_index} is skipped due to usage of `ZoomedSSIM`. I can affect the metric result. ")
+                                            f"The batch number {batch_index} is skipped for `ZoomedSSIM` calculations"
+                                            f"due to small mask ({mask_size} pixels). It can affect the metric result. ")
                                 n_skipped += 1
                                 break
                         else:
@@ -380,7 +372,6 @@ class UNet(nn.Module):
                     else:
                         metric_value = metric_obj(predictions, targets)
 
-                    # print(f"{metric_name}: ", metric_value)
                     metrics_values[metric_name] += metric_value.item()
 
                 n_steps += 1
@@ -406,19 +397,20 @@ class UNet(nn.Module):
         """
         averaged_metrics = {}
         for metric_name, metric_summed_value in metrics_values.items():
-            if metric_name == "zoomed_ssim":
+            if "zoomed_ssim" in metric_name:
                 if n_skipped == n_steps:
-                    logging.log(logging.WARNING, f"All the mask in the provided dataset are zeros. 
-                    \nNone Zoomed values were computed. Result assigned to None")
+                    logging.log(logging.WARNING, f"All the mask in the provided dataset are zeros."
+                                                 "\nNone ZoomedSSIM values were computed. Result assigned to None")
 
                     averaged_metrics[metric_name] = None
                 denominator = n_steps - n_skipped
             else:
                 denominator = n_steps
 
-            averaged_metrics[metric_name] = metric_value / (n_steps - n_skipped)
-        
+            averaged_metrics[metric_name] = metric_summed_value / denominator
+
         return averaged_metrics
+
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels, normalization, mid_channels=None):

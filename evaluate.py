@@ -36,9 +36,8 @@ if __name__ == '__main__':
 
     if config_train.LOCAL:
         test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test"
-        # test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test\\flair"
-        target_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test\\mask"
-        model_path = "C:\\Users\\JanFiszer\\repos\\FLforMRItranslation\\trained_models\\centralized\\segmentation\\model-hgg_125-MSE_DSSIM-ep20-FLAIRMASK-lr0.0001-2024-08-01-16h\\best_model.pth"
+        model_path = "C:\\Users\\JanFiszer\\repos\\FLforMRItranslation\\trained_models\\fl\\flair_to_t2\\model-fedadam-MSE_DSSIM-FLAIRT2-lr0.001-rd32-ep4-2024-04-07\\round32.pth"
+        BATCH_SIZE = 1
     else:
         test_dir = sys.argv[1]
         model_path = sys.argv[2]
@@ -63,9 +62,6 @@ if __name__ == '__main__':
         try:
             imported_config = import_from_filepath(config_path)
             TRANSLATION = imported_config.TRANSLATION
-            # if imported_config.TRANSLATION != TRANSLATION:
-            #     raise DifferentTranslationError(f"Different direction of translation. In for the trained model TRANSLATION={imported_config.TRANSLATION}")
-            # else:
             print(f"\n\nTranslations: {imported_config.TRANSLATION}")
 
             segmentation_task = imported_config.TRANSLATION[1] == enums.ImageModality.MASK or imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR
@@ -89,6 +85,7 @@ if __name__ == '__main__':
                                              translation_direction=TRANSLATION,
                                              binarize=segmentation_task,
                                              squeeze=squeeze,
+                                             metric_mask_dir="mask",
                                              input_target_set_union=input_target_union)
     
     testloader = DataLoader(testset, batch_size=BATCH_SIZE)
@@ -125,7 +122,7 @@ if __name__ == '__main__':
         visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
                                 filepath=os.path.join(test_dir, f"segmenation_results"))
 
-    print(f"Model and data loaed; evaluation starts...")
+    print(f"Model and data loaded; evaluation starts...")
     if segmentation_task:
         save_preds_dir = os.path.join(test_dir, "segmenatation")
     else:
