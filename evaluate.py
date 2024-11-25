@@ -57,12 +57,8 @@ if __name__ == '__main__':
     representative_test_dir = test_dir.split(os.path.sep)[-2]
 
     print("Model dir is: ", model_dir)
+
     # verifying if the translation is the same direction as the trained model 
-    
-    # print(test_dir)
-    # print(model_dir)
-    # print(target_dir)-
-    # print(representative_test_dir)
     if target_dir is None:
         try:
             imported_config = import_from_filepath(config_path)
@@ -83,7 +79,6 @@ if __name__ == '__main__':
         except FileNotFoundError:
             print(f"WARNING: The config file not found at {config_path}. The direction of the translation not verified!")
     
-
     else:
         segmentation_task=True
         squeeze=True
@@ -94,7 +89,6 @@ if __name__ == '__main__':
                                              translation_direction=TRANSLATION,
                                              binarize=segmentation_task,
                                              squeeze=squeeze,
-                                             metric_mask_dir="mask",
                                              input_target_set_union=input_target_union)
     
     testloader = DataLoader(testset, batch_size=BATCH_SIZE)
@@ -136,13 +130,16 @@ if __name__ == '__main__':
         save_preds_dir = os.path.join(test_dir, "segmenatation")
     else:
         save_preds_dir = os.path.join(model_dir, "preds", representative_test_dir)
-        
-    metrics = unet.evaluate(testloader, wanted_metrics=["zoomed_ssim"], save_preds_dir=save_preds_dir, min_mask_pixel_in_batch=100)
+    
+    wanted_metrics = ["ssim", "masked_ssim", "pnsr", "mse", "masked_mse", "relative_error", "zoomed_ssim"]
+    metrics = unet.evaluate(testloader, wanted_metrics=wanted_metrics, save_preds_dir=save_preds_dir, min_mask_pixel_in_batch=100)
     
     if segmentation_task:
         filepath = os.path.join(model_dir, f"test_{representative_test_dir}_dice_{metrics['val_dice_2_class']:.2f}.pkl")
-    else:
+    elif "zoomed_ssim" in wanted_metrics:
         filepath = os.path.join(model_dir, f"test_{representative_test_dir}_zoomed_ssim_{metrics['val_zoomed_ssim']:.2f}.pkl")
+    else:
+        filepath = os.path.join(model_dir, f"test_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
 
     with open(filepath, "wb") as file:
         pickle.dump(metrics, file)

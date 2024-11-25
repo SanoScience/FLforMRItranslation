@@ -390,17 +390,35 @@ class UNet(nn.Module):
             filepath = path.join(plots_path, plot_filename)
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
                                      filepath=filepath)
-        if n_skipped == n_steps:
-            ValueError(f"All the mask in the provided dataset are zeros. None values were computed")
 
-        averaged_metrics = {metric_name: metric_value / (n_steps - n_skipped) for metric_name, metric_value in
-                            metrics_values.items()}
+        averaged_metrics = self._computed_averaged_metric(metrics_values, n_steps, n_skipped)
         metrics_str = custom_metrics.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
 
         print(f"\tFor evaluation set: {metrics_str}\n")
 
         return averaged_metrics
 
+    @staticmethod
+    def _computed_averaged_metric(metrics_values, n_steps, n_skipped):
+        """
+        Computes the average for each of the metrics using the sum and the number of steps. 
+        Treats specially the ZoomedSSIM metrics since there are potential skips. 
+        """
+        averaged_metrics = {}
+        for metric_name, metric_summed_value in metrics_values.items():
+            if metric_name == "zoomed_ssim":
+                if n_skipped == n_steps:
+                    logging.log(logging.WARNING, f"All the mask in the provided dataset are zeros. 
+                    \nNone Zoomed values were computed. Result assigned to None")
+
+                    averaged_metrics[metric_name] = None
+                denominator = n_steps - n_skipped
+            else:
+                denominator = n_steps
+
+            averaged_metrics[metric_name] = metric_value / (n_steps - n_skipped)
+        
+        return averaged_metrics
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels, normalization, mid_channels=None):
