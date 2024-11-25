@@ -31,13 +31,14 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
             initial_parameters = [val.cpu().numpy() for val in model.state_dict().values()]
-            super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), model_dir=model_dir, *args, **kwargs)
+            super().__init__(initial_parameters=ndarrays_to_parameters(initial_parameters), *args, **kwargs)
             self.model = model
+            self.model_dir = model_dir
             self.aggregation_times = []
             self.best_loss = float('inf')
 
-            files_operations.try_create_dir(model_dir)  # creating directory before to don't get warnings
-            copy2("./configs/config_train.py", f"{model_dir}/config.py")
+            files_operations.try_create_dir(self.model_dir)  # creating directory before to don't get warnings
+            copy2("./configs/config_train.py", f"{self.model_dir}/config.py")
 
         def aggregate_fit(
                 self,
@@ -45,7 +46,7 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
                 results: List[Tuple[ClientProxy, FitRes]],
                 failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
         ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-            # start couting time
+            # start counting time
             start = time.time()
 
             aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
@@ -68,13 +69,13 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
             # saving in intervals
             if save_intervals:
                 if server_round % config_train.SAVING_FREQUENCY == 1:
-                    save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                    save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
 
             # saving the best model
             if current_avg_loss:
                 if current_avg_loss < self.best_loss:
                     print(f"Best model with loss {current_avg_loss:.3f}<{self.best_loss:.3f}")
-                    save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round, best_model=True)
+                    save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round, best_model=True)
                     self.best_loss = current_avg_loss
                 else:
                     print(f"Best model with loss {current_avg_loss:.3f}>{self.best_loss:.3f}")
@@ -83,18 +84,17 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
             if save_last_round:
                 if server_round == config_train.N_ROUNDS:
                     # model
-                    save_aggregated_model(self.model, aggregated_parameters, model_dir, server_round)
+                    save_aggregated_model(self.model, aggregated_parameters, self.model_dir, server_round)
                     # aggregation times
-                    with open(f"{model_dir}/aggregation_times.pkl", "wb") as file:
+                    with open(f"{self.model_dir}/aggregation_times.pkl", "wb") as file:
                         pickle.dump(self.aggregation_times, file)
 
     return SavingModelStrategy()
 
 
 class FedMean(FedAvg):
-    def __init__(self, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.model_dir = model_dir
         self.aggregation_times = []
         self.best_loss = float('inf')
 
@@ -130,12 +130,11 @@ class FedMean(FedAvg):
         return aggregated_results
 
 class FedCostWAvg(FedAvg):
-    def __init__(self, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, alpha=0.5, *args, **kwargs):
+    def __init__(self, alpha=0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.alpha = alpha
         self.previous_loss_values = None
-        self.aggregation_times = []
-        self.model_dir = model_dir
+        # self.aggregation_times = []
         self.best_loss = float('inf')
         self.averaging_weights = []
 
@@ -169,8 +168,8 @@ class FedCostWAvg(FedAvg):
         elif server_round == 1:  # Only log this warning once
             logger.log(logging.WARNING, "No fit_metrics_aggregation_fn provided")
 
-        with open(f"{self.model_dir}/averaging_weights.pkl", "wb") as file:
-            pickle.dump(self.averaging_weights, file)
+        # with open(f"{self.model_dir}/averaging_weights.pkl", "wb") as file:
+        #     pickle.dump(self.averaging_weights, file)
 
         return aggregated_parameters, metrics_aggregated
 
@@ -211,11 +210,11 @@ class FedCostWAvg(FedAvg):
 
 
 class FedPIDAvg(FedCostWAvg):
-    def __init__(self, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, alpha=0.45, beta=0.45, gamma=0.1, **kwargs):
+    def __init__(self, alpha=0.45, beta=0.45, gamma=0.1, **kwargs):
         if alpha + beta + gamma != 1.0:
             ValueError(f"Alpha, beta and gamma should sum up to 1.0")
 
-        super().__init__(model_dir, **kwargs)
+        super().__init__(**kwargs)
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
