@@ -28,11 +28,11 @@ def import_from_filepath(to_import_filepath):
 
 if __name__ == '__main__':
     # base values
-    target_dir=None
-    segmentation_task=False
+    target_dir = None
+    segmentation_task = False
     TRANSLATION = config_train.TRANSLATION
-    input_target_union=False
-    squeeze=False
+    input_target_union = False
+    squeeze = False
 
     if config_train.LOCAL:
         test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test"
@@ -54,38 +54,41 @@ if __name__ == '__main__':
     model_dir = '/'.join(e for e in model_path.split(os.path.sep)[:-1])
 
     representative_test_dir = test_dir.split(os.path.sep)[-2]
-
     print("Model dir is: ", model_dir)
 
-    # verifying if the translation is the same direction as the trained model 
-    if target_dir is None:
-        try:
-            imported_config = import_from_filepath(config_path)
-            TRANSLATION = imported_config.TRANSLATION
-            print(f"\n\nTranslations: {imported_config.TRANSLATION}")
-
-            segmentation_task = imported_config.TRANSLATION[1] == enums.ImageModality.MASK or imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR
-            if segmentation_task:
-                print("\nMask as the target modality, evaluation for segmenatation task\n")
-
-            if imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR:
-                input_target_union=True
-                print("Taking `tumor` datasets, only union will be taken.")
-
-        except FileNotFoundError:
-            print(f"WARNING: The config file not found at {config_path}. The direction of the translation not verified!")
-    
+    if representative_test_dir in ["ucsf_150", "hgg_125", "lgg"]:
+        masks_available = True
     else:
-        segmentation_task=True
-        squeeze=True
+        masks_available = False
 
-    # testset = datasets.MRIDatasetNumpySlices(test_dir, target_dir=target_dir, binarize=segmentation_task)
+    try:
+        # verifying if the translation is the same direction as the trained model
+        imported_config = import_from_filepath(config_path)
+        TRANSLATION = imported_config.TRANSLATION
+        print(f"\n\nTranslations: {imported_config.TRANSLATION}")
+
+        segmentation_task = imported_config.TRANSLATION[1] == enums.ImageModality.MASK or imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR
+        if segmentation_task:
+            print("\nMask as the target modality, evaluation for segmenatation task\n")
+
+        if imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR:
+            input_target_union=True
+            print("Taking `tumor` datasets, only union will be taken.")
+
+    except FileNotFoundError:
+        print(f"WARNING: The config file not found at {config_path}. The direction of the translation not verified!")
+
+    if masks_available:
+        metric_mask_dir = "mask"
+    else:
+        metric_mask_dir = None
+
     testset = datasets.MRIDatasetNumpySlices(test_dir, 
                                              target_dir=target_dir,
                                              translation_direction=TRANSLATION,
                                              binarize=segmentation_task,
                                              squeeze=squeeze,
-                                             metric_mask_dir="mask",
+                                             metric_mask_dir=metric_mask_dir,
                                              input_target_set_union=input_target_union)
     
     testloader = DataLoader(testset, batch_size=BATCH_SIZE)
