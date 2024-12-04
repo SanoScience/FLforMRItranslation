@@ -128,12 +128,11 @@ if __name__ == '__main__':
     else:
         save_preds_dir = os.path.join(model_dir, "preds", representative_test_dir)
     
-    wanted_metrics = ["ssim", "masked_ssim", "pnsr", "mse", "masked_mse", "relative_error", "zoomed_ssim"]
-    metrics = unet.evaluate(testloader, wanted_metrics=wanted_metrics, save_preds_dir=save_preds_dir, min_mask_pixel_in_batch=100)
+    metrics = unet.evaluate(testloader, save_preds_dir=save_preds_dir, min_mask_pixel_in_batch=100)
     
     if segmentation_task:
         filepath = os.path.join(model_dir, f"test_{representative_test_dir}_dice_{metrics['val_dice_2_class']:.2f}.pkl")
-    elif "zoomed_ssim" in wanted_metrics:
+    elif "zoomed_ssim" in config_train.METRICS:
         filepath = os.path.join(model_dir, f"test_{representative_test_dir}_zoomed_ssim_{metrics['val_zoomed_ssim']:.2f}.pkl")
     else:
         filepath = os.path.join(model_dir, f"test_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
