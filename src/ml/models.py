@@ -279,7 +279,7 @@ class UNet(nn.Module):
                  plots_path=None,
                  plot_filename=None,
                  evaluate=True,
-                 wanted_metrics=None,
+                #  wanted_metrics=None,
                  min_mask_pixel_in_batch=9,
                  save_preds_dir=None):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
@@ -291,9 +291,9 @@ class UNet(nn.Module):
         n_skipped = 0
         metrics = {metric_name: self.available_metrics[metric_name] for metric_name in config_train.METRICS}
 
-        if wanted_metrics:
-            metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if
-                       metric_name in wanted_metrics}
+        # if wanted_metrics:
+        #     metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if
+        #                metric_name in wanted_metrics}
 
             # if "zoomed_ssim" in wanted_metrics and len(
             #         wanted_metrics) > 2:  # if there is `zoomed_ssim` and some others metrics
