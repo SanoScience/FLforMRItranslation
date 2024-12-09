@@ -149,15 +149,14 @@ class UNet(nn.Module):
             else:
                 loss = self.criterion(predictions, targets)
 
-            # loss.requires_grad = True  # This is ugly af, but not a better solution found yet
             loss.backward()
             optimizer.step()
 
             for metric_name, metric_object in metrics.items():
                 if metric_name == "loss":
                     metric_value = loss
-                elif "dice" in metric_name:
-                    metric_value = metric_object(predictions, targets.int())
+                # elif "dice" in metric_name:
+                #     metric_value = metric_object(predictions, targets.int())
                 else:
                     metric_value = metric_object(predictions, targets)
                 total_metrics[metric_name] += metric_value.item()
@@ -278,35 +277,31 @@ class UNet(nn.Module):
                  testloader,
                  plots_path=None,
                  plot_filename=None,
-                 evaluate=True,
-                #  wanted_metrics=None,
-                 min_mask_pixel_in_batch=9,
+                 compute_std=False,
+                 wanted_metrics=None,
+                 # min_mask_pixel_in_batch=9,
                  save_preds_dir=None):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
-            raise TypeError(f"Loss function (criterion) has to be callable.It is {type(self.criterion)} which is not.")
+            raise TypeError(f"Loss function (criterion) has to be callable. It is {type(self.criterion)} which is not.")
+        if compute_std and testloader.batch_size != 1:
+            raise ValueError("The computations will result in wrong results! Batch size should be 1 if `compute_std=True`.")
 
         n_steps = 0
         n_skipped = 0
         metrics = {metric_name: self.available_metrics[metric_name] for metric_name in config_train.METRICS}
 
-        # if wanted_metrics:
-        #     metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if
-        #                metric_name in wanted_metrics}
+        if wanted_metrics:
+            metrics = {metric_name: metric_obj for metric_name, metric_obj in metrics.items() if
+                       metric_name in wanted_metrics}
 
-            # if "zoomed_ssim" in wanted_metrics and len(
-            #         wanted_metrics) > 2:  # if there is `zoomed_ssim` and some others metrics
-            #     logging.log(logging.WARNING,
-            #                 f"It is advised to don't use `ZoomedSSIM` with other metrics if there are masks with only zeros. The provided `wanted_metrics` are: {wanted_metrics}")
-
-        if evaluate:
-            metrics = {f"val_{name}": metric for name, metric in metrics.items()}
+        metrics = {f"val_{name}": metric for name, metric in metrics.items()}
 
         if save_preds_dir:
             fop.try_create_dir(save_preds_dir)
 
-        metrics_values = {m_name: 0.0 for m_name in metrics.keys()}
+        metrics_values = {m_name: [] for m_name in metrics.keys()}
         with torch.no_grad():
             for batch_index, batch in enumerate(testloader):
                 # loading the input and target images
@@ -346,23 +341,9 @@ class UNet(nn.Module):
                     if isinstance(metric_obj, custom_metrics.LossWithProximalTerm):
                         metric_obj = metric_obj.base_loss_fn
 
-                    # TODO: unite the way of checking (either by string or by the object)
-                    elif metric_name == "val_dice_classification":
-                        metric_value = metric_obj(predictions, targets.int())
-                    elif "dice" in metric_name:
-                        metric_value = metric_obj(predictions.to(torch.int64), targets.to(torch.int64))
-                    elif isinstance(metric_obj, custom_metrics.ZoomedSSIM):
+                    if isinstance(metric_obj, custom_metrics.ZoomedSSIM):
                         if testloader.dataset.metric_mask:
-                            mask_size = torch.sum(metric_mask)
-                            if mask_size > min_mask_pixel_in_batch:
-                                metric_value = metric_obj(predictions, targets, metric_mask)
-
-                            else:
-                                logging.log(logging.WARNING,
-                                            f"The batch number {batch_index} is skipped for `ZoomedSSIM` calculations"
-                                            f"due to small mask ({mask_size} pixels). It can affect the metric result. ")
-                                n_skipped += 1
-                                break
+                            metric_value = metric_obj(predictions, targets, metric_mask)
                         else:
                             # TODO: NoMaskDatasetError
                             ValueError(
@@ -372,7 +353,7 @@ class UNet(nn.Module):
                     else:
                         metric_value = metric_obj(predictions, targets)
 
-                    metrics_values[metric_name] += metric_value.item()
+                    metrics_values[metric_name].append(metric_value.item())
 
                 n_steps += 1
 
@@ -382,21 +363,26 @@ class UNet(nn.Module):
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
                                      filepath=filepath)
 
-        averaged_metrics = self._computed_averaged_metric(metrics_values, n_steps, n_skipped)
+        averaged_metrics, std_metrics = self._compute_average_std_metric(metrics_values, n_steps, n_skipped)
         metrics_str = custom_metrics.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
 
         print(f"\tFor evaluation set: {metrics_str}\n")
 
-        return averaged_metrics
+        if compute_std:
+            return averaged_metrics, std_metrics
+        else:
+            return averaged_metrics
 
     @staticmethod
-    def _computed_averaged_metric(metrics_values, n_steps, n_skipped):
+    def _compute_average_std_metric(metrics_values, n_steps, n_skipped):
         """
         Computes the average for each of the metrics using the sum and the number of steps. 
         Treats specially the ZoomedSSIM metrics since there are potential skips. 
         """
         averaged_metrics = {}
-        for metric_name, metric_summed_value in metrics_values.items():
+        std_metrics = {}
+        for metric_name, metric_values in metrics_values.items():
+            numpy_metrics_values = np.array(metric_values)
             if "zoomed_ssim" in metric_name:
                 if n_skipped == n_steps:
                     logging.log(logging.WARNING, f"All the mask in the provided dataset are zeros."
@@ -407,9 +393,10 @@ class UNet(nn.Module):
             else:
                 denominator = n_steps
 
-            averaged_metrics[metric_name] = metric_summed_value / denominator
+            averaged_metrics[metric_name] = numpy_metrics_values.sum() / denominator
+            std_metrics[metric_name] = numpy_metrics_values.std()
 
-        return averaged_metrics
+        return averaged_metrics, std_metrics
 
 
 class DoubleConv(nn.Module):
