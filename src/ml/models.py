@@ -279,7 +279,7 @@ class UNet(nn.Module):
                  plot_filename=None,
                  compute_std=False,
                  wanted_metrics=None,
-                 # min_mask_pixel_in_batch=9,
+                 min_mask_pixel_in_batch=9,
                  save_preds_dir=None):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
@@ -343,7 +343,15 @@ class UNet(nn.Module):
 
                     if isinstance(metric_obj, custom_metrics.ZoomedSSIM):
                         if testloader.dataset.metric_mask:
-                            metric_value = metric_obj(predictions, targets, metric_mask)
+                            mask_size = torch.sum(metric_mask)
+                            if mask_size > min_mask_pixel_in_batch:
+                                metric_value = metric_obj(predictions, targets, metric_mask)
+                            else:
+                                # logging.log(logging.WARNING,
+                                #             f"The batch number {batch_index} is skipped for `ZoomedSSIM` calculations"
+                                #             f"due to small mask ({mask_size} pixels). It can affect the metric result. ")
+                                n_skipped += 1
+                                break
                         else:
                             # TODO: NoMaskDatasetError
                             ValueError(
