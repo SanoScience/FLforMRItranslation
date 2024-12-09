@@ -135,7 +135,9 @@ if __name__ == '__main__':
     metrics, stds = unet.evaluate(testloader,
                                   wanted_metrics=wanted_metrics,
                                   save_preds_dir=save_preds_dir,
-                                  compute_std=True)
+                                  plots_path=model_dir,
+                                  compute_std=True,
+                                  plot_metrics_distribution=True)
 
     metric_filepath = os.path.join(model_dir, f"metrics_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
     std_filepath = os.path.join(model_dir, f"std_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")

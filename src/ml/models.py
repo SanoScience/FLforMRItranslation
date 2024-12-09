@@ -1,6 +1,8 @@
 import logging
 from os import path
 import pickle
+
+import matplotlib.pyplot as plt
 import wandb
 import time
 from typing import Callable
@@ -280,7 +282,8 @@ class UNet(nn.Module):
                  compute_std=False,
                  wanted_metrics=None,
                  min_mask_pixel_in_batch=9,
-                 save_preds_dir=None):
+                 save_preds_dir=None,
+                 plot_metrics_distribution=False):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
@@ -365,11 +368,31 @@ class UNet(nn.Module):
 
                 n_steps += 1
 
-        if plots_path:
+        if plots_path and plot_filename:
             fop.try_create_dir(plots_path)  # pretty sure this is not needed (only makes warnings)
             filepath = path.join(plots_path, plot_filename)
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
                                      filepath=filepath)
+
+        if plot_metrics_distribution:
+            histograms_dir_path = path.join(plots_path, "histograms")
+            fop.try_create_dir(histograms_dir_path)
+
+            # Plot and save histograms
+            for key, values in metrics_values.items():
+                plt.figure()  # Create a new figure
+                plt.hist(values, bins=100, color='blue', alpha=0.7)
+                plt.title(f"Histogram of {key}")
+                plt.xlabel("Value")
+                plt.ylabel("Frequency")
+
+                # Save to file
+                output_path = path.join(histograms_dir_path, f"{key}_histogram.png")
+                plt.savefig(output_path)
+                plt.close()  # Close the figure to free up memory
+                print(f"Saved histogram for {key} to {output_path}")
+
+            print("All histograms saved.")
 
         averaged_metrics, std_metrics = self._compute_average_std_metric(metrics_values, n_steps, n_skipped)
         metrics_str = custom_metrics.metrics_to_str(averaged_metrics, starting_symbol="\n\t")
