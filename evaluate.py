@@ -131,11 +131,12 @@ if __name__ == '__main__':
     print(f"Model and data loaded; evaluation starts...")
 
     save_preds_dir = os.path.join(model_dir, "preds", representative_test_dir)
+    eval_path = os.path.join(model_dir, "eval", representative_test_dir)
 
     metrics, stds = unet.evaluate(testloader,
                                   wanted_metrics=wanted_metrics,
                                   save_preds_dir=save_preds_dir,
-                                  plots_path=model_dir,
+                                  plots_path=eval_path,
                                   compute_std=True,
                                   plot_metrics_distribution=True)
 
