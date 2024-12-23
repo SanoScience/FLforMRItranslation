@@ -283,7 +283,8 @@ class UNet(nn.Module):
                  wanted_metrics=None,
                  min_mask_pixel_in_batch=9,
                  save_preds_dir=None,
-                 plot_metrics_distribution=False):
+                 plot_metrics_distribution=False,
+                 high_mse_value=float('inf')):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
@@ -363,6 +364,14 @@ class UNet(nn.Module):
 
                     else:
                         metric_value = metric_obj(predictions, targets)
+
+                        if plots_path:
+                            if isinstance(metric_obj, custom_metrics.MSELoss) and metric_value.item() > high_mse_value:
+                                filepath = path.join(plots_path, f"slice{batch_index}_mse{metric_value:.2f}.jpg")
+
+                                visualization.plot_single_data_sample(
+                                    [images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
+                                    filepath=filepath)
 
                     metrics_values[metric_name].append(metric_value.item())
 

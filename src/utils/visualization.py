@@ -244,6 +244,35 @@ def plot_batch(to_plot: List[List[torch.Tensor]], labels=None, show=True, filepa
         plt.show()
 
 
+def plot_single_data_sample(to_plot: List[torch.Tensor], labels=None, show=True, filepath: str = None, title="", cmap="gray"):
+    fig, axs = plt.subplots(ncols= len(to_plot), figsize=(len(to_plot) * 4, 3))
+
+    if labels is None:
+        labels = ["Input", "Target", "Predicted"]
+
+    fig.suptitle(title)
+
+    for j, img in enumerate(to_plot):
+        img_max = torch.max(img)
+        img_min = torch.min(img)
+
+        axs[j].imshow(img.numpy()[0][0], cmap=cmap, vmin=0.0, vmax=1.0)
+
+        title = f'\nmin: {img_min:.2f} max: {img_max:.2f}'
+
+        title = labels[j] + title
+
+        axs[j].set_title(title)
+        axs[j].axis("off")
+
+    if filepath is not None:
+        plt.savefig(filepath)
+        fig.clf()
+        plt.close()
+    if show:
+        plt.show()
+
+
 def plot_pred(to_plot: List[torch.Tensor], col_labels, row_labels=None, show=True, filepath: str = None,
               title="", cmap="gray", pad=0.5, forecolor='black', figsize=None, vertical=True):
     list_size = len(to_plot[0])

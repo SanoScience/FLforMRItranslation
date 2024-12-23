@@ -138,7 +138,8 @@ if __name__ == '__main__':
                                   save_preds_dir=save_preds_dir,
                                   plots_path=eval_path,
                                   compute_std=True,
-                                  plot_metrics_distribution=True)
+                                  plot_metrics_distribution=True,
+                                  high_mse_value=0.4)
 
     metric_filepath = os.path.join(model_dir, f"metrics_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
     std_filepath = os.path.join(model_dir, f"std_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
