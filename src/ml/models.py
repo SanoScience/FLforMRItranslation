@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
-from torchmetrics.classification import Dice, BinaryJaccardIndex
+from torchmetrics.classification import BinaryJaccardIndex
 
 from configs import config_train, creds
 from src.ml import custom_metrics
