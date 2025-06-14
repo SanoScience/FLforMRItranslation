@@ -28,13 +28,13 @@ N_GROUP_NORM = 32
 
 
 # client parameters
-METRICS = ["loss",  "mse", "relative_error"]
+METRICS = ["loss",  "mse", "relative_error", "ssim", "zoomed_ssim"]
 
 # METRICS = ["loss", "ssim", "pnsr", "mse", "masked_mse", "relative_error"]
 # METRICS = ["loss", "ssim", "masked_ssim", "pnsr", "mse", "masked_mse", "relative_error"]
 N_EPOCHS_CLIENT = 4
 
-TRANSLATION = (ImageModality.FLAIR, ImageModality.MASK)
+TRANSLATION = (ImageModality.T1, ImageModality.T1)
 LOSS_TYPE = LossFunctions.MSE_DSSIM
 BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)
