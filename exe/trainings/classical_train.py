@@ -69,7 +69,7 @@ if __name__ == '__main__':
                                num_workers=config_train.NUM_WORKERS,
                                pin_memory=True)
 
-    criterion = custom_metrics.DssimMse()
+    criterion = custom_metrics.DssimMseLoss()
     unet = UNet(criterion).to(config_train.DEVICE)
     optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
 

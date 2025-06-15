@@ -92,9 +92,9 @@ if __name__ == '__main__':
 
     if "prox" in model_path.lower():
         mu = imported_config.PROXIMAL_MU
-        criterion = custom_metrics.LossWithProximalTerm(proximal_mu=mu, base_loss_fn=custom_metrics.DssimMse())
+        criterion = custom_metrics.LossWithProximalTerm(proximal_mu=mu, base_loss_fn=custom_metrics.DssimMseLoss())
     else:
-        criterion = custom_metrics.DssimMse()
+        criterion = custom_metrics.DssimMseLoss()
 
     print(f"Taken criterion is: {criterion}")
     unet = models.UNet(criterion).to(config_train.DEVICE)

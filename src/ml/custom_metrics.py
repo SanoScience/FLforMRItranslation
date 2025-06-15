@@ -28,7 +28,7 @@ from torchmetrics.utilities.checks import _check_same_shape
 from torchmetrics.utilities.compute import _safe_divide
 
 
-class DssimMse:
+class DssimMseLoss:
     """Combined DSSIM and MSE loss function."""
 
     def __init__(self, sqrt: bool = False, zoomed_ssim: bool = False) -> None:
@@ -405,13 +405,13 @@ class RelativeError:
 
 def loss_from_config():
     if config_train.LOSS_TYPE == config_train.LossFunctions.MSE_DSSIM:
-        return DssimMse()
+        return DssimMseLoss()
     elif config_train.LOSS_TYPE == config_train.LossFunctions.PROX:
-        return LossWithProximalTerm(config_train.PROXIMAL_MU, DssimMse())
+        return LossWithProximalTerm(config_train.PROXIMAL_MU, DssimMseLoss())
     elif config_train.LOSS_TYPE == config_train.LossFunctions.RMSE_DDSIM:
-        return DssimMse(sqrt=True)
+        return DssimMseLoss(sqrt=True)
     elif config_train.LOSS_TYPE == config_train.LossFunctions.MSE_ZOOMED_DSSIM:
-        return DssimMse(zoomed_ssim=True)
+        return DssimMseLoss(zoomed_ssim=True)
     else:  # config_train.LOSS_TYPE == config_train.LossFunctions.MSE:
         return MSELoss()
 
