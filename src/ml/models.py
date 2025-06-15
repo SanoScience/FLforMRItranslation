@@ -114,6 +114,8 @@ class UNet(nn.Module):
         """
         Method used by perform_train(). Does one iteration of training.
         """
+        self.train()
+
         metrics = {metric_name: self.available_metrics[metric_name] for metric_name in config_train.METRICS}
 
         epoch_metrics = {metric_name: 0.0 for metric_name in metrics.keys()}
@@ -286,6 +288,8 @@ class UNet(nn.Module):
                  plot_metrics_distribution=False,
                  low_ssim_value=float('inf')):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
+
+        self.eval()
 
         if not isinstance(self.criterion, Callable):
             raise TypeError(f"Loss function (criterion) has to be callable. It is {type(self.criterion)} which is not.")
