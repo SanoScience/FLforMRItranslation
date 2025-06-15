@@ -76,7 +76,7 @@ if __name__ == '__main__':
     representative_test_dir = train_directories[0].split(os.path.sep)[-2]
     model_dir=f"{config_train.DATA_ROOT_DIR}/trained_models/model-{representative_test_dir}-{config_train.LOSS_TYPE.name}-ep{config_train.N_EPOCHS_CENTRALIZED}-{config_train.TRANSLATION[0].name}{config_train.TRANSLATION[1].name}-lr{config_train.LEARNING_RATE}-{config_train.now.date()}-{config_train.now.hour}h"
     fop.try_create_dir(model_dir)
-    copy2("./configs/config_train.py", f"{model_dir}/config.py")
+    copy2("../../configs/config_train.py", f"{model_dir}/config.py")
 
     if config_train.LOCAL:
         unet.perform_train(trainloader, optimizer,

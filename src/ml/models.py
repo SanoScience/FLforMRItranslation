@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
-from torchmetrics.classification import Dice, BinaryJaccardIndex
+from torchmetrics.classification import BinaryJaccardIndex
 
 from configs import config_train, creds
 from src.ml import custom_metrics
@@ -30,7 +30,7 @@ zoomed_ssim = custom_metrics.ZoomedSSIM(margin=5)
 
 dice_generalized = custom_metrics.generalized_dice
 dice_2_class = custom_metrics.dice_2_class
-dice_score = Dice().to(device)
+# dice_score = Dice().to(device)
 # dice_score = Dice().to(device)
 jaccard_index = BinaryJaccardIndex().to(device)
 
@@ -59,7 +59,7 @@ class UNet(nn.Module):
                                   "masked_mse": masked_mse,
                                   "masked_ssim": masked_ssim,
                                   "relative_error": relative_error,
-                                  "dice_classification": dice_score,
+                                  # "dice_classification": dice_score,
                                   "dice_generalized": dice_generalized,
                                   "dice_2_class": dice_2_class,
                                   "zoomed_ssim": zoomed_ssim,

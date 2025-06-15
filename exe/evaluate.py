@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
     if config_train.LOCAL:
         test_dir = "C:\\Users\\JanFiszer\\data\\mri\\zoomed_ssim_test"
-        model_path = "C:\\Users\\JanFiszer\\repos\\FLforMRItranslation\\trained_models\\fl\\flair_to_t2\\model-fedadam-MSE_DSSIM-FLAIRT2-lr0.001-rd32-ep4-2024-04-07\\round32.pth"
+        model_path = "/trained_models/fl/flair_to_t2/model-fedadam-MSE_DSSIM-FLAIRT2-lr0.001-rd32-ep4-2024-04-07/round32.pth"
         representative_test_dir = "oasis"
     else:
         test_dir = sys.argv[1]
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
     print(f"Model and data loaded; evaluation starts...")
 
-    save_preds_dir = os.path.join(model_dir, "preds", representative_test_dir)
+    save_preds_dir = os.path.join(model_dir, "../preds", representative_test_dir)
     eval_path = os.path.join(model_dir, "eval", representative_test_dir)
 
     metrics, stds = unet.evaluate(testloader,

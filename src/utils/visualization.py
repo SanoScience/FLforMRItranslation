@@ -159,8 +159,7 @@ def plot_difference(target, predictions, row_labels=None, cmap="hsv", vmin=-0.5,
     fig.colorbar(im, cax=cbar_ax)
 
 
-def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, title=None, ylabel="Loss", xlabel="Rounds", ylim=None, figsize=None, legend=True, savepath=None, markers=None, linewidths=None, gridstyle=None, markersize=3, yscale="linear"):
-
+def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, title=None, ylabel="Loss value (MSE+DSSIM)", xlabel="Global rounds", ylim=None, figsize=None, legend=True, savepath=None, markers=None, linewidths=None, gridstyle=None, markersize=3, yscale="linear", xticks=None, yticks=None):
     if figsize:
         plt.figure(figsize=figsize)
 
