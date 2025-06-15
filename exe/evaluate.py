@@ -28,7 +28,6 @@ def import_from_filepath(to_import_filepath):
 if __name__ == '__main__':
     # base values
     target_dir = None
-    segmentation_task = False
     TRANSLATION = config_train.TRANSLATION
     wanted_metrics = config_train.METRICS
     input_target_union = False
@@ -69,10 +68,6 @@ if __name__ == '__main__':
         TRANSLATION = imported_config.TRANSLATION
         print(f"\n\nTranslations: {imported_config.TRANSLATION}")
 
-        segmentation_task = imported_config.TRANSLATION[1] == enums.ImageModality.MASK or imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR
-        if segmentation_task:
-            print("\nMask as the target modality, evaluation for segmenatation task\n")
-
         if imported_config.TRANSLATION[1] == enums.ImageModality.TUMOR:
             input_target_union = True
             print("Taking `tumor` datasets, only union will be taken.")
@@ -89,7 +84,6 @@ if __name__ == '__main__':
     testset = datasets.MRIDatasetNumpySlices(test_dir,
                                              target_dir=target_dir,
                                              translation_direction=TRANSLATION,
-                                             binarize=segmentation_task,
                                              squeeze=squeeze,
                                              metric_mask_dir=metric_mask_dir,
                                              input_target_set_union=input_target_union)
@@ -99,8 +93,6 @@ if __name__ == '__main__':
     if "prox" in model_path.lower():
         mu = imported_config.PROXIMAL_MU
         criterion = custom_metrics.LossWithProximalTerm(proximal_mu=mu, base_loss_fn=custom_metrics.DssimMse())
-    elif segmentation_task:
-        criterion = custom_metrics.BinaryDiceLoss()
     else:
         criterion = custom_metrics.DssimMse()
 
@@ -139,7 +131,7 @@ if __name__ == '__main__':
                                   plots_path=eval_path,
                                   compute_std=True,
                                   plot_metrics_distribution=True,
-                                  high_mse_value=0.4)
+                                  low_ssim_value=0.4)
 
     metric_filepath = os.path.join(model_dir, f"metrics_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
     std_filepath = os.path.join(model_dir, f"std_{representative_test_dir}_ssim_{metrics['val_ssim']:.2f}.pkl")
