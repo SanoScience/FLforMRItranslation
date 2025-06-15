@@ -23,6 +23,6 @@
 directories=("ucsf_150" "hgg_125" "lgg" "hcp_mgh_masks" "hcp_wu_minn" "oasis")
 
 for dir in "${directories[@]}"; do
-    srun $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python $HOME/repos/FLforMRItranslation/evaluate.py /net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/$dir/test\
+    srun $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python -m exe.evaluate /net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/$dir/test\
      /net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/trained_models/model-hgg_125-MSE_DSSIM-ep10-FLAIRMASK-lr0.0001-2024-07-18-17h/best_model.pth 16
 done

@@ -25,7 +25,7 @@ directories=("ucsf_150" "hgg_125" "lgg" "hcp_mgh_masks" "hcp_wu_minn" "oasis")
 full_path=/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/trained_models/model-fedbadam-MSE_DSSIM-T2T1-lr0.001-rd32-ep4-2024-05-20
 
 for dir in "${directories[@]}"; do
-    srun $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python $HOME/repos/FLforMRItranslation/evaluate.py /net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/$dir/test \
+    srun $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python -m exe.evaluate /net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/$dir/test \
        "$full_path/FedBN(batch_norm=NormalizationType.BN)_client_$dir/model.pth" 16 \
        "$full_path/config.py"
 done

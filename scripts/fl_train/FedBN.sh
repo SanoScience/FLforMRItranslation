@@ -31,8 +31,8 @@ PORT=8083
 ## --exclusive ensures that when the server starts there is room for the clients 
 srun --ntasks=1 --cpus-per-task=1\
     --output="./$DIR_NAME/server.out" --error="./$DIR_NAME/server_logs.out" \
-    $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python \
-    $HOME/repos/FLforMRItranslation/run_server.py $PORT fedbn &
+    $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python -m  \
+    exe.trainings.run_server $PORT fedbn &
 
 
 sleep 300
@@ -40,7 +40,7 @@ sleep 300
 for client in "${clients[@]}"; do
     srun --ntasks=1 --cpus-per-task=1\
     --output="./$DIR_NAME/$client.out" --error="./$DIR_NAME/error_$client.out" \
-    $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python $HOME/repos/FLforMRItranslation/run_client_train.py \
+    $PLG_GROUPS_STORAGE/plggflmri/anaconda3/bin/python -m  exe.trainings.run_client_train \
     /net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/$client $client $PORT fedbn &
 done
 wait
