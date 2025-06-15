@@ -1,13 +1,12 @@
-import os
 import sys
 from shutil import copy2
 
 import torch.optim as optim
+from torch.utils.data import DataLoader
 
 from src.ml.datasets import *
 from src.ml.models import *
 
-from torch.utils.data import DataLoader
 
 if __name__ == '__main__':
 
@@ -15,25 +14,10 @@ if __name__ == '__main__':
         train_directories = ["C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples"]
         validation_directories = ["C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples"]
     else:
-        if len(sys.argv) > 1:
-            data_dir = sys.argv[1]
-            train_directories = [os.path.join(data_dir, "train")]
-            validation_directories = [os.path.join(data_dir, "validation")]
-            representative_test_dir = train_directories[0].split(os.path.sep)[-2]
-        else:
-            train_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/oasis/train",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/ucsf_150/train",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/train",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg_125/train",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_mgh_masks/train",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_wu_minn/train"]
-            validation_directories = ["/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/oasis/validation",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/ucsf_150/validation",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/lgg/validation",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hgg_125/validation",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_mgh_masks/validation",
-                                 "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/hcp_wu_minn/validation"]
-            representative_test_dir = "all_data"
+        data_dir = sys.argv[1]
+        train_directories = [os.path.join(data_dir, "train")]
+        validation_directories = [os.path.join(data_dir, "validation")]
+        representative_test_dir = train_directories[0].split(os.path.sep)[-2]
 
 
     translation_direction = config_train.TRANSLATION 
@@ -43,11 +27,9 @@ if __name__ == '__main__':
                       "input_target_set_union": False}
     
     train_dataset = MRIDatasetNumpySlices(train_directories, **dataset_kwargs)
-    # train_dataset = MRIDatasetNumpySlices(train_directories, translation_direction=translation_direction, image_size=(176, 240))
     validation_dataset = MRIDatasetNumpySlices(validation_directories, **dataset_kwargs)
 
     print(f"Translation: {translation_direction[0].name}->{translation_direction[1].name}")
-
 
     if config_train.LOCAL:
         trainloader = DataLoader(train_dataset,
@@ -82,9 +64,9 @@ if __name__ == '__main__':
         unet.perform_train(trainloader, optimizer,
                            validationloader=valloader,
                            epochs=config_train.N_EPOCHS_CENTRALIZED,
-                           # filename="model.pth",
-                           # model_dir=f"{config_train.DATA_ROOT_DIR}/trained_models/model-{representative_test_dir}-{config_train.LOSS_TYPE.name}-ep{config_train.N_EPOCHS_CENTRALIZED}-lr{config_train.LEARNING_RATE}-{config_train.NORMALIZATION.name}-{config_train.now.date()}-{config_train.now.hour}h",
-                           # history_filename="history.pkl"
+                           filename="model.pth",
+                           model_dir=f"local-fl-training",
+                           history_filename="history.pkl"
                            )
     else:
         unet.perform_train(trainloader, optimizer,

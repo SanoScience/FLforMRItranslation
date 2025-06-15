@@ -3,14 +3,12 @@ import sys
 import pickle
 import torch
 import importlib
-import random
 
 from configs import config_train, enums
 from src.ml import custom_metrics, datasets, models
 from src.utils import visualization
 from torch.utils.data import DataLoader
 
-import numpy as np
 
 
 class DifferentTranslationError(Exception):

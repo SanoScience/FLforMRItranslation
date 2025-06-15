@@ -1,9 +1,9 @@
 import socket
 import sys
+import flwr as fl
 
 from src.fl.strategies import *
 
-import flwr as fl
 
 
 if __name__ == "__main__":
