@@ -50,7 +50,7 @@ Federated Learning
 python exe/trainings/run_server.py <port_number> <strategy_name>
 # Example: python exe/trainings/run_server.py 8080 fedavg
 ```
-2. 
+2. Initialize clients (to run multiple times)
 ```
 python exe/trainings/run_client_train.py <data_directory> <client_id> <server_address> <strategy_name>
 # Example: python exe/trainings/run_client_train.py /data/client1 1 localhost:8080 fedavg
