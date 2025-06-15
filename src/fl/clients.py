@@ -21,7 +21,8 @@ class ClassicClient(fl.client.NumPyClient):
     """
         Overriding all the methods that NumPyClient requires.
     """
-    def __init__(self, client_id, model: models.UNet, optimizer, data_dir, model_dir=config_train.TRAINED_MODEL_SERVER_DIR):
+    def __init__(self, client_id: str, model: models.UNet, optimizer: torch.optim.Optimizer, 
+                 data_dir: str, model_dir: str = config_train.TRAINED_MODEL_SERVER_DIR) -> None:
         """
             Constructor
 
@@ -58,15 +59,27 @@ class ClassicClient(fl.client.NumPyClient):
         fop.try_create_dir(self.client_dir)
         print(f"Client {client_id} with data from directory: {data_dir}: INITIALIZED\n")
 
-    def get_parameters(self, config):
+    def get_parameters(self, config: Dict[str, Scalar]) -> NDArrays:
+        """Extract model parameters as a list of NumPy arrays."""
         return [val.cpu().numpy() for val in self.model.state_dict().values()]
 
     def set_parameters(self, parameters: NDArrays):
+        """Update local model parameters from the received parameters."""
         param_dict = zip(self.model.state_dict().keys(), parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in param_dict})
         self.model.load_state_dict(state_dict)
 
     def fit(self, parameters: NDArrays, config):
+        """
+        Perform local model training for one federated learning round.
+        
+        Args:
+            parameters: Current global model parameters
+            config: Configuration including current round number
+            
+        Returns:
+            tuple: (updated parameters, number of training samples, metrics dictionary)
+        """
         self.set_parameters(parameters)
 
         current_round = config["current_round"]
@@ -82,7 +95,7 @@ class ClassicClient(fl.client.NumPyClient):
                                            model_dir=self.client_dir,
                                            validationloader=self.val_loader,
                                            epochs=config_train.N_EPOCHS_CLIENT,
-                                        #    plots_dir=plots_dir
+                                           plots_dir=plots_dir
                                            )
 
         print(f"END OF CLIENT TRAINING\n")
@@ -99,6 +112,9 @@ class ClassicClient(fl.client.NumPyClient):
         return self.get_parameters(config=config), len(self.train_loader.dataset), avg_val_metric
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]) -> Tuple[float, int, Dict]:
+        """
+        Evaluate model on local test data.
+        """
         self.set_parameters(parameters)
 
         metrics = self._evaluate(current_round=config["current_round"])
@@ -106,7 +122,7 @@ class ClassicClient(fl.client.NumPyClient):
 
         return metrics["val_loss"], len(self.test_loader.dataset), metric_without_loss
 
-    def _evaluate(self, current_round: int):
+    def _evaluate(self, current_round: int) -> Dict[str, float]:
 
         print(f"CLIENT {self.client_id} ROUND {current_round} TESTING...")
 
@@ -118,8 +134,8 @@ class ClassicClient(fl.client.NumPyClient):
             plot_filename = f"round-{current_round}"
 
         metrics = self.model.evaluate(self.test_loader,
-                                    #   plots_path=plots_path,
-                                    #   plot_filename=plot_filename
+                                      plots_path=plots_path,
+                                      plot_filename=plot_filename
                                       )
 
         print(f"END OF CLIENT TESTING\n\n")
@@ -146,11 +162,17 @@ class ClassicClient(fl.client.NumPyClient):
 
 class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attributes
     """
-        Inherits from the ClassicClient.
+    FedProx algorithm client implementation that handles stragglers and proximal term optimization.
+    Extends ClassicClient with proximal regularization and variable local epochs for simulating stragglers.
+    
+    Additional Attributes:
+        straggler_schedule: Schedule determining if client is a straggler in each round
+        epochs_multiplier: Factor to adjust local epochs for stragglers
     """
     NUMBER_OF_SAMPLES = 8000  
-    def __init__(self, client_id, model: models.UNet, optimizer, data_dir: str, model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
-                 straggler_schedule=None, epochs_multiplier: int = 2):  # pylint: disable=too-many-arguments
+    def __init__(self, client_id: str, model: models.UNet, optimizer: torch.optim.Optimizer, 
+                 data_dir: str, model_dir: str = config_train.TRAINED_MODEL_SERVER_DIR,
+                 straggler_schedule: np.ndarray = None, epochs_multiplier: int = 2) -> None:
 
         super().__init__(client_id, model, optimizer, data_dir, model_dir)
         """
@@ -223,7 +245,7 @@ class FedProxClient(ClassicClient):  # pylint: disable=too-many-instance-attribu
 
 class FedBNClient(ClassicClient):
     """Changes only the parameters operation (set and get) skipping the normalization layers"""
-    def set_parameters(self, parameters):
+    def set_parameters(self, parameters: NDArrays) -> None:
         self.model.train()
 
         old_state_dict = self.model.state_dict()
@@ -243,7 +265,7 @@ class FedBNClient(ClassicClient):
 
 class FedMRIClient(ClassicClient):
     "Changes only the parameters operation (set and get) skipping the decoder part. Only encoder in global"
-    def set_parameters(self, parameters: NDArrays):
+    def set_parameters(self, parameters: NDArrays) -> None:
         self.model.train()
 
         old_state_dict = self.model.state_dict()
@@ -260,10 +282,19 @@ class FedMRIClient(ClassicClient):
         return f"FedMRI()"
 
 
-def client_from_config(client_id, unet: models.UNet, optimizer, data_dir: str):
+def client_from_config(client_id: str, unet: models.UNet, 
+                      optimizer: torch.optim.Optimizer, data_dir: str) -> ClassicClient:
     """
-        Returns a client basing on the config variables.
-        Not used in the starting server and clients from the same file.
+    Factory function to create appropriate client instance based on configuration.
+    
+    Args:
+        client_id: Unique identifier for the client
+        unet: UNet model instance
+        optimizer: Model optimizer
+        data_dir: Directory containing training/test/validation data
+        
+    Returns:
+        Instance of appropriate client class based on config_train.CLIENT_TYPE
     """
 
     if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
@@ -284,11 +315,25 @@ def client_from_config(client_id, unet: models.UNet, optimizer, data_dir: str):
         return ClassicClient(client_id, unet, optimizer, data_dir)
 
 
-def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, client_type_name):
+def client_from_string(client_id: str, unet: models.UNet, optimizer: torch.optim.Optimizer, 
+                      data_dir: str, client_type_name: str) -> ClassicClient:
     """
-        Returns a instance of a class basing on the given string. Requires the model (Pytorch net) and optimizer. 
-        Client ID is a string.
+    Factory function to create client instance based on string identifier.
+    
+    Args:
+        client_id: Unique identifier for the client
+        unet: UNet model instance
+        optimizer: Model optimizer
+        data_dir: Directory containing training/test/validation data
+        client_type_name: String identifying the client type to create
+        
+    Returns:
+        Instance of appropriate client class
+        
+    Raises:
+        ValueError: If client_type_name is not recognized
     """
+
     drd = config_train.DATA_ROOT_DIR
     lt = config_train.LOSS_TYPE.name
     t = f"{config_train.TRANSLATION[0].name}{config_train.TRANSLATION[1].name}"
@@ -326,9 +371,17 @@ def client_from_string(client_id, unet: models.UNet, optimizer, data_dir: str, c
         raise ValueError(f"Given client type ('{client_type_name}') name is invalid.")
 
 
-def load_data(data_dir, batch_size, with_num_workers=True):
+def load_data(data_dir: str, batch_size: int, with_num_workers: bool = True) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
-        Function returning training, test and validation loader based on samely named directories in the given directory (data_dir)
+    Create DataLoaders for training, testing and validation datasets.
+    
+    Args:
+        data_dir: Root directory containing train/test/validation subdirectories
+        batch_size: Batch size for DataLoaders
+        with_num_workers: Whether to use multiple workers for data loading
+        
+    Returns:
+        tuple: (train_loader, test_loader, val_loader)
     """
     train_dir = os.path.join(data_dir, "train")
     test_dir = os.path.join(data_dir, "test")

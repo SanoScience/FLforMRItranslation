@@ -1,7 +1,12 @@
+"""
+Dataset implementations for MRI image processing.
+Provides classes for handling slice-based and volume-based MRI data.
+"""
+
 import logging
 import os
 from glob import glob
-from typing import List, Tuple
+from typing import List, Tuple, Union, Optional
 
 import numpy as np
 import torch
@@ -12,12 +17,41 @@ from src.utils.files_operations import load_nii_slices, get_nii_filepaths, Trans
 
 
 class MRIDatasetNumpySlices(Dataset):
-    """
-    Dataset class with previous use of TransformNIIDataToNumpySlices
+    """Dataset class for MRI slices stored as numpy arrays.
+    
+    Attributes:
+        normalize: Whether to normalize images to [0,1]
+        binarize: Whether to binarize target images
+        squeeze: Whether to squeeze singleton dimensions
+        metric_mask: Whether metric masks are available
+        image_size: Optional target size for images
+
+    Expects the following directory structure:
+    data_dir/
+        ├── t1/
+        │   ├── subject1_slice1.npy
+        │   ├── subject1_slice2.npy
+        │   └── ...
+        ├── t2/
+        │   ├── subject1_slice1.npy
+        │   ├── subject1_slice2.npy
+        │   └── ...
+        └── metric_masks/ (optional)
+            ├── subject1_slice1.npy
+            ├── subject1_slice2.npy
+            └── ...
     """
     EPS = 1e-6
 
-    def __init__(self, data_dir, translation_direction=None, target_dir=None, image_size=None, normalize=True, binarize=False, metric_mask_dir=None, squeeze=False, input_target_set_union=False):
+    def __init__(self, data_dir: Union[str, List[str]], 
+                 translation_direction: Optional[Tuple[enums.ImageModality, enums.ImageModality]] = None,
+                 target_dir: Optional[str] = None, 
+                 image_size: Optional[Tuple[int, int]] = None,
+                 normalize: bool = True,
+                 binarize: bool = False,
+                 metric_mask_dir: Optional[str] = None,
+                 squeeze: bool = False,
+                 input_target_set_union: bool = False) -> None:
 
         # declaring booleans
         self.normalize = normalize
@@ -111,7 +145,7 @@ class MRIDatasetNumpySlices(Dataset):
     def __len__(self):
         return len(self.images)
 
-    def _normalize(self, tensor: torch.Tensor):
+    def _normalize(self, tensor: torch.Tensor) -> torch.Tensor:
         max_value = torch.max(tensor).data
 
         if max_value < self.EPS:
@@ -122,7 +156,8 @@ class MRIDatasetNumpySlices(Dataset):
     def _trim_image(self, image):
         return trim_image(image, self.image_size)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Union[Tuple[torch.Tensor, torch.Tensor], 
+                                              Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
 
         image_path = self.images[index]
         target_path = self.targets[index]
@@ -172,7 +207,10 @@ class MRIDatasetNumpySlices(Dataset):
 
 
 class VolumeEvaluation(Dataset):
-    def __init__(self, ground_truth_path: str, predicted_path: str, squeeze_pred=True):
+    """Dataset for evaluating 3D volumes of predictions against ground truth."""
+
+    def __init__(self, ground_truth_path: str, predicted_path: str, 
+                 squeeze_pred: bool = True) -> None:
         self.ground_truth_path = ground_truth_path
         self.predicted_path = predicted_path
         self.squeeze_pred = squeeze_pred
@@ -183,7 +221,7 @@ class VolumeEvaluation(Dataset):
     def __len__(self):
         return len(self.patient_ids)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[np.ndarray, np.ndarray]:
         patient_id = self.patient_ids[index]
 
         print(f"Patient id: {patient_id}")
