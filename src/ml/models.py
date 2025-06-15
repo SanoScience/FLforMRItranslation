@@ -284,7 +284,7 @@ class UNet(nn.Module):
                  min_mask_pixel_in_batch=9,
                  save_preds_dir=None,
                  plot_metrics_distribution=False,
-                 high_mse_value=float('inf')):
+                 low_ssim_value=float('inf')):
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         if not isinstance(self.criterion, Callable):
@@ -304,6 +304,9 @@ class UNet(nn.Module):
 
         if save_preds_dir:
             fop.try_create_dir(save_preds_dir)
+        if plots_path:
+            fop.try_create_dir(plots_path)
+
 
         metrics_values = {m_name: [] for m_name in metrics.keys()}
         with torch.no_grad():
@@ -366,8 +369,10 @@ class UNet(nn.Module):
                         metric_value = metric_obj(predictions, targets)
 
                         if plots_path:
-                            if isinstance(metric_obj, custom_metrics.MSELoss) and metric_value.item() > high_mse_value:
-                                filepath = path.join(plots_path, f"slice{batch_index}_mse{metric_value:.2f}.jpg")
+                            if isinstance(metric_obj, custom_metrics.MaskedSSIM) and metric_value.item() < low_ssim_value:
+                                slice_filename = testloader.dataset.images[img_index + batch_index * batch_size].split(path.sep)[-1]
+                                print(f"For slice `{slice_filename}` maseked SSIM is low ({metric_value:.2f}), saving this slice.")
+                                filepath = path.join(plots_path, f"slice{batch_index}_ssim{metric_value:.2f}.jpg")
 
                                 visualization.plot_single_data_sample(
                                     [images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
@@ -378,7 +383,6 @@ class UNet(nn.Module):
                 n_steps += 1
 
         if plots_path and plot_filename:
-            fop.try_create_dir(plots_path)  # pretty sure this is not needed (only makes warnings)
             filepath = path.join(plots_path, plot_filename)
             visualization.plot_batch([images.to('cpu'), targets.to('cpu'), predictions.to('cpu').detach()],
                                      filepath=filepath)
