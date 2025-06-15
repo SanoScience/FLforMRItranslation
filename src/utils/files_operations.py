@@ -13,9 +13,6 @@ import numpy as np
 
 
 class TransformNIIDataToNumpySlices:
-    # by investigation in eda.ipynb obtained
-    # MIN_SLICE_INDEX = 50
-    # MAX_SLICE_INDEX = 125
     MIN_SLICE_INDEX = -1
     MAX_SLICE_INDEX = -1
     SLICES_FILE_FORMAT = ".npy"
@@ -47,22 +44,6 @@ class TransformNIIDataToNumpySlices:
             for image_type in images_types:
                 full_dir_name = os.path.join(set_dir, image_type)
                 try_create_dir(full_dir_name, allow_overwrite=False)
-        # train_dir = os.path.join(self.target_root_dir, "train")
-        # test_dir = os.path.join(self.target_root_dir, "test")
-        # val_dir = os.path.join(self.target_root_dir, "validation")
-        #
-        # t1_train_dir = os.path.join(train_dir, "t1")
-        # t2_train_dir = os.path.join(train_dir, "t2")
-        # t1_test_dir = os.path.join(test_dir, "t1")
-        # t2_test_dir = os.path.join(test_dir, "t2")
-        # t1_val_dir = os.path.join(val_dir, "t1")
-        # t2_val_dir = os.path.join(val_dir, "t2")
-        #
-        # for directory in [train_dir, test_dir, val_dir,
-        #                   t1_train_dir, t2_train_dir, t1_test_dir, t2_test_dir, t1_val_dir, t2_val_dir]:
-        #     try_create_dir(directory)
-
-        # return [t1_train_dir, t2_train_dir], [t1_test_dir, t2_test_dir], [t1_val_dir, t2_val_dir]
 
     def create_train_val_test_sets(self,
                                    t1_filepath_from_data_dir,
@@ -77,10 +58,6 @@ class TransformNIIDataToNumpySlices:
         # in each of the returned lists (train, test, val)
         # the order goes as follows: t1, t2, flair
         self.create_empty_dirs(flair=flair_filepath_from_data_dir is not None)
-        # train_dirs, test_dirs, val_dirs = self.create_empty_dirs(flair=flair_filepath_from_data_dir is not None)
-        # print("Created directories: ",
-        #       *train_dirs, *test_dirs, *val_dirs,
-        #       "\n", sep='\n')
 
         # loading the data
         t1_filepaths, t2_filepaths, flair_filepaths = get_nii_filepaths(self.origin_data_dir,
@@ -100,11 +77,6 @@ class TransformNIIDataToNumpySlices:
             n_val_samples = 1
             n_train_samples -= 1
 
-        # if shuffle:
-        #     filepaths = list(zip(t1_filepaths, t2_filepaths, flair_filepaths))
-        #     random.shuffle(filepaths)
-        #     t1_filepaths, t2_filepaths, flair_filepaths = zip(*filepaths)
-
         for s in self.DIVISION_SETS:
             if s == "train":
                 lower_bound = 0
@@ -122,37 +94,6 @@ class TransformNIIDataToNumpySlices:
 
             self.create_set(current_set_filepaths_t1, current_set_filepaths_t2, current_set_filepaths_flair, s)
 
-        # for filepath_index in len(t1_filepaths, t2_filepaths, flair_filepaths]:
-        #     train_paths = t1_filepaths[:n_train_samples]
-        #     val_paths = t1_filepaths[n_train_samples:n_val_samples + n_train_samples]
-        #     test_paths = t1_filepaths[n_val_samples + n_train_samples:]
-        #
-        #     print("Creating train set...")
-        #     self.create_set(t1_train_paths, t2_train_paths, t1_train_dir, t2_train_dir)
-        #
-        #     print("Creating test set...")
-        #     self.create_set(t1_test_paths, t2_test_paths, t1_test_dir, t2_test_dir)
-        #
-        #     print("Creating validation set...")
-        #     self.create_set(t1_val_paths, t2_val_paths, t1_val_dir, t2_val_dir)
-        #
-        # t1_train_paths = t1_filepaths[:n_train_samples]
-        # t1_val_paths = t1_filepaths[n_train_samples:n_val_samples + n_train_samples]
-        # t1_test_paths = t1_filepaths[n_val_samples + n_train_samples:]
-        #
-        # t2_train_paths = t2_filepaths[:n_train_samples]
-        # t2_val_paths = t2_filepaths[n_train_samples:n_val_samples + n_train_samples]
-        # t2_test_paths = t2_filepaths[n_val_samples + n_train_samples:]
-        #
-        # print("Creating train set...")
-        # self.create_set(t1_train_paths, t2_train_paths, t1_train_dir, t2_train_dir)
-        #
-        # print("Creating test set...")
-        # self.create_set(t1_test_paths, t2_test_paths, t1_test_dir, t2_test_dir)
-        #
-        # print("Creating validation set...")
-        # self.create_set(t1_val_paths, t2_val_paths, t1_val_dir, t2_val_dir)
-
         print(f"\nSUCCESS\nCreated train and test directories in {self.target_root_dir} "
               f"from {n_train_samples} train, {n_val_samples} validation and {n_samples - n_train_samples - n_val_samples} "
               f"test 3D MRI images")
@@ -164,19 +105,21 @@ class TransformNIIDataToNumpySlices:
             print(f"Files processed {t1_paths[index]}, {t2_paths[index]}, {flair_paths[index]}")
             print("Patient number ", index, " in process ...\n")
 
-            raise NotImplementedError("load_nii_slices now returns just two values")
-            t1_slices, min_slice_index, max_slice_index = load_nii_slices(t1_paths[index],
+            t1_slices, taken_indices = load_nii_slices(t1_paths[index],
                                                                           self.transpose_order,
                                                                           self.image_size,
                                                                           self.MIN_SLICE_INDEX,
                                                                           self.MAX_SLICE_INDEX,
                                                                           target_zero_ratio=self.target_zero_ratio)
 
+            min_slice_index = min(taken_indices)
+            max_slice_index = max(taken_indices)
+
             if t1_slices:
-                t2_slices, _, _ = load_nii_slices(t2_paths[index], self.transpose_order, self.image_size,
+                t2_slices, _, = load_nii_slices(t2_paths[index], self.transpose_order, self.image_size,
                                                   min_slice_index, max_slice_index)
                 if flair:
-                    flair_slices, _, _ = load_nii_slices(flair_paths[index], self.transpose_order, self.image_size,
+                    flair_slices, _ = load_nii_slices(flair_paths[index], self.transpose_order, self.image_size,
                                                          min_slice_index, max_slice_index)
 
                 for slice_index in range(len(t1_slices)):
@@ -198,8 +141,6 @@ class TransformNIIDataToNumpySlices:
                         # saving a t2 slice
                         flair_slice_path = os.path.join(main_dir, "flair", filename)
                         np.save(flair_slice_path, flair_slices[slice_index])
-
-                    if flair:
                         print("Created pair of t1, t2 and flair slices: ", t1_slice_path, t2_slice_path,
                               flair_slice_path)
                     else:
@@ -232,9 +173,6 @@ def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[i
                                 for brain_slice in brain_slices])
         satisfying_given_ratio = np.where(zero_ratios < target_zero_ratio)[0]
 
-        # upper_bound = satisfying_given_ratio[0]
-        # lower_bound = satisfying_given_ratio[-1]
-
         return satisfying_given_ratio
 
     # noinspection PyUnresolvedReferences
@@ -248,11 +186,6 @@ def load_nii_slices(filepath: str, transpose_order, image_size: Optional[Tuple[i
     # it changes from (img_H, img_W, n_slices) to desired length
     if transpose_order is not None:
         img = np.transpose(img, transpose_order)
-
-    # an ugly way to deal with oasis different shape in the dataset
-    # if img.shape[2] != 256:
-    #     print(f"Wrong image shape {img.shape}")
-    #     return None, None, None
 
     if image_size is not None:
         img = [trim_image(brain_slice, image_size) for brain_slice in img]
@@ -311,40 +244,13 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
 
     local_dirs_string = '\n'.join([loc_dir for loc_dir in local_dirs])
 
-    # if flair:
     print(f"Found {len(t1_filepaths)} t1 {len(t2_filepaths)} t2 and {len(flair_filepaths)} flair files. In files: "
           f"{local_dirs_string}")
-    # else:
-    #     print(f"Found {len(t1_filepaths)} t1 files and {len(t2_filepaths)} t2 files. In files: "
-    #           f"{local_dirs_string}")
-    # local_dirs = os.listdir(data_dir)
-    # flair = flair_filepath_from_data_dir is not None
-    #
-    # # if not specified taking all patients
-    # if n_patients == -1:
-    #     n_patients = len(local_dirs)
-    #
-    # if flair:
-    #     flair_like_path = os.path.join(data_dir, "*", flair_filepath_from_data_dir)
-    #     # getting all files matching given filepath_from_data_dir
-    #     flair_filepaths = sorted(glob(flair_like_path))
-    # else:
-    #     flair_filepaths = []
-    #
-    # t1_like_path = os.path.join(data_dir, "*", t1_filepath_from_data_dir)
-    # t2_like_path = os.path.join(data_dir, "*", t2_filepath_from_data_dir)
-    #
-    # t1_filepaths = sorted(glob(t1_like_path))
-    # t2_filepaths = sorted(glob(t2_like_path))
-    #
-    # if flair:
-    #     for flair_filepath in flair_filepaths:
-    #         subpath = flair_filepath[:flair_filepaths.index(flair_filepath_from_data_dir)]  # getting the path until
+
     return t1_filepaths, t2_filepaths, flair_filepaths
 
 
 def try_create_dir(dir_name, allow_overwrite=True):
-    # TODO: simplify (maybe the function not needed with Path
     try:
         Path(dir_name).mkdir(parents=True, exist_ok=allow_overwrite)
     except FileExistsError:
@@ -428,7 +334,6 @@ def get_brains_slices_info(dir_name):
     # in this case Brats18_TCIA10_420_1_t1
     # list(set(...)) for extracting unique values
     patients_id = list(set([f.split('-')[1] for f in filenames]))
-    # patients_id = list(set([f.split('-')[-2] for f in filenames]))
 
     for patient_id in patients_id:
         slices_nr = []
@@ -439,14 +344,6 @@ def get_brains_slices_info(dir_name):
         patient_slices[patient_id] = (min(slices_nr), max(slices_nr))
 
     return patient_slices
-
-
-# def get_all_brains_slices_info(ds_dir_name):
-#     test_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "test"))
-#     train_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "train"))
-#     validation_patients_slices = get_brains_slices_info(os.path.join(ds_dir_name, "validation"))
-
-#     return train_patients_slices, test_patients_slices, validation_patients_slices
 
 
 def test_mask_in(img_name, img_dir, breakpoint=10, failed_dir="failed"):

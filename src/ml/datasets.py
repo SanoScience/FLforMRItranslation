@@ -205,7 +205,7 @@ class VolumeEvaluation(Dataset):
         return target_volume, predicted_volume
     
 
-class MRIDatasetNII(Dataset):
+class MRIDatasetNII(Dataset):  # NOT USED
     """
     A dataset which loads full 3D images .nii images to memory. Might be less efficient and limits some shuffling
     possibilities which is important in training on smaller datasets.

@@ -62,6 +62,8 @@ PROXIMAL_MU = 0.001
 STRAGGLERS = 0.5
 # FedAvgM
 MOMENTUM = 0.9
+# FedCostWAvg
+ALPHA = 0.5
 
 # centralized train
 N_EPOCHS_CENTRALIZED = 10

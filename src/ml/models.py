@@ -12,7 +12,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
-from torchmetrics.classification import BinaryJaccardIndex
 
 from configs import config_train, creds
 from src.ml import custom_metrics
@@ -28,14 +27,7 @@ relative_error = custom_metrics.RelativeError()
 masked_ssim = custom_metrics.MaskedSSIM().to(device)
 zoomed_ssim = custom_metrics.ZoomedSSIM(margin=5)
 
-dice_generalized = custom_metrics.generalized_dice
-dice_2_class = custom_metrics.dice_2_class
-# dice_score = Dice().to(device)
-# dice_score = Dice().to(device)
-jaccard_index = BinaryJaccardIndex().to(device)
 
-
-# qilv = loss_functions.QILV(use_mask=False)
 
 class UNet(nn.Module):
     """
@@ -59,11 +51,7 @@ class UNet(nn.Module):
                                   "masked_mse": masked_mse,
                                   "masked_ssim": masked_ssim,
                                   "relative_error": relative_error,
-                                  # "dice_classification": dice_score,
-                                  "dice_generalized": dice_generalized,
-                                  "dice_2_class": dice_2_class,
-                                  "zoomed_ssim": zoomed_ssim,
-                                  "jaccard": jaccard_index}
+                                  "zoomed_ssim": zoomed_ssim}
 
         self.inc = (DoubleConv(1, 64, normalization))
         self.down1 = (Down(64, 128, normalization))
@@ -124,9 +112,6 @@ class UNet(nn.Module):
         start = time.time()
         n_train_steps = 0
 
-        # running_loss, total_ssim = 0.0, 0.0
-        # epoch_loss, epoch_ssim = 0.0, 0.0
-
         use_prox_loss = isinstance(self.criterion, custom_metrics.LossWithProximalTerm)
 
         if n_batches < config_train.BATCH_PRINT_FREQ:
@@ -157,8 +142,6 @@ class UNet(nn.Module):
             for metric_name, metric_object in metrics.items():
                 if metric_name == "loss":
                     metric_value = loss
-                # elif "dice" in metric_name:
-                #     metric_value = metric_object(predictions, targets.int())
                 else:
                     metric_value = metric_object(predictions, targets)
                 total_metrics[metric_name] += metric_value.item()
@@ -337,7 +320,6 @@ class UNet(nn.Module):
                         pred_filepath = path.join(save_preds_dir, patient_slice_name)
 
                         # saving the current image to the declared directory with the same name as the input image name
-                        # print(pred_filepath)
                         np.save(pred_filepath, predictions[img_index].cpu().numpy())
 
                 # calculating metrics
@@ -351,13 +333,12 @@ class UNet(nn.Module):
                             if mask_size > min_mask_pixel_in_batch:
                                 metric_value = metric_obj(predictions, targets, metric_mask)
                             else:
-                                # logging.log(logging.WARNING,
-                                #             f"The batch number {batch_index} is skipped for `ZoomedSSIM` calculations"
-                                #             f"due to small mask ({mask_size} pixels). It can affect the metric result. ")
+                                logging.log(logging.WARNING,
+                                            f"The batch number {batch_index} is skipped for `ZoomedSSIM` calculations"
+                                            f"due to small mask ({mask_size} pixels). It can affect the metric result. ")
                                 n_skipped += 1
                                 break
                         else:
-                            # TODO: NoMaskDatasetError
                             ValueError(
                                 f"Dataloader should be able to load the mask of the image to compute: {metric_name}. "
                                 f"Provide `metric_mask_dir` in the dataset `MRIDatasetNumpySlices` object initialization to use this metric.")
