@@ -1,4 +1,9 @@
-from typing import Dict, List, Any
+"""
+Custom metrics and loss functions for MRI image evaluation.
+Includes SSIM variants and proximal term losses for federated learning.
+"""
+
+from typing import Dict, List, Any, Callable
 
 import numpy as np
 from configs import config_train
@@ -24,7 +29,9 @@ from torchmetrics.utilities.compute import _safe_divide
 
 
 class DssimMse:
-    def __init__(self, sqrt=False, zoomed_ssim=False):
+    """Combined DSSIM and MSE loss function."""
+
+    def __init__(self, sqrt: bool = False, zoomed_ssim: bool = False) -> None:
         self.sqrt = sqrt
         self.mse = MSELoss()
         self.zoomed_ssim = zoomed_ssim
@@ -34,7 +41,7 @@ class DssimMse:
         else:
             self.ssim = StructuralSimilarityIndexMeasure().to(config_train.DEVICE)
 
-    def __call__(self, predicted, targets):
+    def __call__(self, predicted: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         dssim = (1 - self.ssim(predicted, targets)) / 2
 
         if self.sqrt:
@@ -64,11 +71,15 @@ class DssimMse:
 
 
 class LossWithProximalTerm:
-    def __init__(self, proximal_mu, base_loss_fn):
+    """Loss function with FedProx proximal term regularization."""
+
+    def __init__(self, proximal_mu: float, base_loss_fn: Callable) -> None:
         self.proximal_mu = proximal_mu
         self.base_loss_fn = base_loss_fn
 
-    def __call__(self, predicted, targets, local_params, global_params):
+    def __call__(self, predicted: torch.Tensor, targets: torch.Tensor, 
+                 local_params: List[torch.Tensor], 
+                 global_params: List[torch.Tensor]) -> torch.Tensor:
         proximal_term = 0.0
 
         for local_weights, global_weights in zip(local_params, global_params):
@@ -84,7 +95,10 @@ class LossWithProximalTerm:
 
 
 class ZoomedSSIM(Metric):
-    def __init__(self, data_range=1.0, margin=0, min_mask_size=10):
+    """SSIM metric computed only on brain tumor region."""
+
+    def __init__(self, data_range: float = 1.0, margin: int = 0, 
+                 min_mask_size: int = 10) -> None:
         super().__init__()
         self.add_state("ssim_list", default=[], dist_reduce_fx="cat")
         self.add_state("batch_size", default=torch.tensor(0), dist_reduce_fx="sum")
@@ -93,7 +107,8 @@ class ZoomedSSIM(Metric):
         self.margin = margin
         self.min_mask_size=min_mask_size
 
-    def update(self, preds: torch.Tensor, targets: torch.Tensor, masks: torch.Tensor = None):
+    def update(self, preds: torch.Tensor, targets: torch.Tensor, 
+              masks: Optional[torch.Tensor] = None) -> None:
         # preds, targets = self._input_format()
         assert preds.shape == targets.shape
 
@@ -139,6 +154,8 @@ class ZoomedSSIM(Metric):
 
 
 class MaskedSSIM(Metric):
+    """SSIM metric that only considers brain mask regions."""
+
     higher_is_better: bool = True
     is_differentiable: bool = True
     full_state_update: bool = False
@@ -159,8 +176,7 @@ class MaskedSSIM(Metric):
             k2: float = 0.03,
             return_full_image: bool = False,
             return_contrast_sensitivity: bool = False,
-            **kwargs: Any,
-    ) -> None:
+            **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         valid_reduction = ("elementwise_mean", "sum", "none", None)

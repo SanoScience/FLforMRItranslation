@@ -1,10 +1,15 @@
+"""
+File operations for MRI data preprocessing and management.
+Handles NIfTI file loading, slice extraction, and dataset organization.
+"""
+
 import logging
 import os
 import random
 import re
 import traceback
 from glob import glob
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -13,6 +18,30 @@ import numpy as np
 
 
 class TransformNIIDataToNumpySlices:
+    """
+    Transform 3D NIfTI files into 2D numpy slices for training.
+
+    Attributes:
+        target_root_dir: Root directory for output
+        origin_data_dir: Source directory containing NIfTI files
+        transpose_order: Order of axes for transposing images
+        target_zero_ratio: Minimum non-zero ratio for valid slices
+        image_size: Optional target size for output images
+
+    Resulting directory structure:
+    target_root_dir/
+    ├── train/
+    │   ├── t1/
+    │   │   ├── subject1_slice1.npy
+    │   │   ├── subject1_slice2.npy
+    │   │   └── ...
+    │   ├── t2/
+    │   │   ├── subject1_slice1.npy
+    │   │   ├── subject1_slice2.npy
+    │   │   └── ...
+    │   └── flair/ (if applicable)
+    """
+
     MIN_SLICE_INDEX = -1
     MAX_SLICE_INDEX = -1
     SLICES_FILE_FORMAT = ".npy"
@@ -20,10 +49,10 @@ class TransformNIIDataToNumpySlices:
 
     def __init__(self, target_root_dir: str,
                  origin_data_dir: str,
-                 transpose_order: Tuple,
-                 target_zero_ratio=0.9,
-                 image_size=None,
-                 leave_patient_name=True):
+                 transpose_order: Tuple[int, ...],
+                 target_zero_ratio: float = 0.9,
+                 image_size: Optional[Tuple[int, int]] = None,
+                 leave_patient_name: bool = True) -> None:
         self.target_root_dir = target_root_dir
         self.origin_data_dir = origin_data_dir
         self.transpose_order = transpose_order
@@ -31,7 +60,8 @@ class TransformNIIDataToNumpySlices:
         self.image_size = image_size
         self.leave_patient_name = leave_patient_name
 
-    def create_empty_dirs(self, flair=False):
+    def create_empty_dirs(self, flair: bool = False) -> None:
+        """Create directory structure for dataset splits."""
         # creating utilized directories
         images_types = ["t1", "t2"]
 
@@ -155,7 +185,21 @@ class TransformNIIDataToNumpySlices:
                 print("Skipped due to the shape\n")
 
 
-def trim_image(image, target_image_size: Tuple[int, int]):
+def trim_image(image: np.ndarray,
+               target_image_size: Tuple[int, int]) -> np.ndarray:
+    """
+    Trim image to target size by removing equal margins from all sides.
+
+    Args:
+        image: Input image array
+        target_image_size: Desired output dimensions
+
+    Returns:
+        Trimmed image array
+
+    Raises:
+        ValueError: If target size is larger than input size
+    """
     x_pixels_margin = int((image.shape[0] - target_image_size[0]) / 2)
     y_pixels_margin = int((image.shape[1] - target_image_size[1]) / 2)
 
@@ -251,6 +295,17 @@ def get_nii_filepaths(data_dir, t1_filepath_from_data_dir, t2_filepath_from_data
 
 
 def try_create_dir(dir_name, allow_overwrite=True):
+    """
+    Try to create a directory. If it exists, handle according to allow_overwrite flag.
+
+    Args:
+        dir_name: Directory path to create
+        allow_overwrite: Flag indicating whether to overwrite existing directory
+
+    Raises:
+        FileExistsError: If the directory exists and allow_overwrite is False
+        FileNotFoundError: If a part of the directory path does not exist
+    """
     try:
         Path(dir_name).mkdir(parents=True, exist_ok=allow_overwrite)
     except FileExistsError:
@@ -272,6 +327,19 @@ def create_segmentation_mask_dir(preprocess_dir_name, mask_dir_name, transpose_o
                                  new_masked_dir_name="mask", indir_reading_name="t1", mask_fingerprint="*seg.nii.gz",
                                  output_format=".npy",
                                  only_with_glioma=False):
+    """
+    Create a directory of segmentation masks from NIfTI files.
+
+    Args:
+        preprocess_dir_name: Directory where preprocessed data is stored
+        mask_dir_name: Directory containing the original mask NIfTI files
+        transpose_order: Order of axes for transposing images
+        new_masked_dir_name: Name of the new directory to create
+        indir_reading_name: Subdirectory name for reading input data
+        mask_fingerprint: Filename pattern to identify mask files
+        output_format: File format for saving masks
+        only_with_glioma: Flag to include only masks with glioma
+    """
     mask_dirs = os.listdir(mask_dir_name)
 
     dir_path = os.path.join(preprocess_dir_name, indir_reading_name)

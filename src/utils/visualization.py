@@ -1,5 +1,9 @@
-from typing import List
+"""
+Visualization utilities for MRI images and learning curves.
+Provides functions for plotting images, predictions, differences and training metrics.
+"""
 
+from typing import List, Optional, Union, Sequence
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
@@ -7,7 +11,16 @@ from torch import Tensor
 
 import math
 
-def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", forecolor='black', column_gap=100, figsize=(10, 6), rotation_list=None, savepath=None):
+def plot_pred_tigth(to_plot: List[List[Tensor]], 
+                   col_labels: Optional[List[str]] = None,
+                   img_size: Optional[tuple[int, int]] = None, 
+                   cmap: str = "gray",
+                   forecolor: str = 'black',
+                   column_gap: int = 100,
+                   figsize: tuple[int, int] = (10, 6),
+                   rotation_list: Optional[List[int]] = None,
+                   savepath: Optional[str] = None) -> None:
+    """Plot multiple rows of predictions in a tight layout."""
     if rotation_list is None:
         rotation_list = [0, 0 , 0, 0, 0]
 
@@ -67,7 +80,20 @@ def plot_pred_tigth(to_plot, col_labels=None, img_size=None, cmap="gray", foreco
         plt.close()
 
 
-def plot_diff_tight(targets, preds, col_labels=None, img_size=None, cmap="bwr", forecolor='white', column_gap=100, figsize=(10, 6), vmin=-0.8, vmax=0.8, rotation_list=None, colorbar_shrink=0.7, savepath=None):
+def plot_diff_tight(targets: List[Tensor], 
+                   preds: List[List[Tensor]],
+                   col_labels: Optional[List[str]] = None,
+                   img_size: Optional[tuple[int, int]] = None,
+                   cmap: str = "bwr",
+                   forecolor: str = 'white',
+                   column_gap: int = 100,
+                   figsize: tuple[int, int] = (10, 6),
+                   vmin: float = -0.8,
+                   vmax: float = 0.8,
+                   rotation_list: Optional[List[int]] = None,
+                   colorbar_shrink: float = 0.7,
+                   savepath: Optional[str] = None) -> None:
+    """Plot differences between predictions and targets."""
     if rotation_list is None:
         rotation_list = [0, 0 , 0, 0, 0]
 
@@ -160,6 +186,7 @@ def plot_difference(target, predictions, row_labels=None, cmap="hsv", vmin=-0.5,
 
 
 def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, title=None, ylabel="Loss value (MSE+DSSIM)", xlabel="Global rounds", ylim=None, figsize=None, legend=True, savepath=None, markers=None, linewidths=None, gridstyle=None, markersize=3, yscale="linear", xticks=None, yticks=None):
+    """Plot learning curves of training metrics."""
     if figsize:
         plt.figure(figsize=figsize)
 
@@ -206,12 +233,14 @@ def plot_learning_curves(loss_histories, labels, colors=None, linetypes=None, ti
 
 # visualization
 def plot_hist(tensor: Tensor, bins=240, title: str = None):
+    """Plot histogram of tensor values."""
     plt.hist(tensor.detach().numpy().ravel(), bins=bins)
     plt.title(title)
     plt.show()
 
 
 def plot_batch(to_plot: List[List[torch.Tensor]], labels=None, show=True, filepath: str = None, title="", cmap="gray"):
+    """Plot a batch of images with labels."""
     batch_size = len(to_plot[0])
     fig, axs = plt.subplots(batch_size, len(to_plot), figsize=(len(to_plot) * 4, 3 * batch_size))
 
@@ -244,6 +273,7 @@ def plot_batch(to_plot: List[List[torch.Tensor]], labels=None, show=True, filepa
 
 
 def plot_single_data_sample(to_plot: List[torch.Tensor], labels=None, show=True, filepath: str = None, title="", cmap="gray"):
+    """Plot a single data sample with multiple representations."""
     fig, axs = plt.subplots(ncols= len(to_plot), figsize=(len(to_plot) * 4, 3))
 
     if labels is None:
@@ -274,6 +304,7 @@ def plot_single_data_sample(to_plot: List[torch.Tensor], labels=None, show=True,
 
 def plot_pred(to_plot: List[torch.Tensor], col_labels, row_labels=None, show=True, filepath: str = None,
               title="", cmap="gray", pad=0.5, forecolor='black', figsize=None, vertical=True):
+    """Plot predictions with optional row and column labels."""
     list_size = len(to_plot[0])
     if figsize is None:
         if vertical:

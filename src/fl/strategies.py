@@ -1,3 +1,8 @@
+"""
+Federated Learning Strategy implementations for MRI translation.
+Provides various aggregation methods and custom strategies for federated learning.
+"""
+
 import time
 import pickle
 import os
@@ -24,8 +29,18 @@ from typing import List, Tuple, Dict, Union, Optional, Type, Callable
 from collections import OrderedDict
 
 
-def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, model_dir=config_train.TRAINED_MODEL_SERVER_DIR, *args, **kwargs):
-    """ A function that returns a strategy class instance that will return  
+def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, 
+                          model_dir: str = config_train.TRAINED_MODEL_SERVER_DIR, 
+                          *args, **kwargs) -> Strategy:
+    """Creates a strategy class with model saving capabilities.
+    
+    Args:
+        StrategyClass: Base strategy class to extend
+        model: UNet model instance
+        model_dir: Directory for saving models
+        
+    Returns:
+        Strategy instance with model saving capabilities
     """
     class SavingModelStrategy(StrategyClass):
         def __init__(self):
@@ -92,7 +107,9 @@ def create_dynamic_strategy(StrategyClass: Type[Strategy], model: models.UNet, m
 
 
 class FedMean(FedAvg):
-    def __init__(self, *args, **kwargs):
+    """Implements federated averaging with equal weights for all clients."""
+    
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.aggregation_times = []
         self.best_loss = float('inf')
@@ -103,6 +120,7 @@ class FedMean(FedAvg):
         results: List[Tuple[ClientProxy, FitRes]],
         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+        """Aggregate model updates from clients with equal weights."""
         weights = [parameters_to_ndarrays(fit_res.parameters) for _, fit_res in results]
 
         aggregated_parameters = ndarrays_to_parameters((self._aggregate(weights)))
@@ -129,7 +147,15 @@ class FedMean(FedAvg):
         return aggregated_results
 
 class FedCostWAvg(FedAvg):
-    def __init__(self, alpha=0.5, *args, **kwargs):
+    """Cost-Weighted Federated Averaging strategy.
+    
+    Weights client contributions based on their loss improvement and dataset size.
+    
+    Args:
+        alpha: Weight factor between dataset size and loss improvement (default: 0.5)
+    """
+    
+    def __init__(self, alpha: float = 0.5, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.alpha = alpha
         self.previous_loss_values = None
@@ -206,7 +232,18 @@ class FedCostWAvg(FedAvg):
 
 
 class FedPIDAvg(FedCostWAvg):
-    def __init__(self, alpha=0.45, beta=0.45, gamma=0.1, **kwargs):
+    """PID controller-based Federated Averaging strategy.
+    
+    A FedCostWAvg upgrade. 
+    Uses proportional, integral, and derivative terms of client losses for weighting.
+    
+    Args:
+        alpha: Weight for proportional term (default: 0.45)
+        beta: Weight for integral term (default: 0.45) 
+        gamma: Weight for derivative term (default: 0.1)
+    """
+    
+    def __init__(self, alpha: float = 0.45, beta: float = 0.45, gamma: float = 0.1, **kwargs) -> None:
         if alpha + beta + gamma != 1.0:
             ValueError(f"Alpha, beta and gamma should sum up to 1.0")
 
@@ -299,9 +336,19 @@ class FedPIDAvg(FedCostWAvg):
         return f"FedPIDAvg(alpha={self.alpha}, beta{self.beta}, gamma={self.gamma})"
 
 
-def save_aggregated_model(model: models.UNet, aggregated_parameters, model_dir, server_round: int, best_model=False):
-    """
-        Takes aggregated parameters and saves them to the model_dir with name describing the current round.
+def save_aggregated_model(model: models.UNet, 
+                         aggregated_parameters: Parameters,
+                         model_dir: str, 
+                         server_round: int,
+                         best_model: bool = False) -> None:
+    """Save aggregated model parameters to disk.
+    
+    Args:
+        model: UNet model instance
+        aggregated_parameters: Parameters from federated aggregation
+        model_dir: Directory to save model
+        server_round: Current training round
+        best_model: Whether to save as best model
     """
     aggregated_ndarrays = fl.common.parameters_to_ndarrays(aggregated_parameters)
 
@@ -319,13 +366,22 @@ def save_aggregated_model(model: models.UNet, aggregated_parameters, model_dir, 
     logger.log(logging.INFO, f"Saved round {server_round} aggregated parameters to {model_dir}")
 
 
-def strategy_from_string(model, strategy_name, evaluate_fn=None):
+def strategy_from_string(model: models.UNet,
+                        strategy_name: str,
+                        evaluate_fn: Optional[Callable] = None) -> Strategy:
+    """Create strategy instance from string identifier.
+    
+    Args:
+        model: UNet model instance
+        strategy_name: Name of strategy to create
+        evaluate_fn: Optional evaluation function
+        
+    Returns:
+        Configured strategy instance
+        
+    Raises:
+        ValueError: If strategy_name is invalid
     """
-        Returns client object. Basing on the strategy name different aggregation methods are chosen. 
-        Asignes appropriate parameters from config if they are needed by the aggreagation method.
-        model_dir is constructed basing on the config_train.
-    """
-
     # the directory includes the strategy name
     # so when it is initialized by the string it is created here
     # by default it takes the name TRAINED_MODEL_SERVER_DIR
@@ -420,6 +476,14 @@ def strategy_from_config(model, evaluate_fn=None):
 # FUNCTIONS
 # used by the strategy to during fit and evaluate
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
+    """Calculate weighted average of client metrics.
+    
+    Args:
+        metrics: List of (num_examples, metrics_dict) tuples
+        
+    Returns:
+        Weighted average metrics
+    """
     # val_metric_names = [f"val_{metric}" for metric in config_train.METRICS]
     results = {f"val_metric_name": 0.0 for metric_name in config_train.METRICS}
 
@@ -435,7 +499,8 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     return results
 
 
-def get_on_fit_config():
+def get_on_fit_config() -> Callable[[int], Dict[str, Any]]:
+    """Returns function that generates client fit configurations."""
     def on_fit_config_fn(server_round: int):
         fit_config = {"current_round": server_round}
         if config_train.CLIENT_TYPE == config_train.ClientTypes.FED_PROX:
@@ -446,7 +511,8 @@ def get_on_fit_config():
     return on_fit_config_fn
 
 
-def get_on_eval_config():
+def get_on_eval_config() -> Callable[[int], Dict[str, Any]]:
+    """Returns function that generates client evaluation configurations."""
     def on_eval_config_fn(server_round: int):
         fit_config = {"current_round": server_round}
         return fit_config

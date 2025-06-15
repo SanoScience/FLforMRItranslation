@@ -5,7 +5,7 @@ import pickle
 import matplotlib.pyplot as plt
 import wandb
 import time
-from typing import Callable
+from typing import Callable, Optional, List, Dict, Union
 
 import numpy as np
 import torch
@@ -31,14 +31,17 @@ zoomed_ssim = custom_metrics.ZoomedSSIM(margin=5)
 
 class UNet(nn.Module):
     """
-        UNet model class used for federated learning.
-        Consists the methods to train and evaluate.
-        Allows two different normalizations: 
-            - standard BatchNormalization
-            - GroupNorm (the number of groups specified in the config)
+    UNet model for MRI translation with configurable normalization.
+    
+    Attributes:
+        criterion: Loss function for training
+        bilinear: Whether to use bilinear upsampling
+        available_metrics: Dictionary of evaluation metrics
+        normalization: Normalization type to be used in the model
     """
-
-    def __init__(self, criterion=None, bilinear=False, normalization=config_train.NORMALIZATION):
+    def __init__(self, criterion: Optional[Callable] = None, 
+                 bilinear: bool = False, 
+                 normalization: enums.NormalizationType = config_train.NORMALIZATION) -> None:
         super(UNet, self).__init__()
 
         self.criterion = criterion
@@ -98,7 +101,8 @@ class UNet(nn.Module):
 
         print("Model saved to: ", filepath)
 
-    def _train_one_epoch(self, trainloader, optimizer):
+    def _train_one_epoch(self, trainloader: DataLoader, 
+                        optimizer: torch.optim.Optimizer) -> Dict[str, float]:
         """
         Method used by perform_train(). Does one iteration of training.
         """
@@ -169,16 +173,16 @@ class UNet(nn.Module):
         return averaged_epoch_metrics
 
     def perform_train(self,
-                      trainloader,
-                      optimizer,
-                      epochs,
-                      validationloader=None,
-                      model_dir=config_train.TRAINED_MODEL_SERVER_DIR,
-                      filename=None,
-                      history_filename=None,
-                      plots_dir=None,
-                      save_best_model=False,
-                      save_each_epoch=False):
+                     trainloader: DataLoader,
+                     optimizer: torch.optim.Optimizer,  
+                     epochs: int,
+                     validationloader: Optional[DataLoader] = None,
+                     model_dir: str = config_train.TRAINED_MODEL_SERVER_DIR,
+                     filename: Optional[str] = None,
+                     history_filename: Optional[str] = None,
+                     plots_dir: Optional[str] = None,
+                     save_best_model: bool = False,
+                     save_each_epoch: bool = False) -> Dict[str, List[float]]:
         """
             Performs the train for a given number of epochs.
         """
@@ -261,15 +265,15 @@ class UNet(nn.Module):
         return history
 
     def evaluate(self,
-                 testloader,
-                 plots_path=None,
-                 plot_filename=None,
-                 compute_std=False,
-                 wanted_metrics=None,
-                 min_mask_pixel_in_batch=9,
-                 save_preds_dir=None,
-                 plot_metrics_distribution=False,
-                 low_ssim_value=float('inf')):
+                testloader: DataLoader,
+                plots_path: Optional[str] = None,
+                plot_filename: Optional[str] = None,
+                compute_std: bool = False,
+                wanted_metrics: Optional[List[str]] = None,
+                min_mask_pixel_in_batch: int = 9,
+                save_preds_dir: Optional[str] = None,
+                plot_metrics_distribution: bool = False,
+                low_ssim_value: float = float('inf')) -> Union[Dict[str, float], Tuple[Dict[str, float], Dict[str, float]]]:
         print(f"\tON DEVICE: {device} \n\tWITH LOSS: {self.criterion}\n")
 
         self.eval()
@@ -429,7 +433,11 @@ class UNet(nn.Module):
 
 
 class DoubleConv(nn.Module):
-    def __init__(self, in_channels, out_channels, normalization, mid_channels=None):
+    """Double convolution block with optional normalization."""
+    
+    def __init__(self, in_channels: int, out_channels: int, 
+                 normalization: enums.NormalizationType, 
+                 mid_channels: Optional[int] = None) -> None:
         super().__init__()
 
         if not mid_channels:
@@ -467,7 +475,8 @@ class DoubleConv(nn.Module):
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
 
-    def __init__(self, in_channels, out_channels, normalization):
+    def __init__(self, in_channels: int, out_channels: int, 
+                 normalization: enums.NormalizationType) -> None:
         super().__init__()
         self.maxpool_conv = nn.Sequential(
             nn.MaxPool2d(2),
@@ -481,7 +490,9 @@ class Down(nn.Module):
 class Up(nn.Module):
     """Upscaling then double conv"""
 
-    def __init__(self, in_channels, out_channels, normalization, bilinear=True):
+    def __init__(self, in_channels: int, out_channels: int, 
+                 normalization: enums.NormalizationType, 
+                 bilinear: bool = True) -> None:
         super().__init__()
 
         # if bilinear, use the normal convolutions to reduce the number of channels
@@ -506,7 +517,9 @@ class Up(nn.Module):
 
 
 class OutConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    """Final convolution layer with sigmoid activation."""
+
+    def __init__(self, in_channels: int, out_channels: int) -> None:
         super(OutConv, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
