@@ -1,6 +1,6 @@
 # Federated learning for MRI image-to-image translation
 
-<img src="./imgs/coverismrm.png">
+<img src="./imgs/cover-ismrm.png">
 
 ## Brief
 This project implements classical (centralized) and federated learning approaches for MRI image translation between different modalities (T1 -> T2, FLAIR -> T2, etc.). It includes several federated learning strategies like FedAvg, FedProx, FedBN, and a novel one - FedBAdam. All the details are described in the article: [Validation of ten federated learning strategies for multi-contrast image-to-image MRI data synthesis from heterogeneous sources](https://www.biorxiv.org/content/10.1101/2025.02.09.637305v1.full-text). The work has been also presented in Singapore on the [ISMRM](https://www.ismrm.org/24m/) conference as [Federated image-to-image MRI translation from heterogeneous multiple-sites data](https://archive.ismrm.org/2024/2221.html)
