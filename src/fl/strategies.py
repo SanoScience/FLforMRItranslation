@@ -25,7 +25,7 @@ from flwr.common import Scalar, FitRes, Parameters, logger, Metrics, NDArrays, p
 from flwr.server.strategy import Strategy
 from flwr.server.strategy import FedAdam, FedAvg, FedYogi, FedProx, FedAdagrad, FedAvgM, aggregate
 
-from typing import List, Tuple, Dict, Union, Optional, Type, Callable
+from typing import List, Tuple, Dict, Union, Optional, Type, Callable, Any
 from collections import OrderedDict
 
 

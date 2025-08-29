@@ -10,8 +10,8 @@ if __name__ == "__main__":
     # Configure paths and settings based on environment
     if config_train.LOCAL:
         # Local testing settings
-        data_dir = "C:\\Users\\JanFiszer\\data\\mri\\mega_small_wu_minn"
-        client_id = "1"
+        data_dir = "C:\\Users\\JanFiszer\\data\\mri\\fl-translation\\mega_small_wu_minn"
+        client_id = "0"
         server_address = "127.0.0.1:8088"
         with_num_workers = False
     else:

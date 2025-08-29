@@ -14,7 +14,7 @@ from torch.utils.data import Dataset
 from torchvision.transforms import Compose
 
 from src.utils.files_operations import load_nii_slices, get_nii_filepaths, TransformNIIDataToNumpySlices, trim_image
-
+from configs import enums
 
 class MRIDatasetNumpySlices(Dataset):
     """Dataset class for MRI slices stored as numpy arrays.

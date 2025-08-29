@@ -20,7 +20,7 @@ from torch import Tensor
 from typing_extensions import Literal
 
 # for own torch implementation
-from torchmetrics.functional.image.helper import _gaussian_kernel_2d, _gaussian_kernel_3d, _reflection_pad_3d
+from torchmetrics.functional.image.utils import _gaussian_kernel_2d, _gaussian_kernel_3d, _reflection_pad_3d
 from torchmetrics.functional.image.ssim import _multiscale_ssim_update, _ssim_check_inputs
 from torchmetrics.utilities.data import dim_zero_cat
 

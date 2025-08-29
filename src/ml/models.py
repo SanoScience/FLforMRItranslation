@@ -5,15 +5,16 @@ import pickle
 import matplotlib.pyplot as plt
 import wandb
 import time
-from typing import Callable, Optional, List, Dict, Union
+from typing import Callable, Optional, List, Dict, Union, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 from torchmetrics.image import StructuralSimilarityIndexMeasure, PeakSignalNoiseRatio
 
-from configs import config_train, creds
+from configs import config_train, creds, enums
 from src.ml import custom_metrics
 from src.utils import files_operations as fop, visualization
 
