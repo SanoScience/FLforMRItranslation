@@ -2,30 +2,29 @@
 Custom metrics and loss functions for MRI image evaluation.
 Includes SSIM variants and proximal term losses for federated learning.
 """
-
-from typing import Dict, List, Any, Callable
-
-import numpy as np
 from configs import config_train
+
+from typing import Dict, List, Any, Callable, Optional, Sequence, Tuple, Union
+from typing_extensions import Literal
+
+import math
+import copy
+import numpy as np
+from collections import OrderedDict
+
+import torch
+from torch import Tensor
+from torch.optim import Optimizer
 from torch.nn import MSELoss
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.metric import Metric
-from scipy import signal
-
-from typing import List, Optional, Sequence, Tuple, Union
-
-import torch
 import torch.nn.functional as F
-from torch import Tensor
-from typing_extensions import Literal
+
 
 # for own torch implementation
 from torchmetrics.functional.image.utils import _gaussian_kernel_2d, _gaussian_kernel_3d, _reflection_pad_3d
 from torchmetrics.functional.image.ssim import _multiscale_ssim_update, _ssim_check_inputs
 from torchmetrics.utilities.data import dim_zero_cat
-
-from torchmetrics.utilities.checks import _check_same_shape
-from torchmetrics.utilities.compute import _safe_divide
 
 
 class DssimMseLoss:
@@ -401,6 +400,202 @@ class RelativeError:
         mask = targets > 0
         result = torch.nansum((abs(predicted - targets) / targets) * mask) / torch.sum(mask)
         return result
+
+#######################
+# FedSelect OPTIMIZER #
+#######################
+
+class MaskedAdam(Optimizer):
+
+    def __init__(self, params, mask: OrderedDict, lr=1e-3, betas=(0.9, 0.999), eps=1e-8):
+        if not 0.0 <= lr:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if not 0.0 <= eps:
+            raise ValueError(f"Invalid epsilon value: {eps}")
+        if not 0.0 <= betas[0] < 1.0:
+            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
+        if not 0.0 <= betas[1] < 1.0:
+            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
+        if mask is None:
+            raise ValueError("MaskedAdam requires a mask")
+
+        self.mask_list: list[torch.Tensor] = list(mask.values())
+        self.toggle_state = True
+
+        defaults = dict(lr=lr, betas=betas, eps=eps)
+        super(MaskedAdam, self).__init__(params, defaults)
+
+    def __setstate__(self, state):
+        super(MaskedAdam, self).__setstate__(state)
+
+    def toggle(self):
+        self.toggle_state = not self.toggle_state
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        """Performs a single optimization step."""
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+
+            beta1, beta2 = group['betas']
+
+            for i, p in enumerate(group['params']):
+                if p.grad is None:
+                    continue
+
+                grad = p.grad
+                state = self.state[p]
+
+                # State initialization
+                if len(state) == 0:
+                    state['step'] = 0
+                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+
+                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
+
+                state['step'] += 1
+                bias_correction1 = 1 - beta1 ** state['step']
+                bias_correction2 = 1 - beta2 ** state['step']
+
+                # Decay the first and second moment running average coefficient
+                exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+
+                # Denominator calculation
+                denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
+
+                step_size = group['lr'] / bias_correction1
+
+                # Calculate the parameter update
+                update = -step_size * (exp_avg / denom)
+
+                # Get the correct mask for this parameter
+                mask_tensor = self.mask_list[i].to(p.device, dtype=p.dtype)
+
+                # Apply the toggle logic to the mask
+                if self.toggle_state:
+                    final_mask = mask_tensor
+                else:
+                    final_mask = 1 - mask_tensor
+
+                # Apply the final mask to the update.
+                p.data.add_(update * final_mask)
+
+        return loss
+
+def init_mask(model: torch.nn.Module) -> OrderedDict:
+    """Initialize binary mask of ones for model parameters.
+
+    Args:
+        model: Neural network model
+
+    Returns:
+        OrderedDict containing binary masks initialized to ones
+    """
+    mask = OrderedDict()
+    for name, param in model.named_parameters():
+        mask[name] = torch.ones_like(param)
+    return mask
+
+
+def _violates_bound(
+    mask: torch.Tensor, bound: Optional[float] = None, invert: bool = False
+) -> bool:
+    """Check if mask sparsity violates specified bound.
+
+    Args:
+        mask: Binary mask tensor
+        bound: Maximum allowed sparsity
+        invert: Whether to invert the sparsity calculation
+
+    Returns:
+        True if bound is violated, False otherwise
+    """
+    if invert:
+        return (
+            torch.count_nonzero(mask)
+            / (torch.count_nonzero(mask) + torch.count_nonzero(1 - mask))
+        ).item() > bound
+    else:
+        return (
+            torch.count_nonzero(1 - mask)
+            / (torch.count_nonzero(mask) + torch.count_nonzero(1 - mask))
+        ).item() > bound
+
+
+def get_mask_from_delta(
+        prune_percent: float,
+        current_state_dict: OrderedDict,
+        prev_state_dict: OrderedDict,
+        current_mask: OrderedDict,
+        bound: float = 0.80,
+        invert: bool = True,
+) -> OrderedDict:
+    """Generate new mask based on parameter changes between states.
+
+    Args:
+        prune_percent: Percentage of parameters to prune
+        current_state_dict: Current model state
+        prev_state_dict: Previous model state
+        current_mask: Current binary mask
+        bound: Maximum allowed sparsity
+        invert: Whether to invert the pruning logic
+
+    Returns:
+        Updated binary mask based on parameter changes
+    """
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return_mask = copy.deepcopy(current_mask)
+    for name, param in current_state_dict.items():
+        if "weight" in name:
+            if _violates_bound(current_mask[name], bound=bound, invert=invert):
+                print("violates_bound")
+                continue
+            tensor = param.data.cpu().numpy()
+            compare_tensor = prev_state_dict[name].cpu().numpy()
+            delta_tensor = np.abs(tensor - compare_tensor)
+
+            delta_percentile_tensor = (
+                delta_tensor[current_mask[name].cpu().numpy() == 1]
+                if not invert
+                else delta_tensor[current_mask[name].cpu().numpy() == 0]
+            )
+
+            print(delta_percentile_tensor)
+
+            sorted_weights = np.sort(np.abs(delta_percentile_tensor))
+            if not invert:
+                cutoff_index = np.round(prune_percent * sorted_weights.size).astype(int)
+                print(cutoff_index)
+
+                cutoff = sorted_weights[cutoff_index]
+                print(cutoff)
+
+                # Convert Tensors to numpy and calculate
+                new_mask = np.where(
+                    abs(delta_tensor) <= cutoff, 0, return_mask[name].cpu().numpy()
+                )
+                return_mask[name] = torch.from_numpy(new_mask).to(config_train.DEVICE)
+            else:
+                cutoff_index = np.round(
+                    (1 - prune_percent) * sorted_weights.size
+                ).astype(int)
+                print(cutoff_index)
+
+                cutoff = sorted_weights[cutoff_index]
+                print(cutoff)
+
+                # Convert Tensors to numpy and calculate
+                new_mask = np.where(
+                    abs(delta_tensor) >= cutoff, 1, return_mask[name].cpu().numpy()
+                )
+                return_mask[name] = torch.from_numpy(new_mask).to(config_train.DEVICE)
+    return return_mask
 
 
 def loss_from_config():
