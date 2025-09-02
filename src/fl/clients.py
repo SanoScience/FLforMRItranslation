@@ -334,7 +334,7 @@ def client_from_string(client_id: str, unet: models.UNet, optimizer: torch.optim
         ValueError: If client_type_name is not recognized
     """
 
-    drd = config_train.DATA_ROOT_DIR
+    drd = config_train.ROOT_DIR
     lt = config_train.LOSS_TYPE.name
     t = f"{config_train.TRANSLATION[0].name}{config_train.TRANSLATION[1].name}"
     lr = config_train.LEARNING_RATE

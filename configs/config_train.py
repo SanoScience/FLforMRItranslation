@@ -28,19 +28,19 @@ N_GROUP_NORM = 32
 
 
 # client parameters
-METRICS = ["loss",  "mse", "relative_error", "ssim", "zoomed_ssim"]
+METRICS = ["loss",  "mse", "relative_error", "ssim"]#, "zoomed_ssim"]
 
 # METRICS = ["loss", "ssim", "pnsr", "mse", "masked_mse", "relative_error"]
 # METRICS = ["loss", "ssim", "masked_ssim", "pnsr", "mse", "masked_mse", "relative_error"]
 N_EPOCHS_CLIENT = 4
 
-TRANSLATION = (ImageModality.T1, ImageModality.T1)
+TRANSLATION = (ImageModality.T1, ImageModality.T2)
 LOSS_TYPE = LossFunctions.MSE_DSSIM
 BATCH_SIZE = 32
 IMAGE_SIZE = (240, 240)
 LEARNING_RATE = 0.001
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-NUM_WORKERS = 8
+NUM_WORKERS = 4
 
 # USED ONLY: when the server and clients are started separately
 # port address
@@ -50,7 +50,7 @@ CLIENT_TYPE = ClientTypes.FED_BN
 AGGREGATION_METHOD = AggregationMethods.FED_AVG 
 
 # federated learning parameters
-N_ROUNDS = 32
+N_ROUNDS = 2
 MIN_FIT_CLIENTS = MIN_AVAILABLE_CLIENTS = 4
 FRACTION_FIT = 1.0
 
@@ -68,11 +68,14 @@ ALPHA = 0.5
 # centralized train
 N_EPOCHS_CENTRALIZED = 10
 
+ROOT_DIR = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL/fl-translation"  # TODO: rename to ROOT_DIR
+
 # directories
 if LOCAL:
     DATA_ROOT_DIR = path.join(path.expanduser("~"), "data")
 else:
-    DATA_ROOT_DIR = "/net/pr2/projects/plgrid/plggflmri/Data/Internship/FL"
+    DATA_ROOT_DIR = path.join(ROOT_DIR, "data")
+
 
 EVAL_DATA_DIRS = [path.join(DATA_ROOT_DIR, "lgg_26", "test"),
                   path.join(DATA_ROOT_DIR, "hgg_26", "test"),
