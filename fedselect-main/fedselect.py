@@ -1,6 +1,7 @@
 # Importing Libraries
 import copy
 import os.path
+import pickle
 
 import numpy as np
 from tqdm import tqdm
@@ -164,6 +165,7 @@ def fedselect_algorithm(
                                                                                         config_train.NUM_WORKERS)
     # initialize server
     client_accuracies = [{i: 0 for i in idxs_users} for _ in range(com_rounds)]
+    client_histories = {i: [] for i in idxs_users}
     client_state_dicts = {i: copy.deepcopy(initial_state_dict) for i in idxs_users}
     client_state_dict_prev = {i: copy.deepcopy(initial_state_dict) for i in idxs_users}
     client_masks = {i: None for i in idxs_users}
@@ -174,17 +176,23 @@ def fedselect_algorithm(
     prune_rate = args.prune_percent / 100
     prune_target = args.prune_target / 100
     lottery_ticket_convergence = []
+
+
+
+
     # Begin FL
     for round_num in range(com_rounds):
         print(f"ROUND {round_num}")
         round_loss = 0
         for i in idxs_users:
+            # client specific directory
+            client_dir = os.path.join(model_dir, i)
             # initialize model
             model.load_state_dict(client_state_dicts[i])
             # get data
             ldr_train = train_ds[i]
             print(f"Client {i} evaluation")
-            averaged_metrics = model.evaluate(testloader=test_ds[i], plots_path=os.path.join(model_dir, i), plot_filename=f"round-{round_num}")
+            averaged_metrics = model.evaluate(testloader=test_ds[i], plots_path=client_dir, plot_filename=f"round-{round_num}")
 
             # Update LTN_i on local data
             client_mask = client_masks_prev.get(i)
@@ -192,12 +200,21 @@ def fedselect_algorithm(
             # 0s are global parameters, 1s are local parameters
             client_model, loss = train_personalized(model, ldr_train, client_mask, args)
             round_loss += loss
+            client_histories[i].append(loss)
             # Send u_i update to server
             if round_num < com_rounds - 1:
                 server_accumulate_mask = add_masks(server_accumulate_mask, client_mask)
                 server_weights = add_server_weights(
                     server_weights, client_model.state_dict(), client_mask
                 )
+            else:  # last round saving all the results
+                print(f"Saving the model and history for client {i}")
+                # pickle dump - history
+                with open(os.path.join(client_dir, "history.pkl"), 'wb') as f:
+                    pickle.dump(client_histories[i], f)
+                # saving the personalized model
+                torch.save(client_state_dicts[i], os.path.join(client_dir, "model.pth"))
+
             client_state_dicts[i] = copy.deepcopy(client_model.state_dict())
             client_masks[i] = copy.deepcopy(client_mask)
 
@@ -214,6 +231,7 @@ def fedselect_algorithm(
                 client_masks_prev[i] = copy.deepcopy(client_mask)
 
         round_loss /= len(idxs_users)
+        print(f"This round loss: {round_loss}")
         # cross_client_acc = cross_client_eval(
         #     model,
         #     client_state_dicts,
@@ -239,7 +257,6 @@ def fedselect_algorithm(
                 )
             server_accumulate_mask = OrderedDict()
             server_weights = OrderedDict()
-
     # cross_client_acc = cross_client_eval(
     #     model,
     #     client_state_dicts,
