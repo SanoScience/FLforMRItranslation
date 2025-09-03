@@ -27,7 +27,7 @@ def lth_args_parser():
     )
     parser.add_argument("--prune_target", default=80, type=int, help="Pruning target")
     parser.add_argument(
-        "--com_rounds", type=int, default=4, help="rounds of fedavg training"
+        "--com_rounds", type=int, default=32, help="rounds of fedavg training"
     )
     parser.add_argument(
         "--la_epochs",

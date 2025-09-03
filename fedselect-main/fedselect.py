@@ -105,7 +105,7 @@ def train_personalized(
 
 
 def fedselect_algorithm(
-    model: nn.Module,
+    model: UNet,
     args: Any,
     idxs_users: List[str],
     # dataset_train: torch.utils.data.Dataset,
@@ -135,6 +135,21 @@ def fedselect_algorithm(
             - cross_client_acc: Cross-client accuracy matrix
             - lth_convergence: Lottery ticket convergence history
     """
+    # initialize model dir
+    drd = config_train.ROOT_DIR
+    lt = config_train.LOSS_TYPE.name
+    t = f"{config_train.TRANSLATION[0].name}{config_train.TRANSLATION[1].name}"
+    lr = config_train.LEARNING_RATE
+    rd = config_train.N_ROUNDS
+    ec = config_train.N_EPOCHS_CLIENT
+    n = config_train.NORMALIZATION.name
+    d = config_train.now.date()
+    h = config_train.now.hour
+
+    model_dir = f"{drd}/trained_models/model-fedselect-{lt}-{t}-lr{lr}-rd{rd}-ep{ec}-{d}"
+    os.makedirs(model_dir, exist_ok=True)
+
+    print(f"All the results of the experiment will be stored in {model_dir}")
     # initialize model
     initial_state_dict = copy.deepcopy(model.state_dict())
     com_rounds = args.com_rounds
@@ -161,12 +176,16 @@ def fedselect_algorithm(
     lottery_ticket_convergence = []
     # Begin FL
     for round_num in range(com_rounds):
+        print(f"ROUND {round_num}")
         round_loss = 0
         for i in idxs_users:
             # initialize model
             model.load_state_dict(client_state_dicts[i])
             # get data
             ldr_train = train_ds[i]
+            print(f"Client {i} evaluation")
+            averaged_metrics = model.evaluate(testloader=test_ds[i], plots_path=os.path.join(model_dir, i), plot_filename=f"round-{round_num}")
+
             # Update LTN_i on local data
             client_mask = client_masks_prev.get(i)
             # Update u_i parameters on local data
@@ -193,7 +212,6 @@ def fedselect_algorithm(
                 )
                 client_state_dict_prev[i] = copy.deepcopy(client_state_dicts[i])
                 client_masks_prev[i] = copy.deepcopy(client_mask)
-
 
         round_loss /= len(idxs_users)
         # cross_client_acc = cross_client_eval(
@@ -343,7 +361,7 @@ def load_model(args: Any) -> nn.Module:
     Returns:
         nn.Module: Initialized model
     """
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = config_train.DEVICE
     args.device = device
     model = resnet18(pretrained=args.pretrained_init)
     num_ftrs = model.fc.in_features
