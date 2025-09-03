@@ -419,7 +419,8 @@ class MaskedAdam(Optimizer):
         if mask is None:
             raise ValueError("MaskedAdam requires a mask")
 
-        self.mask_list: list[torch.Tensor] = list(mask.values())
+        self.mask: list[torch.Tensor] = list(mask.values())
+        self.named_mask: OrderedDict = mask
         self.toggle_state = True
 
         defaults = dict(lr=lr, betas=betas, eps=eps)
@@ -430,6 +431,10 @@ class MaskedAdam(Optimizer):
 
     def toggle(self):
         self.toggle_state = not self.toggle_state
+
+    def update_mask_list(self):
+        # each time there is a toggle the mask list will be updated to the raw mask
+        self.mask = list(self.named_mask.values())
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -475,7 +480,7 @@ class MaskedAdam(Optimizer):
                 update = -step_size * (exp_avg / denom)
 
                 # Get the correct mask for this parameter
-                mask_tensor = self.mask_list[i].to(p.device, dtype=p.dtype)
+                mask_tensor = self.mask[i].to(p.device, dtype=p.dtype)
 
                 # Apply the toggle logic to the mask
                 if self.toggle_state:
@@ -489,17 +494,9 @@ class MaskedAdam(Optimizer):
         return loss
 
 def init_mask(model: torch.nn.Module) -> OrderedDict:
-    """Initialize binary mask of ones for model parameters.
-
-    Args:
-        model: Neural network model
-
-    Returns:
-        OrderedDict containing binary masks initialized to ones
-    """
     mask = OrderedDict()
     for name, param in model.named_parameters():
-        mask[name] = torch.ones_like(param)
+        mask[name] = torch.zeros_like(param)
     return mask
 
 
@@ -533,7 +530,7 @@ def get_mask_from_delta(
         current_state_dict: OrderedDict,
         prev_state_dict: OrderedDict,
         current_mask: OrderedDict,
-        bound: float = 0.80,
+        bound: float = config_train.MAX_PERSONLIZED_PERCENT,
         invert: bool = True,
 ) -> OrderedDict:
     """Generate new mask based on parameter changes between states.
