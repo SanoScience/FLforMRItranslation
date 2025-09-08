@@ -1,5 +1,5 @@
 from torchvision import datasets, transforms
-from utils.sampling import iid, noniid
+from fedselect_main.utils.sampling import iid, noniid
 import numpy as np
 import torch
 from typing import Dict, List, Tuple, Any

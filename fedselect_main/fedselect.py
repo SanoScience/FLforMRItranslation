@@ -11,11 +11,11 @@ import torch.nn.functional as F
 from typing import Dict, List, OrderedDict, Tuple, Optional, Any
 
 # Custom Libraries
-from utils.options import lth_args_parser
-from utils.train_utils import prepare_dataloaders, get_data
-from pflopt.optimizers import local_alt
-from lottery_ticket import init_mask_zeros, delta_update
-from broadcast import (
+from fedselect_main.utils.options import lth_args_parser
+from fedselect_main.utils.train_utils import prepare_dataloaders, get_data
+from fedselect_main.pflopt.optimizers import local_alt
+from fedselect_main.lottery_ticket import init_mask_zeros, delta_update
+from fedselect_main.broadcast import (
     broadcast_server_to_client_initialization,
     div_server_weights,
     add_masks,
@@ -83,25 +83,27 @@ def train_personalized(
     """
     if initialization is not None:
         model.load_state_dict(initialization)
-    optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=args.lr)
+    # optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=config_train.LEARNING_RATE)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config_train.LEARNING_RATE)
+    
     epochs = args.la_epochs
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = custom_metrics.DssimMseLoss()
     train_loss = 0
-    with tqdm(total=epochs) as pbar:
-        for i in range(epochs):
-            train_loss = local_alt(
-                model,
-                criterion,
-                optimizer,
-                ldr_train,
-                device,
-                clip_grad_norm=args.clipgradnorm,
-            )
-            if verbose:
-                print(f"Epoch: {i} \tLoss: {train_loss}")
-            pbar.update(1)
-            pbar.set_postfix({"Loss": train_loss})
+    # with tqdm(total=epochs) as pbar:
+    for i in range(epochs):
+        train_loss = local_alt(
+            model,
+            criterion,
+            optimizer,
+            ldr_train,
+            device,
+            clip_grad_norm=args.clipgradnorm,
+        )
+        if verbose:
+            print(f"Epoch: {i} \tLoss: {train_loss}")
+        # pbar.update(1)
+            # pbar.set_postfix({"Loss": train_loss})
     return model, train_loss
 
 
@@ -365,7 +367,7 @@ def run_base_experiment(model: nn.Module, args: Any) -> None:
     fedselect_algorithm(
         model,
         args,
-        ["mega_small_wu_minn", "mega_small_hgg"]
+        ["hgg_125", "oasis", "lgg", "ucsf_150"]
     )
 
 

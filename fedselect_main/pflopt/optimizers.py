@@ -1,8 +1,4 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from collections import OrderedDict
 from src.ml import custom_metrics
 
 # class MaskLocalAltSGD(optim.Optimizer):
@@ -62,7 +58,7 @@ def local_alt(
     clip_grad_norm=False,
     max_grad_norm=3.50,
 ):
-    assert isinstance(optimizer, custom_metrics.MaskedAdam), "optimizer must be MaskLocalAltSGD"
+    # assert isinstance(optimizer, custom_metrics.MaskedAdam), "optimizer must be MaskLocalAltSGD"
     avg_loss_1 = 0
     for batch_idx, (data, target) in enumerate(data_loader):
         data, target = data.to(device), target.to(device)
@@ -75,7 +71,7 @@ def local_alt(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
         optimizer.step()
     avg_loss_1 /= len(data_loader)
-    optimizer.toggle()
+    # optimizer.toggle()
 
     avg_loss_2 = 0
     for batch_idx, (data, target) in enumerate(data_loader):
@@ -89,7 +85,7 @@ def local_alt(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
         optimizer.step()
     avg_loss_2 /= len(data_loader)
-    optimizer.toggle()
+    # optimizer.toggle()
 
     train_loss = (avg_loss_1 + avg_loss_2) / 2
     return train_loss
