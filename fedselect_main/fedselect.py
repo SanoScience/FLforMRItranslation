@@ -13,7 +13,7 @@ from typing import Dict, List, OrderedDict, Tuple, Optional, Any
 # Custom Libraries
 from fedselect_main.utils.options import lth_args_parser
 from fedselect_main.utils.train_utils import prepare_dataloaders, get_data
-from fedselect_main.pflopt.optimizers import local_alt
+from fedselect_main.pflopt.optimizers import local_alt, MaskLocalAltSGD
 from fedselect_main.lottery_ticket import init_mask_zeros, delta_update
 from fedselect_main.broadcast import (
     broadcast_server_to_client_initialization,
@@ -25,7 +25,7 @@ import random
 from torchvision.models import resnet18
 
 from src.ml.models import UNet
-from configs import config_train
+from configs import config_train, enums
 from src.ml import custom_metrics, datasets
 
 from src.fl.clients import load_data
@@ -85,7 +85,7 @@ def train_personalized(
         model.load_state_dict(initialization)
     # optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=config_train.LEARNING_RATE)
     optimizer = torch.optim.Adam(model.parameters(), lr=config_train.LEARNING_RATE)
-    
+    optimizer = MaskLocalAltSGD(model.parameters(), mask, lr=config_train.LEARNING_RATE)
     epochs = args.la_epochs
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = custom_metrics.DssimMseLoss()
@@ -364,10 +364,19 @@ def run_base_experiment(model: nn.Module, args: Any) -> None:
     # m = max(int(args.frac * args.num_users), 1)
     # idxs_users = np.random.choice(range(args.num_users), m, replace=False)
     # idxs_users = [int(i) for i in idxs_users]
+    if config_train.LOCAL:
+        idxs_users = ["mega_small_wu_minn", "mega_small_hgg"]
+    else:
+        if any(config_train.TRANSLATION) == enums.ImageModality.FLAIR:
+            idxs_users = ["hgg_125", "oasis", "lgg", "ucsf_150"]
+        else:
+            idxs_users = ["hgg_125", "oasis", "lgg", "ucsf_150", "hcp_wu_minn", "hcp_mgh_masks"]
+
+
     fedselect_algorithm(
         model,
         args,
-        ["hgg_125", "oasis", "lgg", "ucsf_150"]
+        idxs_users
     )
 
 
