@@ -81,10 +81,12 @@ def train_personalized(
             - Trained model
             - Final training loss
     """
+    model.train()
+
     if initialization is not None:
         model.load_state_dict(initialization)
-    optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=config_train.LEARNING_RATE)
-    # optimizer = torch.optim.Adam(model.parameters(), lr=config_train.LEARNING_RATE)
+    # optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=config_train.LEARNING_RATE)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config_train.LEARNING_RATE)
     # optimizer = MaskLocalAltSGD(model.parameters(), mask, lr=0.01)
     epochs = args.la_epochs
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -368,11 +370,14 @@ def run_base_experiment(model: nn.Module, args: Any) -> None:
     if config_train.LOCAL:
         idxs_users = ["mega_small_wu_minn", "mega_small_hgg"]
     else:
-        if any(config_train.TRANSLATION) == enums.ImageModality.FLAIR:
+        if  enums.ImageModality.FLAIR in config_train.TRANSLATION:
             idxs_users = ["hgg_125", "oasis", "lgg", "ucsf_150"]
         else:
-            idxs_users = ["hgg_125", "oasis", "lgg", "ucsf_150", "hcp_wu_minn", "hcp_mgh_masks"]
+            # idxs_users = ["hgg_125", "oasis", "lgg", "ucsf_150", "hcp_wu_minn", "hcp_mgh_masks"]
+            idxs_users = ["lgg", "hcp_mgh_masks"]
 
+
+    print(f"Selected clients: {idxs_users}")
 
     fedselect_algorithm(
         model,
