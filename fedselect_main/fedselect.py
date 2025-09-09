@@ -85,9 +85,12 @@ def train_personalized(
 
     if initialization is not None:
         model.load_state_dict(initialization)
-    # optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=config_train.LEARNING_RATE)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config_train.LEARNING_RATE)
+    optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=config_train.LEARNING_RATE)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=config_train.LEARNING_RATE)
     # optimizer = MaskLocalAltSGD(model.parameters(), mask, lr=0.01)
+
+    print(f"Optimizer: {optimizer}")
+
     epochs = args.la_epochs
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = custom_metrics.DssimMseLoss()
