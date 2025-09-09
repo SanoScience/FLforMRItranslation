@@ -17,8 +17,8 @@ if __name__ == '__main__':
     # Set data directories based on environment
     if config_train.LOCAL:
         # Local testing paths
-        train_directories = ["C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples"]
-        validation_directories = ["C:\\Users\\JanFiszer\\data\\mri\\hgg_valid_t1_10samples"]
+        train_directories = ["C:\\Users\\JanFiszer\\data\\mri\\fl-translation\\hgg_valid_t1_10samples"]
+        validation_directories = ["C:\\Users\\JanFiszer\\data\\mri\\fl-translation\\hgg_valid_t1_10samples"]
     else:
         # Production paths from command line
         data_dir = sys.argv[1]
@@ -31,9 +31,9 @@ if __name__ == '__main__':
     translation_direction = config_train.TRANSLATION  # e.g., T1->T2 or FLAIR->T2
     dataset_kwargs = {
         "translation_direction": translation_direction, 
-        "binarize": False,  # Keep original intensity values
-        "normalize": False,  # No normalization at dataset level
-        "input_target_set_union": False  # Use all available data
+        "binarize": False,
+        "normalize": True,
+        "input_target_set_union": False
     }
     
     # Initialize datasets
@@ -66,14 +66,15 @@ if __name__ == '__main__':
     # Initialize model components
     criterion = custom_metrics.DssimMseLoss()  # Combined SSIM and MSE loss
     unet = UNet(criterion).to(config_train.DEVICE)  # Move model to GPU if available
-    optimizer = optim.Adam(unet.parameters(), lr=config_train.LEARNING_RATE)
+    mask = custom_metrics.init_mask(unet)
+    optimizer = custom_metrics.MaskedAdam(unet.parameters(),  lr=config_train.LEARNING_RATE, mask=mask)
 
     # Create model directory with descriptive name
     representative_test_dir = train_directories[0].split(os.path.sep)[-2]
     model_dir = f"{config_train.DATA_ROOT_DIR}/trained_models/model-{representative_test_dir}-{config_train.LOSS_TYPE.name}-ep{config_train.N_EPOCHS_CENTRALIZED}-{config_train.TRANSLATION[0].name}{config_train.TRANSLATION[1].name}-lr{config_train.LEARNING_RATE}-{config_train.now.date()}-{config_train.now.hour}h"
     fop.try_create_dir(model_dir)
     # Save configuration for reproducibility
-    copy2("../../configs/config_train.py", f"{model_dir}/config.py")
+    copy2("./configs/config_train.py", f"{model_dir}/config.py")
 
     # Start training process
     if config_train.LOCAL:
