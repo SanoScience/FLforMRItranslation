@@ -103,7 +103,7 @@ def train_personalized(
             clip_grad_norm=args.clipgradnorm,
         )
         if verbose:
-            print(f"Epoch: {i} \tLoss: {train_loss}")
+            print(f"\t\tEpoch: {i} \tLoss: {train_loss}")
         # pbar.update(1)
             # pbar.set_postfix({"Loss": train_loss})
     return model, train_loss
@@ -169,7 +169,7 @@ def fedselect_algorithm(
                                                                                         config_train.NUM_WORKERS)
     # initialize server
     client_accuracies = [{i: 0 for i in idxs_users} for _ in range(com_rounds)]
-    client_histories = {i: [] for i in idxs_users}
+    client_histories = {i: {f"val_{metric_name}": [] for metric_name in config_train.METRICS} for i in idxs_users}
     client_state_dicts = {i: copy.deepcopy(initial_state_dict) for i in idxs_users}
     client_state_dict_prev = {i: copy.deepcopy(initial_state_dict) for i in idxs_users}
     client_masks = {i: None for i in idxs_users}
@@ -181,30 +181,36 @@ def fedselect_algorithm(
     prune_target = args.prune_target / 100
     lottery_ticket_convergence = []
 
-
     # Begin FL
     for round_num in range(com_rounds):
         print(f"ROUND {round_num}")
         round_loss = 0
-        for i in idxs_users:
+        for current_client in idxs_users:
             # client specific directory
-            client_dir = os.path.join(model_dir, i)
+            client_dir = os.path.join(model_dir, current_client)
             # initialize model
-            model.load_state_dict(client_state_dicts[i])
+            model.load_state_dict(client_state_dicts[current_client])
             # get data
-            ldr_train = train_ds[i]
-            print(f"Client {i} evaluation")
-            averaged_metrics = model.evaluate(testloader=test_ds[i], plots_path=client_dir, plot_filename=f"b4-round-{round_num}")
+            ldr_train = train_ds[current_client]
+            print(f"Client {current_client} evaluation")
+            print(f"Evaluation after aggregation...")
+
+            metrics = model.evaluate(testloader=test_ds[current_client], plots_path=client_dir, plot_filename=f"b4-local-train-round-{round_num}")
+
+            for metric_name, metric_value in metrics.items():
+                client_histories[current_client][metric_name].append(metric_value)
 
             # Update LTN_i on local data
-            client_mask = client_masks_prev.get(i)
+            client_mask = client_masks_prev.get(current_client)
+
+            print("\tTraining")
             # Update u_i parameters on local data
             # 0s are global parameters, 1s are local parameters
             client_model, loss = train_personalized(model, ldr_train, client_mask, args)
             round_loss += loss
-            client_histories[i].append(loss)
 
-            averaged_metrics = client_model.evaluate(testloader=test_ds[i], plots_path=client_dir, plot_filename=f"after-round-{round_num}")
+            print(f"Local evaluation...")
+            client_model.evaluate(testloader=test_ds[current_client], plots_path=client_dir, plot_filename=f"after-local-train-round-{round_num}")
 
             # Send u_i update to server
             if round_num < com_rounds - 1:
@@ -213,27 +219,27 @@ def fedselect_algorithm(
                     server_weights, client_model.state_dict(), client_mask
                 )
             else:  # last round saving all the results
-                print(f"Saving the model and history for client {i}")
+                print(f"Saving the model and history for client {current_client}")
                 # pickle dump - history
                 with open(os.path.join(client_dir, "history.pkl"), 'wb') as f:
-                    pickle.dump(client_histories[i], f)
+                    pickle.dump(client_histories[current_client], f)
                 # saving the personalized model
-                torch.save(client_state_dicts[i], os.path.join(client_dir, "model.pth"))
+                torch.save(client_state_dicts[current_client], os.path.join(client_dir, "model.pth"))
 
-            client_state_dicts[i] = copy.deepcopy(client_model.state_dict())
-            client_masks[i] = copy.deepcopy(client_mask)
+            client_state_dicts[current_client] = copy.deepcopy(client_model.state_dict())
+            client_masks[current_client] = copy.deepcopy(client_mask)
 
             if round_num % lth_iters == 0 and round_num != 0:
                 client_mask = delta_update(
                     prune_rate,
-                    client_state_dicts[i],
-                    client_state_dict_prev[i],
-                    client_masks_prev[i],
+                    client_state_dicts[current_client],
+                    client_state_dict_prev[current_client],
+                    client_masks_prev[current_client],
                     bound=prune_target,
                     invert=True,
                 )
-                client_state_dict_prev[i] = copy.deepcopy(client_state_dicts[i])
-                client_masks_prev[i] = copy.deepcopy(client_mask)
+                client_state_dict_prev[current_client] = copy.deepcopy(client_state_dicts[current_client])
+                client_masks_prev[current_client] = copy.deepcopy(client_mask)
 
         round_loss /= len(idxs_users)
         print(f"This round loss: {round_loss}")
@@ -256,12 +262,14 @@ def fedselect_algorithm(
             # Server averages u_i
             server_weights = div_server_weights(server_weights, server_accumulate_mask)
             # Server broadcasts non lottery ticket parameters u_i to every device
-            for i in idxs_users:
-                client_state_dicts[i] = broadcast_server_to_client_initialization(
-                    server_weights, client_masks[i], client_state_dicts[i]
+            for current_client in idxs_users:
+                client_state_dicts[current_client] = broadcast_server_to_client_initialization(
+                    server_weights, client_masks[current_client], client_state_dicts[current_client]
                 )
             server_accumulate_mask = OrderedDict()
             server_weights = OrderedDict()
+
+    print(client_histories)
     # cross_client_acc = cross_client_eval(
     #     model,
     #     client_state_dicts,
