@@ -192,7 +192,7 @@ def fedselect_algorithm(
             # get data
             ldr_train = train_ds[i]
             print(f"Client {i} evaluation")
-            averaged_metrics = model.evaluate(testloader=test_ds[i], plots_path=client_dir, plot_filename=f"round-{round_num}")
+            averaged_metrics = model.evaluate(testloader=test_ds[i], plots_path=client_dir, plot_filename=f"b4-round-{round_num}")
 
             # Update LTN_i on local data
             client_mask = client_masks_prev.get(i)
@@ -201,6 +201,9 @@ def fedselect_algorithm(
             client_model, loss = train_personalized(model, ldr_train, client_mask, args)
             round_loss += loss
             client_histories[i].append(loss)
+
+            averaged_metrics = client_model.evaluate(testloader=test_ds[i], plots_path=client_dir, plot_filename=f"after-round-{round_num}")
+
             # Send u_i update to server
             if round_num < com_rounds - 1:
                 server_accumulate_mask = add_masks(server_accumulate_mask, client_mask)
