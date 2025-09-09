@@ -14,7 +14,7 @@ from typing import Dict, List, OrderedDict, Tuple, Optional, Any
 from fedselect_main.utils.options import lth_args_parser
 from fedselect_main.utils.train_utils import prepare_dataloaders, get_data
 from fedselect_main.pflopt.optimizers import local_alt, MaskLocalAltSGD
-from fedselect_main.lottery_ticket import init_mask_zeros, delta_update
+from fedselect_main.lottery_ticket import init_mask_zeros, delta_update, init_mask
 from fedselect_main.broadcast import (
     broadcast_server_to_client_initialization,
     div_server_weights,
@@ -83,9 +83,9 @@ def train_personalized(
     """
     if initialization is not None:
         model.load_state_dict(initialization)
-    # optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=config_train.LEARNING_RATE)
+    optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=config_train.LEARNING_RATE)
     # optimizer = torch.optim.Adam(model.parameters(), lr=config_train.LEARNING_RATE)
-    optimizer = MaskLocalAltSGD(model.parameters(), mask, lr=0.01)
+    # optimizer = MaskLocalAltSGD(model.parameters(), mask, lr=0.01)
     epochs = args.la_epochs
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = custom_metrics.DssimMseLoss()

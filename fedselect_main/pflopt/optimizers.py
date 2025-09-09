@@ -76,7 +76,7 @@ def local_alt(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
         optimizer.step()
     avg_loss_1 /= len(data_loader)
-    # optimizer.toggle()
+    optimizer.toggle()
 
     avg_loss_2 = 0
     for batch_idx, (data, target) in enumerate(data_loader):
@@ -90,7 +90,7 @@ def local_alt(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
         optimizer.step()
     avg_loss_2 /= len(data_loader)
-    # optimizer.toggle()
+    optimizer.toggle()
 
     train_loss = (avg_loss_1 + avg_loss_2) / 2
     return train_loss
