@@ -84,8 +84,8 @@ def train_personalized(
     if initialization is not None:
         model.load_state_dict(initialization)
     # optimizer = custom_metrics.MaskedAdam(model.parameters(), mask, lr=config_train.LEARNING_RATE)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config_train.LEARNING_RATE)
-    optimizer = MaskLocalAltSGD(model.parameters(), mask, lr=config_train.LEARNING_RATE)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=config_train.LEARNING_RATE)
+    optimizer = MaskLocalAltSGD(model.parameters(), mask, lr=0.01)
     epochs = args.la_epochs
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = custom_metrics.DssimMseLoss()
@@ -178,8 +178,6 @@ def fedselect_algorithm(
     prune_rate = args.prune_percent / 100
     prune_target = args.prune_target / 100
     lottery_ticket_convergence = []
-
-
 
 
     # Begin FL
